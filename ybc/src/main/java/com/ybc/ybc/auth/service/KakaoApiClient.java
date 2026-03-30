@@ -23,7 +23,7 @@ import org.springframework.web.client.RestClientResponseException;
 @RequiredArgsConstructor
 public class KakaoApiClient {
     private final KakaoOAuthProperties kakaoOAuthProperties;
-    private final RestClient restClient = RestClient.builder().build();
+    private final RestClient restClient;
 
     // 인가 코드를 이용해 카카오 사용자 정보 조회
     public KakaoUserProfile fetchUserProfile(String authorizationCode) {
