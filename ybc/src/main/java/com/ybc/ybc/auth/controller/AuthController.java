@@ -5,9 +5,9 @@ import com.ybc.ybc.auth.dto.AuthTokenResponse;
 import com.ybc.ybc.auth.dto.KakaoLoginRequest;
 import com.ybc.ybc.auth.dto.KakaoLoginResponse;
 import com.ybc.ybc.auth.dto.KakaoLoginUrlResponse;
-import com.ybc.ybc.auth.dto.KakaoLoginResult;
 import com.ybc.ybc.auth.dto.MemberResponse;
 import com.ybc.ybc.auth.dto.MemberSummary;
+import com.ybc.ybc.auth.service.AuthFacade;
 import com.ybc.ybc.auth.dto.TokenRefreshRequest;
 import com.ybc.ybc.auth.service.KakaoAuthService;
 import com.ybc.ybc.auth.service.JwtTokenService;
@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
+    private final AuthFacade authFacade;
     private final KakaoAuthService kakaoAuthService;
     private final JwtTokenService jwtTokenService;
 
@@ -47,7 +48,7 @@ public class AuthController {
      */
     @PostMapping("/kakao/login")
     public KakaoLoginResponse loginWithKakao(@Valid @RequestBody KakaoLoginRequest request) {
-        return authenticateWithKakao(request.code());
+        return authFacade.loginWithKakao(request.code());
     }
 
     /**
@@ -56,7 +57,7 @@ public class AuthController {
      */
     @GetMapping("/kakao/callback")
     public KakaoLoginResponse kakaoCallback(@RequestParam @NotBlank(message = "인가 코드가 필요합니다.") String code) {
-        return authenticateWithKakao(code);
+        return authFacade.loginWithKakao(code);
     }
 
     /**
@@ -89,10 +90,4 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
-    // 카카오 회원 조회 + JWT 발급
-    private KakaoLoginResponse authenticateWithKakao(String code) {
-        KakaoLoginResult loginResult = kakaoAuthService.loginWithAuthorizationCode(code);
-        AuthTokenResponse authTokenResponse = jwtTokenService.issueTokens(loginResult.member());
-        return KakaoLoginResponse.from(loginResult, authTokenResponse);
-    }
 }
