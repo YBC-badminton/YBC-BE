@@ -3,6 +3,7 @@ package com.ybc.ybc.applications.service;
 import com.ybc.ybc.applications.domain.Application;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
 import com.ybc.ybc.applications.dto.request.ApplicationRequest;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -28,6 +29,7 @@ class ApplicationServiceTest {
     private ApplicationService applicationService;
 
     @Test
+    @DisplayName("지원서 요청을 엔티티로 변환해 저장소에 저장한다")
     // 지원서 작성 요청이 들어오면 DTO를 엔티티로 변환해 저장소에 저장해야 한다.
     void createApplicationSavesConvertedApplication() {
         ApplicationRequest request = validRequest();
@@ -59,6 +61,7 @@ class ApplicationServiceTest {
     }
 
     @Test
+    @DisplayName("면접 가능 시간 목록을 누락 없이 엔티티에 반영한다")
     // 면접 가능 시간 목록도 누락 없이 엔티티에 그대로 담아 저장해야 한다.
     void createApplicationKeepsInterviewTimes() {
         ApplicationRequest request = validRequest();

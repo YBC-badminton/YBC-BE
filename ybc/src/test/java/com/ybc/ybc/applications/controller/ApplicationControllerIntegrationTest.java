@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.ybc.ybc.applications.domain.Application;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -45,6 +46,7 @@ class ApplicationControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("비로그인 사용자도 지원서를 제출하면 201 응답과 함께 저장된다")
     // 비로그인 사용자가 지원서를 제출하면 201 응답과 함께 실제로 저장되어야 한다.
     void createApplicationCreatesApplicationWithoutAuthentication() throws Exception {
         Map<String, Object> request = validRequest();
@@ -76,6 +78,7 @@ class ApplicationControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("이름이 비어 있으면 400 응답을 반환하고 저장하지 않는다")
     // 필수 입력값인 이름이 비어 있으면 400 응답을 반환하고 저장되지 않아야 한다.
     void createApplicationReturnsBadRequestWhenNameIsBlank() throws Exception {
         Map<String, Object> invalidRequest = validRequest();
