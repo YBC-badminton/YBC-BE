@@ -1,40 +1,54 @@
 package com.ybc.ybc.auth.config;
 
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.ybc.ybc.auth.domain.AuthTokenType;
 import com.ybc.ybc.auth.domain.MemberPrincipal;
+import com.ybc.ybc.global.security.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.web.client.RestClient;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
 
-import com.nimbusds.jose.jwk.source.ImmutableSecret;
-
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
+    private static final String[] PUBLIC_AUTH_ENDPOINTS = {
+            "/api/v1/auth/kakao/login-url",
+            "/api/v1/auth/kakao/login",
+            "/api/v1/auth/kakao/callback",
+            "/api/v1/auth/refresh",
+            "/error"
+    };
+
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final JwtProperties jwtProperties;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   Converter<Jwt, UsernamePasswordAuthenticationToken> jwtAuthenticationConverter) throws Exception {
+                                                   Converter<Jwt, UsernamePasswordAuthenticationToken> jwtAuthenticationConverter,
+                                                   RequestMatcher bearerTokenIgnoredRequestMatcher,
+                                                   BearerTokenResolver publicEndpointAwareBearerTokenResolver) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -44,16 +58,12 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(restAuthenticationEntryPoint))
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .authenticationEntryPoint(restAuthenticationEntryPoint)
+                        .bearerTokenResolver(publicEndpointAwareBearerTokenResolver)
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
                 )
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(
-                                "/api/v1/auth/kakao/login-url",
-                                "/api/v1/auth/kakao/login",
-                                "/api/v1/auth/kakao/callback",
-                                "/api/v1/auth/refresh",
-                                "/error"
-                        ).permitAll()
+                        .requestMatchers(bearerTokenIgnoredRequestMatcher).permitAll()
+                        .requestMatchers(PUBLIC_AUTH_ENDPOINTS).permitAll()
                         .anyRequest().authenticated()
                 );
 
@@ -79,8 +89,21 @@ public class SecurityConfig {
     }
 
     @Bean
-    public RestClient restClient() {
-        return RestClient.builder().build();
+    public RequestMatcher bearerTokenIgnoredRequestMatcher() {
+        return new OrRequestMatcher(
+                request -> HttpMethod.OPTIONS.matches(request.getMethod()),
+                request -> HttpMethod.POST.matches(request.getMethod())
+                        && request.getRequestURI().startsWith("/api/v1/applications")
+        );
+    }
+
+    @Bean
+    public BearerTokenResolver publicEndpointAwareBearerTokenResolver(RequestMatcher bearerTokenIgnoredRequestMatcher) {
+        DefaultBearerTokenResolver defaultBearerTokenResolver = new DefaultBearerTokenResolver();
+
+        return request -> bearerTokenIgnoredRequestMatcher.matches(request)
+                ? null
+                : defaultBearerTokenResolver.resolve(request);
     }
 
     @Bean
