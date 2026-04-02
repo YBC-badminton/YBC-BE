@@ -101,7 +101,7 @@ class ApplicationControllerIntegrationTest {
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("name", "홍길동");
         request.put("address", "서울특별시 서대문구");
-        request.put("gender", "male");
+        request.put("gender", "MALE");
         request.put("age", 23);
         request.put("phone", "010-1234-5678");
         request.put("university", "이화여자대학교");
@@ -110,7 +110,7 @@ class ApplicationControllerIntegrationTest {
         request.put("motivation", "함께 배드민턴을 즐기며 좋은 사람들과 교류하고 싶어서 지원했습니다.");
         request.put("equipment", "배드민턴 라켓 2자루와 실내 운동화");
         request.put("interviewTimes", List.of("2026-04-02 14:00", "2026-04-03 16:00"));
-        request.put("discoverySource", "instagram");
+        request.put("discoverySource", "INSTAGRAM");
         request.put("discoveryEtc", "인스타그램 모집 게시글");
         request.put("wantsStaff", true);
         request.put("finalComment", "열심히 참여하겠습니다.");

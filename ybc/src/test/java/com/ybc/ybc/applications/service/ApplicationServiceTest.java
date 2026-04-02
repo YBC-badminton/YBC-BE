@@ -13,8 +13,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 
-import static com.ybc.ybc.applications.domain.DiscoverySource.instagram;
-import static com.ybc.ybc.applications.domain.Gender.male;
+import static com.ybc.ybc.applications.domain.DiscoverySource.INSTAGRAM;
+import static com.ybc.ybc.applications.domain.Gender.MALE;
 import static com.ybc.ybc.applications.domain.Status.NONE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
@@ -43,7 +43,7 @@ class ApplicationServiceTest {
         Application savedApplication = applicationCaptor.getValue();
         assertThat(savedApplication.getName()).isEqualTo("홍길동");
         assertThat(savedApplication.getAddress()).isEqualTo("서울특별시 서대문구 이화여대길 52");
-        assertThat(savedApplication.getGender()).isEqualTo(male);
+        assertThat(savedApplication.getGender()).isEqualTo(MALE);
         assertThat(savedApplication.getAge()).isEqualTo(23);
         assertThat(savedApplication.getPhone()).isEqualTo("010-1234-5678");
         assertThat(savedApplication.getUniversity()).isEqualTo("이화여자대학교");
@@ -52,7 +52,7 @@ class ApplicationServiceTest {
         assertThat(savedApplication.getMotivation()).isEqualTo("함께 배드민턴을 즐기며 좋은 사람들과 교류하고 싶어서 지원했습니다.");
         assertThat(savedApplication.getEquipment()).isEqualTo("배드민턴 라켓 2자루와 실내 운동화");
         assertThat(savedApplication.getInterviewTimes()).containsExactly("2026-04-02 14:00", "2026-04-03 16:00");
-        assertThat(savedApplication.getDiscoverySource()).isEqualTo(instagram);
+        assertThat(savedApplication.getDiscoverySource()).isEqualTo(INSTAGRAM);
         assertThat(savedApplication.getDiscoveryEtc()).isEqualTo("인스타그램 모집 게시글");
         assertThat(savedApplication.isWantsStaff()).isTrue();
         assertThat(savedApplication.getFinalComment()).isEqualTo("열심히 참여하겠습니다.");
@@ -79,7 +79,7 @@ class ApplicationServiceTest {
         return new ApplicationRequest(
                 "홍길동",
                 "서울특별시 서대문구 이화여대길 52",
-                male,
+                MALE,
                 23,
                 "010-1234-5678",
                 "이화여자대학교",
@@ -88,7 +88,7 @@ class ApplicationServiceTest {
                 "함께 배드민턴을 즐기며 좋은 사람들과 교류하고 싶어서 지원했습니다.",
                 "배드민턴 라켓 2자루와 실내 운동화",
                 List.of("2026-04-02 14:00", "2026-04-03 16:00"),
-                instagram,
+                INSTAGRAM,
                 "인스타그램 모집 게시글",
                 true,
                 "열심히 참여하겠습니다.",
