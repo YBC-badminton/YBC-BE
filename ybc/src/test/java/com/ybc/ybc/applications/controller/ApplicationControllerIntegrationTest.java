@@ -68,7 +68,8 @@ class ApplicationControllerIntegrationTest {
         assertThat(application.getIntroduction()).isEqualTo(request.get("introduction"));
         assertThat(application.getMotivation()).isEqualTo(request.get("motivation"));
         assertThat(application.getEquipment()).isEqualTo(request.get("equipment"));
-        assertThat(application.getInterviewTimes()).containsExactly("2026-04-02 14:00", "2026-04-03 16:00");
+        assertThat(application.getInterviewTimes()).extracting(Enum::name)
+                .containsExactly("FIRST_SESSION", "SECOND_SESSION");
         assertThat(application.getDiscoverySource().name()).isEqualTo(request.get("discoverySource"));
         assertThat(application.getDiscoveryEtc()).isEqualTo(request.get("discoveryEtc"));
         assertThat(application.isWantsStaff()).isEqualTo(request.get("wantsStaff"));
@@ -109,7 +110,7 @@ class ApplicationControllerIntegrationTest {
         request.put("introduction", "배드민턴을 꾸준히 쳐 왔고 동아리 활동에도 적극적으로 참여하고 싶습니다.");
         request.put("motivation", "함께 배드민턴을 즐기며 좋은 사람들과 교류하고 싶어서 지원했습니다.");
         request.put("equipment", "배드민턴 라켓 2자루와 실내 운동화");
-        request.put("interviewTimes", List.of("2026-04-02 14:00", "2026-04-03 16:00"));
+        request.put("interviewTimes", List.of("FIRST_SESSION", "SECOND_SESSION"));
         request.put("discoverySource", "INSTAGRAM");
         request.put("discoveryEtc", "인스타그램 모집 게시글");
         request.put("wantsStaff", true);

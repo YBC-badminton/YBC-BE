@@ -93,7 +93,7 @@ public class SecurityConfig {
         return new OrRequestMatcher(
                 request -> HttpMethod.OPTIONS.matches(request.getMethod()),
                 request -> HttpMethod.POST.matches(request.getMethod())
-                        && request.getRequestURI().startsWith("/api/v1/applications")
+                        && request.getRequestURI().startsWith("/applications")
         );
     }
 

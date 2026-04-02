@@ -3,6 +3,7 @@ package com.ybc.ybc.applications.dto.request;
 import com.ybc.ybc.applications.domain.Application;
 import com.ybc.ybc.applications.domain.DiscoverySource;
 import com.ybc.ybc.applications.domain.Gender;
+import com.ybc.ybc.applications.domain.InterviewTime;
 import com.ybc.ybc.applications.domain.Status;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -30,7 +31,7 @@ public record ApplicationRequest(
         String motivation,
         String equipment,
         @NotNull(message = "면접 시간을 입력해 주세요.")
-        List<String> interviewTimes,
+        List<InterviewTime> interviewTimes,
         @NotNull(message = "유입 경로를 입력해 주세요.")
         DiscoverySource discoverySource,
         String discoveryEtc,
@@ -62,7 +63,7 @@ public record ApplicationRequest(
                 .email(email)
                 .build();
 
-        for (String interviewTime : interviewTimes) {
+        for (InterviewTime interviewTime : interviewTimes) {
             app.addInterviewTime(interviewTime);
         }
 

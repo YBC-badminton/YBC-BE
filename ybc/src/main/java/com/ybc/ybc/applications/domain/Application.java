@@ -49,8 +49,9 @@ public class Application extends BaseEntity {
     private String equipment;
 
     @ElementCollection
+    @Enumerated(EnumType.STRING)
     @CollectionTable(name = "application_interview_times", joinColumns = @JoinColumn(name = "application_id"))
-    private List<String> interviewTimes = new ArrayList<>();
+    private List<InterviewTime> interviewTimes = new ArrayList<>();
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
@@ -106,7 +107,7 @@ public class Application extends BaseEntity {
         this.email = email;
     }
 
-    public void addInterviewTime(String time) {
+    public void addInterviewTime(InterviewTime time) {
         interviewTimes.add(time);
     }
 }
