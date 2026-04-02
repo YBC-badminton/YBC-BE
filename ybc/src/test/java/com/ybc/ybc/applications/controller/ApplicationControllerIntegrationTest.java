@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 class ApplicationControllerIntegrationTest {
-    private static final String APPLICATIONS_API = "/api/v1/applications";
+    private static final String APPLICATIONS_API = "/applications";
 
     @Autowired
     private MockMvc mockMvc;

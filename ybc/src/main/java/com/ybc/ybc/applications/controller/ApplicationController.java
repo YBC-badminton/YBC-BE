@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/applications")
+@RequestMapping("/applications")
 public class ApplicationController {
 
     private final ApplicationService applicationService;
