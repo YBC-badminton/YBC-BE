@@ -103,11 +103,19 @@ public class Application extends BaseEntity {
         this.discoveryEtc = discoveryEtc;
         this.wantsStaff = wantsStaff;
         this.finalComment = finalComment;
-        this.status = status;
+        this.status = status == null ? Status.NONE : status;
         this.email = email;
     }
 
     public void addInterviewTime(InterviewTime time) {
         interviewTimes.add(time);
+    }
+
+    public void updateStatus(Status status) {
+        this.status = status;
+    }
+
+    public Status getStatusOrDefault() {
+        return status == null ? Status.NONE : status;
     }
 }

@@ -3,6 +3,9 @@ package com.ybc.ybc.applications.service;
 import com.ybc.ybc.applications.domain.Application;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
 import com.ybc.ybc.applications.dto.request.ApplicationRequest;
+import com.ybc.ybc.applications.dto.response.ApplicantDetailResponse;
+import com.ybc.ybc.applications.dto.response.ApplicantListResponse;
+import com.ybc.ybc.global.exception.YbcException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,17 +13,25 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static com.ybc.ybc.applications.domain.DiscoverySource.INSTAGRAM;
 import static com.ybc.ybc.applications.domain.Gender.MALE;
 import static com.ybc.ybc.applications.domain.InterviewTime.FIRST_SESSION;
 import static com.ybc.ybc.applications.domain.InterviewTime.SECOND_SESSION;
+import static com.ybc.ybc.applications.domain.Status.FIRST_PASS;
 import static com.ybc.ybc.applications.domain.Status.NONE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ApplicationServiceTest {
@@ -77,6 +88,75 @@ class ApplicationServiceTest {
                 .containsExactly(FIRST_SESSION, SECOND_SESSION);
     }
 
+    @Test
+    @DisplayName("지원자 목록을 응답 DTO로 변환해 순서대로 반환한다")
+    void getApplicantsReturnsMappedSummaries() {
+        Application firstApplication = savedApplication(1L, "김철수", NONE, LocalDateTime.of(2026, 3, 24, 11, 0));
+        Application secondApplication = savedApplication(2L, "이영희", FIRST_PASS, LocalDateTime.of(2026, 3, 25, 14, 30));
+        when(applicationRepository.findAll(any(Sort.class))).thenReturn(List.of(secondApplication, firstApplication));
+
+        ApplicantListResponse response = applicationService.getApplicants();
+
+        assertThat(response.totalCount()).isEqualTo(2);
+        assertThat(response.applicants()).hasSize(2);
+        assertThat(response.applicants().get(0).applicationId()).isEqualTo(2L);
+        assertThat(response.applicants().get(0).name()).isEqualTo("이영희");
+        assertThat(response.applicants().get(0).gender()).isEqualTo("남성");
+        assertThat(response.applicants().get(0).status()).isEqualTo("FIRST_PASS");
+        assertThat(response.applicants().get(1).applicationId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("지원자 상세 조회 시 상세 응답 DTO로 반환한다")
+    void getApplicantReturnsMappedDetail() {
+        Application application = savedApplication(1L, "김철수", NONE, LocalDateTime.of(2026, 3, 25, 14, 30));
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+
+        ApplicantDetailResponse response = applicationService.getApplicant(1L);
+
+        assertThat(response.applicationId()).isEqualTo(1L);
+        assertThat(response.name()).isEqualTo("김철수");
+        assertThat(response.gender()).isEqualTo("남성");
+        assertThat(response.discoverySource()).isEqualTo("인스타그램");
+        assertThat(response.interviewAvailableTimes()).containsExactly("앞타임", "뒷타임");
+        assertThat(response.status()).isEqualTo("NONE");
+    }
+
+    @Test
+    @DisplayName("지원자가 없으면 상세 조회 시 예외가 발생한다")
+    void getApplicantThrowsWhenApplicationIsMissing() {
+        when(applicationRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> applicationService.getApplicant(999L))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("존재하지 않는 지원서입니다.");
+    }
+
+    @Test
+    @DisplayName("지원자 상태를 수정하면 엔티티와 응답 모두 변경된다")
+    void updateApplicantStatusUpdatesApplication() {
+        Application application = savedApplication(1L, "김철수", NONE, LocalDateTime.of(2026, 3, 25, 14, 30));
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+
+        ApplicantDetailResponse response = applicationService.updateApplicantStatus(1L, "FIRST_PASS");
+
+        assertThat(application.getStatus()).isEqualTo(FIRST_PASS);
+        assertThat(response.status()).isEqualTo("FIRST_PASS");
+    }
+
+    @Test
+    @DisplayName("유효하지 않은 지원자 상태값이면 수정 시 예외가 발생한다")
+    void updateApplicantStatusThrowsWhenStatusIsInvalid() {
+        Application application = savedApplication(1L, "김철수", NONE, LocalDateTime.of(2026, 3, 25, 14, 30));
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+
+        assertThatThrownBy(() -> applicationService.updateApplicantStatus(1L, "WRONG_STATUS"))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("지원자 상태값이 올바르지 않습니다.");
+
+        assertThat(application.getStatus()).isEqualTo(NONE);
+    }
+
     private ApplicationRequest validRequest() {
         return new ApplicationRequest(
                 "홍길동",
@@ -97,5 +177,31 @@ class ApplicationServiceTest {
                 NONE,
                 "hong@example.com"
         );
+    }
+
+    private Application savedApplication(Long id, String name, com.ybc.ybc.applications.domain.Status status, LocalDateTime createdAt) {
+        Application application = Application.builder()
+                .name(name)
+                .address("서울 강서구")
+                .gender(MALE)
+                .age(24)
+                .phone("010-1234-5678")
+                .university("한국대학교")
+                .major("컴퓨터공학과")
+                .introduction("성실하게 활동할 자신 있습니다.")
+                .motivation("운동을 좋아합니다.")
+                .equipment("개인 라켓 보유")
+                .discoverySource(INSTAGRAM)
+                .discoveryEtc(null)
+                .wantsStaff(false)
+                .finalComment("열심히 하겠습니다!")
+                .status(status)
+                .email("email@example.com")
+                .build();
+        application.addInterviewTime(FIRST_SESSION);
+        application.addInterviewTime(SECOND_SESSION);
+        ReflectionTestUtils.setField(application, "id", id);
+        ReflectionTestUtils.setField(application, "createdAt", createdAt);
+        return application;
     }
 }
