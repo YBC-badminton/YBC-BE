@@ -22,11 +22,29 @@ public enum Status {
         return displayName;
     }
 
+    public boolean isInterviewTarget() {
+        return this == FIRST_PASS || this == FINAL_PASS || this == FAIL || this == HOLD;
+    }
+
     public static Status from(String value) {
         try {
             return Status.valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (RuntimeException exception) {
             throw new YbcException(ExceptionCode.INVALID_APPLICATION_STATUS);
+        }
+    }
+
+    public static Status fromInterviewStatus(String value) {
+        try {
+            Status status = Status.valueOf(value.trim().toUpperCase(Locale.ROOT));
+            if (!status.isInterviewTarget()) {
+                throw new YbcException(ExceptionCode.INVALID_INTERVIEW_STATUS);
+            }
+            return status;
+        } catch (YbcException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new YbcException(ExceptionCode.INVALID_INTERVIEW_STATUS);
         }
     }
 }
