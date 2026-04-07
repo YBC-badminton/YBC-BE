@@ -22,8 +22,10 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class ClubMemberService {
     private final ClubMemberRepository clubMemberRepository;
+    private final ClubMemberSyncService clubMemberSyncService;
 
     public ClubMemberListResponse getMembers() {
+        clubMemberSyncService.reconcileFinalPassMembers();
         List<ClubMember> members = clubMemberRepository.findAll(Sort.by(Sort.Order.asc("id")));
         return new ClubMemberListResponse(
                 summarize(members),
@@ -93,7 +95,7 @@ public class ClubMemberService {
 
     private long countByCourt(List<ClubMember> members, int court) {
         return members.stream()
-                .filter(member -> member.getCourt() == court)
+                .filter(member -> member.getCourt() != null && member.getCourt() == court)
                 .count();
     }
 }

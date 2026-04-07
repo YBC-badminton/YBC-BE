@@ -20,10 +20,15 @@ import lombok.NoArgsConstructor;
 public class ClubMember {
     private static final int MIN_COURT = 1;
     private static final int MAX_COURT = 4;
+    private static final int UNASSIGNED_COURT = 0;
+    private static final String DEFAULT_TERM = "미정";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "application_id", unique = true)
+    private Long applicationId;
 
     @Column(nullable = false, length = 100)
     private String name;
@@ -34,23 +39,25 @@ public class ClubMember {
     @Column(nullable = false, length = 30)
     private String phone;
 
-    @Column(nullable = false)
-    private int age;
+    @Column(nullable = false, length = 2)
+    private String age;
 
     @Column(nullable = false, length = 30)
     private String term;
 
-    @Column(nullable = false)
-    private int court;
+    @Column
+    private Integer court;
 
     @Builder
-    private ClubMember(String name,
+    private ClubMember(Long applicationId,
+                       String name,
                        String university,
                        String phone,
-                       int age,
+                       String age,
                        String term,
-                       int court) {
+                       Integer court) {
         validateCourt(court);
+        this.applicationId = applicationId;
         this.name = name;
         this.university = university;
         this.phone = phone;
@@ -62,9 +69,9 @@ public class ClubMember {
     public static ClubMember create(String name,
                                     String university,
                                     String phone,
-                                    int age,
+                                    String age,
                                     String term,
-                                    int court) {
+                                    Integer court) {
         return ClubMember.builder()
                 .name(name)
                 .university(university)
@@ -75,11 +82,27 @@ public class ClubMember {
                 .build();
     }
 
+    public static ClubMember createFromApplication(Long applicationId,
+                                                   String name,
+                                                   String university,
+                                                   String phone,
+                                                   String age) {
+        return ClubMember.builder()
+                .applicationId(applicationId)
+                .name(name)
+                .university(university)
+                .phone(phone)
+                .age(age)
+                .term(DEFAULT_TERM)
+                .court(UNASSIGNED_COURT)
+                .build();
+    }
+
     public void update(String name,
-                       int age,
+                       String age,
                        String university,
                        String term,
-                       int court) {
+                       Integer court) {
         validateCourt(court);
         this.name = name;
         this.age = age;
@@ -88,8 +111,27 @@ public class ClubMember {
         this.court = court;
     }
 
-    private void validateCourt(int court) {
-        if (court < MIN_COURT || court > MAX_COURT) {
+    public void syncFromApplication(String name,
+                                    String university,
+                                    String phone,
+                                    String age) {
+        this.name = name;
+        this.university = university;
+        this.phone = phone;
+        this.age = age;
+        if (this.term == null || this.term.isBlank()) {
+            this.term = DEFAULT_TERM;
+        }
+    }
+
+    public Integer getCourt() {
+        return court != null && court == UNASSIGNED_COURT
+                ? null
+                : court;
+    }
+
+    private void validateCourt(Integer court) {
+        if (court != null && court != UNASSIGNED_COURT && (court < MIN_COURT || court > MAX_COURT)) {
             throw new YbcException(ExceptionCode.INVALID_MEMBER_COURT);
         }
     }

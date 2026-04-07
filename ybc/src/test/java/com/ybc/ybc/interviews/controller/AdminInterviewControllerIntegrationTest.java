@@ -10,6 +10,8 @@ import com.ybc.ybc.applications.domain.Status;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
 import com.ybc.ybc.interviews.domain.Interview;
 import com.ybc.ybc.interviews.repository.InterviewRepository;
+import com.ybc.ybc.members.domain.ClubMember;
+import com.ybc.ybc.members.repository.ClubMemberRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,12 +48,16 @@ class AdminInterviewControllerIntegrationTest {
     @Autowired
     private InterviewRepository interviewRepository;
 
+    @Autowired
+    private ClubMemberRepository clubMemberRepository;
+
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
             .build();
 
     @BeforeEach
     void setUp() {
+        clubMemberRepository.deleteAll();
         interviewRepository.deleteAll();
         applicationRepository.deleteAll();
     }
@@ -113,6 +119,59 @@ class AdminInterviewControllerIntegrationTest {
         assertThat(updatedApplication.getStatus()).isEqualTo(Status.FINAL_PASS);
         assertThat(interview.getScheduledAt()).isEqualTo(InterviewTime.FIRST_SESSION);
         assertThat(interview.getMemo()).isEqualTo("양배추 지인");
+    }
+
+    @Test
+    @DisplayName("면접 관리에서 최종 합격으로 변경되면 부원 명단에 자동 추가된다")
+    void updateInterviewCreatesClubMemberWhenStatusBecomesFinalPass() throws Exception {
+        Application application = saveApplication("김철수", Status.FIRST_PASS, List.of(InterviewTime.FIRST_SESSION));
+
+        mockMvc.perform(patch(ADMIN_INTERVIEWS_API + "/{applicationId}", application.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "scheduledAt", "FIRST_SESSION",
+                                "status", "FINAL_PASS",
+                                "memo", "합격"
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interview_list[0].status").value("FINAL_PASS"));
+
+        ClubMember clubMember = clubMemberRepository.findByApplicationId(application.getId()).orElseThrow();
+        assertThat(clubMember.getAge()).isEqualTo(expectedBirthYear(24));
+        assertThat(clubMember.getCourt()).isNull();
+        assertThat(clubMember.getTerm()).isEqualTo("미정");
+    }
+
+    @Test
+    @DisplayName("면접 관리에서 최종 합격이 해제되면 부원 명단에서 자동 삭제된다")
+    void updateInterviewDeletesClubMemberWhenStatusLeavesFinalPass() throws Exception {
+        Application application = saveApplication("김철수", Status.FIRST_PASS, List.of(InterviewTime.FIRST_SESSION));
+
+        mockMvc.perform(patch(ADMIN_INTERVIEWS_API + "/{applicationId}", application.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "scheduledAt", "FIRST_SESSION",
+                                "status", "FINAL_PASS",
+                                "memo", "합격"
+                        ))))
+                .andExpect(status().isOk());
+
+        assertThat(clubMemberRepository.findByApplicationId(application.getId())).isPresent();
+
+        mockMvc.perform(patch(ADMIN_INTERVIEWS_API + "/{applicationId}", application.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "scheduledAt", "SECOND_SESSION",
+                                "status", "HOLD",
+                                "memo", "재검토"
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interview_list[0].status").value("HOLD"));
+
+        assertThat(clubMemberRepository.findByApplicationId(application.getId())).isEmpty();
     }
 
     @Test
@@ -195,5 +254,10 @@ class AdminInterviewControllerIntegrationTest {
                 .claim("socialId", "123456789")
                 .claim("email", "admin@example.com")
                 .claim("nickname", "관리자"));
+    }
+
+    private String expectedBirthYear(int age) {
+        int birthYear = java.time.Year.now().getValue() - age + 1;
+        return String.format("%02d", Math.floorMod(birthYear, 100));
     }
 }

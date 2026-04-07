@@ -11,6 +11,7 @@ import com.ybc.ybc.interviews.dto.response.InterviewManagementItemResponse;
 import com.ybc.ybc.interviews.dto.response.InterviewManagementResponse;
 import com.ybc.ybc.interviews.dto.response.InterviewSummaryResponse;
 import com.ybc.ybc.interviews.repository.InterviewRepository;
+import com.ybc.ybc.members.service.ClubMemberSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class InterviewService {
 
     private final ApplicationRepository applicationRepository;
     private final InterviewRepository interviewRepository;
+    private final ClubMemberSyncService clubMemberSyncService;
 
     public InterviewManagementResponse getInterviewManagement() {
         List<Application> interviewTargets = getInterviewTargets();
@@ -50,7 +52,10 @@ public class InterviewService {
             throw new YbcException(ExceptionCode.APPLICATION_NOT_INTERVIEW_TARGET);
         }
 
-        application.updateStatus(Status.fromInterviewStatus(request.status()));
+        Status previousStatus = application.getStatusOrDefault();
+        Status updatedStatus = Status.fromInterviewStatus(request.status());
+        application.updateStatus(updatedStatus);
+        clubMemberSyncService.syncByApplicationStatusChange(application, previousStatus, updatedStatus);
 
         interviewRepository.findByApplication_Id(applicationId)
                 .ifPresentOrElse(

@@ -9,9 +9,9 @@ public record ClubMemberResponse(
         String name,
         String university,
         String phone,
-        int age,
+        String age,
         String term,
-        int court
+        Integer court
 ) {
     public static ClubMemberResponse from(ClubMember clubMember) {
         return new ClubMemberResponse(

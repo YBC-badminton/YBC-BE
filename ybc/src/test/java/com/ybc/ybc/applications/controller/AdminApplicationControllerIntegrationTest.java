@@ -8,6 +8,8 @@ import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.applications.domain.InterviewTime;
 import com.ybc.ybc.applications.domain.Status;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
+import com.ybc.ybc.members.domain.ClubMember;
+import com.ybc.ybc.members.repository.ClubMemberRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,12 +43,16 @@ class AdminApplicationControllerIntegrationTest {
     @Autowired
     private ApplicationRepository applicationRepository;
 
+    @Autowired
+    private ClubMemberRepository clubMemberRepository;
+
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
             .build();
 
     @BeforeEach
     void setUp() {
+        clubMemberRepository.deleteAll();
         applicationRepository.deleteAll();
     }
 
@@ -104,6 +110,50 @@ class AdminApplicationControllerIntegrationTest {
 
         Application updatedApplication = applicationRepository.findById(application.getId()).orElseThrow();
         assertThat(updatedApplication.getStatus()).isEqualTo(Status.FIRST_PASS);
+    }
+
+    @Test
+    @DisplayName("지원자 상태가 최종 합격이 되면 부원 명단에 자동 추가된다")
+    void updateApplicantStatusCreatesClubMemberWhenStatusBecomesFinalPass() throws Exception {
+        Application application = saveApplication("김철수", Status.FIRST_PASS, Gender.MALE, DiscoverySource.INSTAGRAM);
+
+        mockMvc.perform(patch(ADMIN_APPLICATIONS_API + "/{applicationId}", application.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("status", "FINAL_PASS"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FINAL_PASS"));
+
+        ClubMember clubMember = clubMemberRepository.findByApplicationId(application.getId()).orElseThrow();
+        assertThat(clubMember.getName()).isEqualTo("김철수");
+        assertThat(clubMember.getUniversity()).isEqualTo("한국대학교");
+        assertThat(clubMember.getPhone()).isEqualTo("010-1234-5678");
+        assertThat(clubMember.getAge()).isEqualTo(expectedBirthYear(24));
+        assertThat(clubMember.getTerm()).isEqualTo("미정");
+        assertThat(clubMember.getCourt()).isNull();
+    }
+
+    @Test
+    @DisplayName("지원자 상태가 최종 합격에서 변경되면 부원 명단에서 자동 삭제된다")
+    void updateApplicantStatusDeletesClubMemberWhenStatusLeavesFinalPass() throws Exception {
+        Application application = saveApplication("김철수", Status.FIRST_PASS, Gender.MALE, DiscoverySource.INSTAGRAM);
+
+        mockMvc.perform(patch(ADMIN_APPLICATIONS_API + "/{applicationId}", application.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("status", "FINAL_PASS"))))
+                .andExpect(status().isOk());
+
+        assertThat(clubMemberRepository.findByApplicationId(application.getId())).isPresent();
+
+        mockMvc.perform(patch(ADMIN_APPLICATIONS_API + "/{applicationId}", application.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("status", "HOLD"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("HOLD"));
+
+        assertThat(clubMemberRepository.findByApplicationId(application.getId())).isEmpty();
     }
 
     @Test
@@ -179,5 +229,10 @@ class AdminApplicationControllerIntegrationTest {
 
     private String format(LocalDateTime createdAt) {
         return createdAt.withNano(0).toString();
+    }
+
+    private String expectedBirthYear(int age) {
+        int birthYear = java.time.Year.now().getValue() - age + 1;
+        return String.format("%02d", Math.floorMod(birthYear, 100));
     }
 }

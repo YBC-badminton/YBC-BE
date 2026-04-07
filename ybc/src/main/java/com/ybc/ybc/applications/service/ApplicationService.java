@@ -9,6 +9,7 @@ import com.ybc.ybc.applications.dto.response.ApplicantSummaryResponse;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.members.service.ClubMemberSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class ApplicationService {
     private final ApplicationRepository applicationRepository;
+    private final ClubMemberSyncService clubMemberSyncService;
 
     // 지원서 저장
     @Transactional
@@ -49,8 +51,10 @@ public class ApplicationService {
     @Transactional
     public ApplicantDetailResponse updateApplicantStatus(Long applicationId, String statusValue) {
         Application application = getApplication(applicationId);
+        Status previousStatus = application.getStatusOrDefault();
         Status status = Status.from(statusValue);
         application.updateStatus(status);
+        clubMemberSyncService.syncByApplicationStatusChange(application, previousStatus, status);
         return ApplicantDetailResponse.from(application);
     }
 

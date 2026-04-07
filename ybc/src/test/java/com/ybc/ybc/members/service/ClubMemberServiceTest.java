@@ -31,19 +31,23 @@ class ClubMemberServiceTest {
     @Mock
     private ClubMemberRepository clubMemberRepository;
 
+    @Mock
+    private ClubMemberSyncService clubMemberSyncService;
+
     @InjectMocks
     private ClubMemberService clubMemberService;
 
     @Test
     @DisplayName("부원 명단 조회 시 코트별 요약과 목록을 반환한다")
     void getMembersReturnsSummaryAndMembers() {
-        ClubMember firstMember = savedMember(1L, "홍길동", "한국대학교", "010-1234-5678", 23, "2기", 1);
-        ClubMember secondMember = savedMember(2L, "강해린", "미래대학교", "010-5555-6666", 21, "7.5기", 2);
-        ClubMember thirdMember = savedMember(15L, "이마크", "글로벌대학교", "010-7777-8888", 25, "8기", 4);
+        ClubMember firstMember = savedMember(1L, "홍길동", "한국대학교", "010-1234-5678", "03", "2기", 1);
+        ClubMember secondMember = savedMember(2L, "강해린", "미래대학교", "010-5555-6666", "05", "7.5기", 2);
+        ClubMember thirdMember = savedMember(15L, "이마크", "글로벌대학교", "010-7777-8888", "01", "8기", 4);
         when(clubMemberRepository.findAll(any(Sort.class))).thenReturn(List.of(firstMember, secondMember, thirdMember));
 
         ClubMemberListResponse response = clubMemberService.getMembers();
 
+        verify(clubMemberSyncService).reconcileFinalPassMembers();
         assertThat(response.summary().totalMembers()).isEqualTo(3);
         assertThat(response.summary().court1()).isEqualTo(1);
         assertThat(response.summary().court2()).isEqualTo(1);
@@ -58,8 +62,8 @@ class ClubMemberServiceTest {
     @Test
     @DisplayName("부원 추가 시 저장된 부원 정보를 반환한다")
     void createMemberSavesAndReturnsMember() {
-        ClubMemberCreateRequest request = new ClubMemberCreateRequest("홍길동", "한국대학교", "010-1234-5678", 23, "2기", 1);
-        ClubMember savedMember = savedMember(50L, "홍길동", "한국대학교", "010-1234-5678", 23, "2기", 1);
+        ClubMemberCreateRequest request = new ClubMemberCreateRequest("홍길동", "한국대학교", "010-1234-5678", "03", "2기", 1);
+        ClubMember savedMember = savedMember(50L, "홍길동", "한국대학교", "010-1234-5678", "03", "2기", 1);
         when(clubMemberRepository.save(any(ClubMember.class))).thenReturn(savedMember);
 
         ClubMemberResponse response = clubMemberService.createMember(request);
@@ -74,16 +78,16 @@ class ClubMemberServiceTest {
     @Test
     @DisplayName("부원 수정 시 전화번호를 유지한 채 정보를 변경한다")
     void updateMemberUpdatesProfile() {
-        ClubMember member = savedMember(1L, "홍길동", "한국대학교", "010-0000-0000", 23, "2기", 1);
+        ClubMember member = savedMember(1L, "홍길동", "한국대학교", "010-0000-0000", "03", "2기", 1);
         when(clubMemberRepository.findById(1L)).thenReturn(Optional.of(member));
 
         ClubMemberResponse response = clubMemberService.updateMember(
                 1L,
-                new ClubMemberUpdateRequest("홍길동", 24, "한국대학교", "10기", 2)
+                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "10기", 2)
         );
 
         assertThat(member.getPhone()).isEqualTo("010-0000-0000");
-        assertThat(member.getAge()).isEqualTo(24);
+        assertThat(member.getAge()).isEqualTo("02");
         assertThat(member.getTerm()).isEqualTo("10기");
         assertThat(member.getCourt()).isEqualTo(2);
         assertThat(response.court()).isEqualTo(2);
@@ -92,7 +96,7 @@ class ClubMemberServiceTest {
     @Test
     @DisplayName("부원 검색 시 이름으로 첫 번째 부원을 반환한다")
     void searchMemberReturnsMemberByName() {
-        ClubMember member = savedMember(1L, "홍길동", "한국대학교", "010-1234-5678", 23, "2기", 1);
+        ClubMember member = savedMember(1L, "홍길동", "한국대학교", "010-1234-5678", "03", "2기", 1);
         when(clubMemberRepository.findFirstByNameOrderByIdAsc("홍길동")).thenReturn(Optional.of(member));
 
         ClubMemberResponse response = clubMemberService.searchMember("홍길동");
@@ -104,7 +108,7 @@ class ClubMemberServiceTest {
     @Test
     @DisplayName("부원 삭제 시 저장소에서 삭제한다")
     void deleteMemberDeletesExistingMember() {
-        ClubMember member = savedMember(1L, "홍길동", "한국대학교", "010-1234-5678", 23, "2기", 1);
+        ClubMember member = savedMember(1L, "홍길동", "한국대학교", "010-1234-5678", "03", "2기", 1);
         when(clubMemberRepository.findById(1L)).thenReturn(Optional.of(member));
 
         clubMemberService.deleteMember(1L);
@@ -119,7 +123,7 @@ class ClubMemberServiceTest {
 
         assertThatThrownBy(() -> clubMemberService.updateMember(
                 99L,
-                new ClubMemberUpdateRequest("홍길동", 24, "한국대학교", "10기", 2)
+                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "10기", 2)
         ))
                 .isInstanceOf(YbcException.class)
                 .hasMessage("존재하지 않는 부원입니다.");
@@ -128,7 +132,7 @@ class ClubMemberServiceTest {
     @Test
     @DisplayName("코트 번호가 1부터 4를 벗어나면 예외가 발생한다")
     void createMemberThrowsWhenCourtIsInvalid() {
-        ClubMemberCreateRequest request = new ClubMemberCreateRequest("홍길동", "한국대학교", "010-1234-5678", 23, "2기", 5);
+        ClubMemberCreateRequest request = new ClubMemberCreateRequest("홍길동", "한국대학교", "010-1234-5678", "03", "2기", 5);
 
         assertThatThrownBy(() -> clubMemberService.createMember(request))
                 .isInstanceOf(YbcException.class)
@@ -139,9 +143,9 @@ class ClubMemberServiceTest {
                                    String name,
                                    String university,
                                    String phone,
-                                   int age,
+                                   String age,
                                    String term,
-                                   int court) {
+                                   Integer court) {
         ClubMember clubMember = ClubMember.create(name, university, phone, age, term, court);
         ReflectionTestUtils.setField(clubMember, "id", id);
         return clubMember;

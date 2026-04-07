@@ -6,6 +6,7 @@ import com.ybc.ybc.applications.dto.request.ApplicationRequest;
 import com.ybc.ybc.applications.dto.response.ApplicantDetailResponse;
 import com.ybc.ybc.applications.dto.response.ApplicantListResponse;
 import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.members.service.ClubMemberSyncService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +38,9 @@ import static org.mockito.Mockito.when;
 class ApplicationServiceTest {
     @Mock
     private ApplicationRepository applicationRepository;
+
+    @Mock
+    private ClubMemberSyncService clubMemberSyncService;
 
     @InjectMocks
     private ApplicationService applicationService;
@@ -142,6 +146,7 @@ class ApplicationServiceTest {
 
         assertThat(application.getStatus()).isEqualTo(FIRST_PASS);
         assertThat(response.status()).isEqualTo("FIRST_PASS");
+        verify(clubMemberSyncService).syncByApplicationStatusChange(application, NONE, FIRST_PASS);
     }
 
     @Test
