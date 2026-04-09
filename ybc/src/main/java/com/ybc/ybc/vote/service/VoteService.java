@@ -7,6 +7,7 @@ import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
+import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
 import com.ybc.ybc.vote.dto.response.VoteListResponse;
@@ -50,6 +51,17 @@ public class VoteService {
         Vote vote = getVoteEntity(voteId);
         long currentParticipantCount = voteAttendanceRepository.countAttendancesByVoteId(voteId);
         return VoteDetailResponse.from(vote, currentParticipantCount);
+    }
+
+    /**
+     * 현재 로그인한 회원의 투표 참석 여부를 조회하여 반환한다.
+     */
+    public VoteAttendanceStatusResponse getVoteAttendance(Long voteId, Long memberId) {
+        getVoteEntity(voteId);
+        Boolean attendanceStatus = voteAttendanceRepository.findByVote_IdAndMember_Id(voteId, memberId)
+                .map(VoteAttendance::isAttendanceStatus)
+                .orElse(null);
+        return VoteAttendanceStatusResponse.from(attendanceStatus);
     }
 
     /**

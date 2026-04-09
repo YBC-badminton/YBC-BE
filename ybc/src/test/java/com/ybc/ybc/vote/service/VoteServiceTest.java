@@ -8,6 +8,7 @@ import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
+import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
@@ -62,6 +63,38 @@ class VoteServiceTest {
         assertThat(response.location()).isEqualTo("이화체육관");
         assertThat(response.memo()).isEqualTo("테스트 모임");
         assertThat(response.currentParticipantCount()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("현재 로그인한 회원의 투표 참석 여부를 반환한다")
+    void getVoteAttendanceReturnsAttendanceStatus() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        Member member = savedMember(2L, "2001");
+        VoteAttendance attendance = VoteAttendance.builder()
+                .vote(vote)
+                .member(member)
+                .attendanceStatus(true)
+                .build();
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.of(attendance));
+
+        VoteAttendanceStatusResponse response = voteService.getVoteAttendance(1L, 2L);
+
+        assertThat(response.attendanceStatus()).isTrue();
+    }
+
+    @Test
+    @DisplayName("아직 응답하지 않은 회원의 투표 참석 여부는 null을 반환한다")
+    void getVoteAttendanceReturnsNullWhenAttendanceIsMissing() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.empty());
+
+        VoteAttendanceStatusResponse response = voteService.getVoteAttendance(1L, 2L);
+
+        assertThat(response.attendanceStatus()).isNull();
     }
 
     @Test

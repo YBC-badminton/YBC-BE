@@ -2,6 +2,7 @@ package com.ybc.ybc.vote.controller;
 
 import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
+import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
 import com.ybc.ybc.vote.dto.response.VoteListResponse;
@@ -40,6 +41,15 @@ public class VoteController {
     @GetMapping("/{voteId}")
     public ResponseEntity<VoteDetailResponse> getVote(@PathVariable Long voteId) {
         return ResponseEntity.ok(voteService.getVote(voteId));
+    }
+
+    /**
+     * 현재 로그인한 회원의 투표 참석 여부를 조회하여 반환한다.
+     */
+    @GetMapping("/{voteId}/attendance")
+    public ResponseEntity<VoteAttendanceStatusResponse> getVoteAttendance(@PathVariable Long voteId,
+                                                                          @AuthenticationPrincipal MemberPrincipal memberPrincipal) {
+        return ResponseEntity.ok(voteService.getVoteAttendance(voteId, memberPrincipal.getId()));
     }
 
     /**

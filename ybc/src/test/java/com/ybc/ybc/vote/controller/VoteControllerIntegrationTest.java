@@ -127,6 +127,53 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("현재 로그인한 회원의 투표 참석 여부를 조회한다")
+    void getVoteAttendance() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+        voteAttendanceRepository.save(
+                VoteAttendance.builder()
+                        .vote(vote)
+                        .member(member)
+                        .attendanceStatus(true)
+                        .build()
+        );
+
+        mockMvc.perform(get("/votes/{voteId}/attendance", vote.getId())
+                        .with(authenticatedMember(member)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attendanceStatus").value(true));
+    }
+
+    @Test
+    @DisplayName("아직 응답하지 않은 회원의 투표 참석 여부는 null을 반환한다")
+    void getVoteAttendanceReturnsNullWhenAttendanceIsMissing() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+
+        mockMvc.perform(get("/votes/{voteId}/attendance", vote.getId())
+                        .with(authenticatedMember(member)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attendanceStatus").doesNotExist());
+    }
+
+    @Test
     @DisplayName("현재 로그인한 회원의 투표 참석 여부를 생성한다")
     void saveVoteAttendance() throws Exception {
         Vote vote = voteRepository.save(vote(
@@ -147,7 +194,7 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk());
 
         VoteAttendance voteAttendance = voteAttendanceRepository.findByVote_IdAndMember_Id(vote.getId(), member.getId()).orElseThrow();
-        assert voteAttendance.isAttendanceStatus();
+        org.assertj.core.api.Assertions.assertThat(voteAttendance.isAttendanceStatus()).isTrue();
     }
 
     @Test
@@ -259,6 +306,14 @@ class VoteControllerIntegrationTest {
     @DisplayName("인증되지 않은 사용자는 투표 상세 정보를 조회할 수 없다")
     void getVoteRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/votes/{voteId}", 1L))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 투표 참석 여부를 조회할 수 없다")
+    void getVoteAttendanceRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/votes/{voteId}/attendance", 1L))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
     }
