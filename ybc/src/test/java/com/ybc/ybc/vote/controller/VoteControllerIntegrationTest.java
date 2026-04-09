@@ -4,7 +4,6 @@ import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.repository.MemberRepository;
 import com.ybc.ybc.vote.domain.ActivityType;
-import com.ybc.ybc.vote.domain.AttendanceStatus;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
@@ -63,10 +62,10 @@ class VoteControllerIntegrationTest {
                 12
         ));
 
-        addAttendance(joinableVote, AttendanceStatus.ATTEND, "1001");
-        addAttendance(joinableVote, AttendanceStatus.ATTEND, "1002");
-        addAttendance(joinableVote, AttendanceStatus.ABSENT, "1003");
-        addAttendance(closedVote, AttendanceStatus.ATTEND, "2001");
+        addAttendance(joinableVote, true, "1001");
+        addAttendance(joinableVote, true, "1002");
+        addAttendance(joinableVote, false, "1003");
+        addAttendance(closedVote, true, "2001");
 
         mockMvc.perform(get("/votes")
                         .with(jwt())
@@ -190,7 +189,7 @@ class VoteControllerIntegrationTest {
     }
 
     private void addAttendance(Vote vote,
-                               AttendanceStatus attendanceStatus,
+                               boolean attendanceStatus,
                                String socialId) {
         Member member = memberRepository.save(
                 Member.createSocialMember(SocialProvider.KAKAO, socialId, "member-" + socialId, socialId + "@example.com")

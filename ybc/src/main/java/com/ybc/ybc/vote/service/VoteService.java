@@ -1,6 +1,5 @@
 package com.ybc.ybc.vote.service;
 
-import com.ybc.ybc.vote.domain.AttendanceStatus;
 import com.ybc.ybc.vote.dto.VoteHistoryResponse;
 import com.ybc.ybc.vote.dto.VoteListResponse;
 import com.ybc.ybc.vote.dto.VoteSummaryResponse;
@@ -28,8 +27,8 @@ public class VoteService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "voteStartAt"));
         LocalDateTime now = LocalDateTime.now();
         Page<VoteSummaryResponse> votePage = joinable
-                ? voteRepository.findJoinableVoteSummaries(now, AttendanceStatus.ATTEND, pageable)
-                : voteRepository.findClosedVoteSummaries(now, AttendanceStatus.ATTEND, pageable);
+                ? voteRepository.findJoinableVoteSummaries(now, pageable)
+                : voteRepository.findClosedVoteSummaries(now, pageable);
         return VoteListResponse.from(votePage);
     }
 

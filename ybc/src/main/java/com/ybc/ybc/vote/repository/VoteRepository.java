@@ -1,6 +1,5 @@
 package com.ybc.ybc.vote.repository;
 
-import com.ybc.ybc.vote.domain.AttendanceStatus;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.dto.VoteSummaryResponse;
 import org.springframework.data.domain.Page;
@@ -17,7 +16,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
     long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime start, LocalDateTime end);
 
     /**
-     * 투표 마감 시간이 현재보다 뒤인 항목만 조회하고 참석 상태가 ATTEND인 인원 수를 함께 집계한다.
+     * 투표 마감 시간이 현재보다 뒤인 항목만 조회하고 참석 여부가 true인 인원 수를 함께 집계한다.
      */
     @Query(
             value = """
@@ -30,7 +29,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                         v.voteEndAt,
                         v.activityTime,
                         v.capacity,
-                        coalesce(sum(case when va.attendanceStatus = :attendStatus then 1 else 0 end), 0)
+                        coalesce(sum(case when va.attendanceStatus = true then 1 else 0 end), 0)
                     )
                     from Vote v
                     left join VoteAttendance va on va.vote = v
@@ -45,12 +44,11 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
     )
     Page<VoteSummaryResponse> findJoinableVoteSummaries(
             @Param("now") LocalDateTime now,
-            @Param("attendStatus") AttendanceStatus attendStatus,
             Pageable pageable
     );
 
     /**
-     * 투표 마감 시간이 현재와 같거나 지난 항목만 조회하고 참석 상태가 ATTEND인 인원 수를 함께 집계한다.
+     * 투표 마감 시간이 현재와 같거나 지난 항목만 조회하고 참석 여부가 true인 인원 수를 함께 집계한다.
      */
     @Query(
             value = """
@@ -63,7 +61,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                         v.voteEndAt,
                         v.activityTime,
                         v.capacity,
-                        coalesce(sum(case when va.attendanceStatus = :attendStatus then 1 else 0 end), 0)
+                        coalesce(sum(case when va.attendanceStatus = true then 1 else 0 end), 0)
                     )
                     from Vote v
                     left join VoteAttendance va on va.vote = v
@@ -78,7 +76,6 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
     )
     Page<VoteSummaryResponse> findClosedVoteSummaries(
             @Param("now") LocalDateTime now,
-            @Param("attendStatus") AttendanceStatus attendStatus,
             Pageable pageable
     );
 }

@@ -3,8 +3,6 @@ package com.ybc.ybc.vote.domain;
 import com.ybc.ybc.auth.domain.Member;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -39,9 +37,8 @@ public class VoteAttendance {
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "attendance_status", nullable = false)
-    private AttendanceStatus attendanceStatus;
+    private boolean attendanceStatus;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -49,7 +46,7 @@ public class VoteAttendance {
     @Builder
     public VoteAttendance(Vote vote,
                           Member member,
-                          AttendanceStatus attendanceStatus) {
+                          boolean attendanceStatus) {
         this.vote = vote;
         this.member = member;
         this.attendanceStatus = attendanceStatus;
