@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,8 +42,11 @@ class VoteControllerIntegrationTest {
     @Autowired
     private MemberRepository memberRepository;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @Test
-    @DisplayName("진행 중인 투표 목록을 페이지 정보와 함께 조회한다")
+    @DisplayName("진행 중인 투표 목록과 페이지 정보를 함께 조회한다")
     void getJoinableVotes() throws Exception {
         Vote joinableVote = voteRepository.save(vote(
                 "목요 정기 운동",
@@ -124,6 +128,49 @@ class VoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
     }
 
+    @Test
+    @DisplayName("현재 열려 있는 투표 수와 올해 생성된 투표 수를 함께 조회한다")
+    void getVoteHistory() throws Exception {
+        Vote joinableVote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(2),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        Vote anotherJoinableVote = voteRepository.save(vote(
+                "번개 운동",
+                ActivityType.FLASH,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusHours(3),
+                12
+        ));
+        Vote lastYearVote = voteRepository.save(vote(
+                "작년 행사",
+                ActivityType.EVENT,
+                LocalDateTime.now().minusDays(3),
+                LocalDateTime.now().minusDays(1),
+                30
+        ));
+
+        updateCreatedAt(joinableVote.getId(), LocalDateTime.now().minusDays(10));
+        updateCreatedAt(anotherJoinableVote.getId(), LocalDateTime.now().minusMonths(1));
+        updateCreatedAt(lastYearVote.getId(), LocalDate.of(LocalDate.now().getYear() - 1, 12, 31).atTime(23, 59));
+
+        mockMvc.perform(get("/votes/history").with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.joinableVotes").value(2))
+                .andExpect(jsonPath("$.thisYearVotes").value(2));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 투표 히스토리를 조회할 수 없다")
+    void getVoteHistoryRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/votes/history"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
     private Vote vote(String title,
                       ActivityType activityType,
                       LocalDateTime voteStartAt,
@@ -155,5 +202,9 @@ class VoteControllerIntegrationTest {
                         .attendanceStatus(attendanceStatus)
                         .build()
         );
+    }
+
+    private void updateCreatedAt(Long voteId, LocalDateTime createdAt) {
+        jdbcTemplate.update("update vote set created_at = ? where vote_id = ?", createdAt, voteId);
     }
 }
