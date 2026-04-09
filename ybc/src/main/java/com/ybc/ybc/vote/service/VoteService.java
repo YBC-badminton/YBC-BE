@@ -1,6 +1,7 @@
 package com.ybc.ybc.vote.service;
 
 import com.ybc.ybc.vote.domain.AttendanceStatus;
+import com.ybc.ybc.vote.dto.VoteHistoryResponse;
 import com.ybc.ybc.vote.dto.VoteListResponse;
 import com.ybc.ybc.vote.dto.VoteSummaryResponse;
 import com.ybc.ybc.vote.repository.VoteRepository;
@@ -30,5 +31,21 @@ public class VoteService {
                 ? voteRepository.findJoinableVoteSummaries(now, AttendanceStatus.ATTEND, pageable)
                 : voteRepository.findClosedVoteSummaries(now, AttendanceStatus.ATTEND, pageable);
         return VoteListResponse.from(votePage);
+    }
+
+    /**
+     * 현재 참여 가능한 투표 수와 올해 생성된 투표 수를 집계하여 응답 DTO로 변환한다.
+     */
+    public VoteHistoryResponse getVoteHistory() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime startOfYear = now.toLocalDate()
+                .withDayOfYear(1)
+                .atStartOfDay();
+        LocalDateTime startOfNextYear = startOfYear.plusYears(1);
+
+        long joinableVotes = voteRepository.countByVoteEndAtAfter(now);
+        long thisYearVotes = voteRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(startOfYear, startOfNextYear);
+
+        return new VoteHistoryResponse(joinableVotes, thisYearVotes);
     }
 }

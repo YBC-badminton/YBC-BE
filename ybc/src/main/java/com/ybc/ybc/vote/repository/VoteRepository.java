@@ -12,6 +12,10 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 
 public interface VoteRepository extends JpaRepository<Vote, Long> {
+    long countByVoteEndAtAfter(LocalDateTime now);
+
+    long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime start, LocalDateTime end);
+
     /**
      * 투표 마감 시간이 현재보다 뒤인 항목만 조회하고 참석 상태가 ATTEND인 인원 수를 함께 집계한다.
      */
