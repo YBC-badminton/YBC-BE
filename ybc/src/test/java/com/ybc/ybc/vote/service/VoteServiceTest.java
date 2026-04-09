@@ -1,16 +1,20 @@
 package com.ybc.ybc.vote.service;
 
+import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.service.MemberService;
 import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.vote.domain.ActivityType;
+import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
+import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
+import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -42,6 +46,9 @@ class VoteServiceTest {
     private VoteAttendanceRepository voteAttendanceRepository;
 
     @Mock
+    private GuestRepository guestRepository;
+
+    @Mock
     private MemberService memberService;
 
     @InjectMocks
@@ -53,6 +60,7 @@ class VoteServiceTest {
         Vote vote = savedVote(1L, "목요 정기 운동");
         when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
         when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(2L);
+        when(guestRepository.countByVote_Id(1L)).thenReturn(1L);
 
         VoteDetailResponse response = voteService.getVote(1L);
 
@@ -62,7 +70,7 @@ class VoteServiceTest {
         assertThat(response.activityDate()).isEqualTo(LocalDate.of(2026, 4, 10));
         assertThat(response.location()).isEqualTo("이화체육관");
         assertThat(response.memo()).isEqualTo("테스트 모임");
-        assertThat(response.currentParticipantCount()).isEqualTo(2L);
+        assertThat(response.currentParticipantCount()).isEqualTo(3L);
     }
 
     @Test
@@ -98,6 +106,39 @@ class VoteServiceTest {
     }
 
     @Test
+    @DisplayName("게스트 참여 정보를 생성한다")
+    void createGuestSavesGuest() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        Member member = savedMember(2L, "2001");
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(memberService.getMemberById(2L)).thenReturn(member);
+        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
+        when(guestRepository.countByVote_Id(1L)).thenReturn(0L);
+
+        voteService.createGuest(1L, 2L, new VoteGuestRequest("게스트", Gender.FEMALE, "A"));
+
+        ArgumentCaptor<Guest> captor = ArgumentCaptor.forClass(Guest.class);
+        verify(guestRepository).save(captor.capture());
+        assertThat(captor.getValue().getName()).isEqualTo("게스트");
+        assertThat(captor.getValue().getGender()).isEqualTo(Gender.FEMALE);
+        assertThat(captor.getValue().getLevel()).isEqualTo("A");
+    }
+
+    @Test
+    @DisplayName("게스트 참여도 정원 계산에 포함된다")
+    void createGuestThrowsWhenSessionIsFull() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        ReflectionTestUtils.setField(vote, "capacity", 2);
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
+        when(guestRepository.countByVote_Id(1L)).thenReturn(1L);
+
+        assertThatThrownBy(() -> voteService.createGuest(1L, 2L, new VoteGuestRequest("게스트", Gender.FEMALE, "A")))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("해당 모임의 정원이 모두 찼습니다.");
+    }
+
+    @Test
     @DisplayName("투표 참여 정보가 없으면 새로 생성한다")
     void saveVoteAttendanceCreatesNewAttendance() {
         Vote vote = savedVote(1L, "목요 정기 운동");
@@ -106,6 +147,7 @@ class VoteServiceTest {
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.empty());
         when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(0L);
+        when(guestRepository.countByVote_Id(1L)).thenReturn(0L);
 
         voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true));
 
@@ -170,7 +212,8 @@ class VoteServiceTest {
         when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.empty());
-        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(2L);
+        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
+        when(guestRepository.countByVote_Id(1L)).thenReturn(1L);
 
         assertThatThrownBy(() -> voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true)))
                 .isInstanceOf(YbcException.class)
@@ -192,7 +235,8 @@ class VoteServiceTest {
         when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.of(attendance));
-        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(2L);
+        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
+        when(guestRepository.countByVote_Id(1L)).thenReturn(1L);
 
         assertThatThrownBy(() -> voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true)))
                 .isInstanceOf(YbcException.class)

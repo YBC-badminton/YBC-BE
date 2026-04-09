@@ -16,7 +16,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
     long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime start, LocalDateTime end);
 
     /**
-     * 투표 마감 시간이 현재보다 뒤인 항목만 조회하고 참석 여부가 true인 인원 수를 함께 집계한다.
+     * 투표 마감 시간이 현재보다 뒤인 항목만 조회하고 참석 회원 수와 게스트 수를 함께 집계한다.
      */
     @Query(
             value = """
@@ -30,6 +30,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                         v.activityTime,
                         v.capacity,
                         coalesce(sum(case when va.attendanceStatus = true then 1 else 0 end), 0)
+                        + (select count(g) from Guest g where g.vote = v)
                     )
                     from Vote v
                     left join VoteAttendance va on va.vote = v
@@ -48,7 +49,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
     );
 
     /**
-     * 투표 마감 시간이 현재와 같거나 지난 항목만 조회하고 참석 여부가 true인 인원 수를 함께 집계한다.
+     * 투표 마감 시간이 현재와 같거나 지난 항목만 조회하고 참석 회원 수와 게스트 수를 함께 집계한다.
      */
     @Query(
             value = """
@@ -62,6 +63,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                         v.activityTime,
                         v.capacity,
                         coalesce(sum(case when va.attendanceStatus = true then 1 else 0 end), 0)
+                        + (select count(g) from Guest g where g.vote = v)
                     )
                     from Vote v
                     left join VoteAttendance va on va.vote = v

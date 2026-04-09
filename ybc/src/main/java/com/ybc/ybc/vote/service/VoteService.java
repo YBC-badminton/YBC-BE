@@ -4,14 +4,17 @@ import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.service.MemberService;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
+import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
 import com.ybc.ybc.vote.dto.response.VoteListResponse;
 import com.ybc.ybc.vote.dto.response.VoteSummaryResponse;
+import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,7 @@ import java.time.LocalDateTime;
 public class VoteService {
     private final VoteRepository voteRepository;
     private final VoteAttendanceRepository voteAttendanceRepository;
+    private final GuestRepository guestRepository;
     private final MemberService memberService;
 
     /**
@@ -49,7 +53,7 @@ public class VoteService {
      */
     public VoteDetailResponse getVote(Long voteId) {
         Vote vote = getVoteEntity(voteId);
-        long currentParticipantCount = voteAttendanceRepository.countAttendancesByVoteId(voteId);
+        long currentParticipantCount = countCurrentParticipantCount(voteId);
         return VoteDetailResponse.from(vote, currentParticipantCount);
     }
 
@@ -78,6 +82,27 @@ public class VoteService {
                         voteAttendance -> updateVoteAttendance(vote, voteAttendance, request.attendanceStatus()),
                         () -> createVoteAttendance(vote, member, request.attendanceStatus())
                 );
+    }
+
+    /**
+     * 현재 로그인한 회원 소속의 게스트 참여 정보를 저장한다.
+     */
+    @Transactional
+    public void createGuest(Long voteId, Long memberId, VoteGuestRequest request) {
+        Vote vote = getVoteEntity(voteId);
+        validateVoteIsJoinable(vote);
+        validateCapacity(vote);
+        Member member = memberService.getMemberById(memberId);
+
+        guestRepository.save(
+                Guest.builder()
+                        .vote(vote)
+                        .member(member)
+                        .name(request.name())
+                        .gender(request.gender())
+                        .level(request.level())
+                        .build()
+        );
     }
 
     /**
@@ -123,10 +148,14 @@ public class VoteService {
     }
 
     private void validateCapacity(Vote vote) {
-        long currentParticipantCount = voteAttendanceRepository.countAttendancesByVoteId(vote.getId());
+        long currentParticipantCount = countCurrentParticipantCount(vote.getId());
         if (currentParticipantCount >= vote.getCapacity()) {
             throw new YbcException(ExceptionCode.SESSION_FULL);
         }
+    }
+
+    private long countCurrentParticipantCount(Long voteId) {
+        return voteAttendanceRepository.countAttendancesByVoteId(voteId) + guestRepository.countByVote_Id(voteId);
     }
 
     private void validateVoteIsJoinable(Vote vote) {

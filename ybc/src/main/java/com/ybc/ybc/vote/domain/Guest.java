@@ -1,8 +1,11 @@
 package com.ybc.ybc.vote.domain;
 
+import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.auth.domain.Member;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -40,8 +43,9 @@ public class Guest {
     @Column(nullable = false)
     private String name;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String gender;
+    private Gender gender;
 
     @Column(nullable = false)
     private String level;
@@ -53,7 +57,7 @@ public class Guest {
     public Guest(Member member,
                  Vote vote,
                  String name,
-                 String gender,
+                 Gender gender,
                  String level) {
         this.member = member;
         this.vote = vote;

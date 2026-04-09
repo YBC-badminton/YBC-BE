@@ -2,6 +2,7 @@ package com.ybc.ybc.vote.controller;
 
 import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
+import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
@@ -9,10 +10,12 @@ import com.ybc.ybc.vote.dto.response.VoteListResponse;
 import com.ybc.ybc.vote.service.VoteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -61,6 +64,17 @@ public class VoteController {
                                                    @Valid @RequestBody VoteAttendanceRequest request) {
         voteService.saveVoteAttendance(voteId, memberPrincipal.getId(), request);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 현재 로그인한 회원 소속의 게스트 참여 정보를 생성한다.
+     */
+    @PostMapping("/{voteId}/guests")
+    public ResponseEntity<Void> createGuest(@PathVariable Long voteId,
+                                            @AuthenticationPrincipal MemberPrincipal memberPrincipal,
+                                            @Valid @RequestBody VoteGuestRequest request) {
+        voteService.createGuest(voteId, memberPrincipal.getId(), request);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     /**

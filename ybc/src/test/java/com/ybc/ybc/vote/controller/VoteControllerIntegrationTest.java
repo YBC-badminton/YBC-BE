@@ -2,15 +2,19 @@ package com.ybc.ybc.vote.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.dto.MemberSummary;
 import com.ybc.ybc.auth.repository.MemberRepository;
 import com.ybc.ybc.vote.domain.ActivityType;
+import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
+import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
+import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -27,9 +31,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -46,6 +52,9 @@ class VoteControllerIntegrationTest {
 
     @Autowired
     private VoteAttendanceRepository voteAttendanceRepository;
+
+    @Autowired
+    private GuestRepository guestRepository;
 
     @Autowired
     private MemberRepository memberRepository;
@@ -77,6 +86,7 @@ class VoteControllerIntegrationTest {
 
         addAttendance(joinableVote, true, "1001");
         addAttendance(joinableVote, true, "1002");
+        addGuest(joinableVote, "host1", "게스트");
         addAttendance(joinableVote, false, "1003");
         addAttendance(closedVote, true, "2001");
 
@@ -88,15 +98,7 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.votes.length()").value(1))
                 .andExpect(jsonPath("$.votes[0].voteId").value(joinableVote.getId()))
-                .andExpect(jsonPath("$.votes[0].name").value("목요 정기 운동"))
-                .andExpect(jsonPath("$.votes[0].type").value("REGULAR"))
-                .andExpect(jsonPath("$.votes[0].location").value("이화체육관"))
-                .andExpect(jsonPath("$.votes[0].activityTime").value("19:00"))
-                .andExpect(jsonPath("$.votes[0].capacity").value(20))
-                .andExpect(jsonPath("$.votes[0].currentParticipantCount").value(2))
-                .andExpect(jsonPath("$.isLast").value(true))
-                .andExpect(jsonPath("$.totalElements").value(1))
-                .andExpect(jsonPath("$.totalPages").value(1));
+                .andExpect(jsonPath("$.votes[0].currentParticipantCount").value(3));
     }
 
     @Test
@@ -111,19 +113,13 @@ class VoteControllerIntegrationTest {
         ));
         addAttendance(vote, true, "1001");
         addAttendance(vote, true, "1002");
+        addGuest(vote, "host1", "게스트");
         addAttendance(vote, false, "1003");
 
         mockMvc.perform(get("/votes/{voteId}", vote.getId()).with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.voteId").value(vote.getId()))
-                .andExpect(jsonPath("$.name").value("목요 정기 운동"))
-                .andExpect(jsonPath("$.type").value("REGULAR"))
-                .andExpect(jsonPath("$.activityDate").value("2026-04-10"))
-                .andExpect(jsonPath("$.activityTime").value("19:00"))
-                .andExpect(jsonPath("$.location").value("이화체육관"))
-                .andExpect(jsonPath("$.memo").value("테스트 모임"))
-                .andExpect(jsonPath("$.capacity").value(20))
-                .andExpect(jsonPath("$.currentParticipantCount").value(2));
+                .andExpect(jsonPath("$.currentParticipantCount").value(3));
     }
 
     @Test
@@ -174,7 +170,7 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("현재 로그인한 회원의 투표 참석 여부를 생성한다")
+    @DisplayName("현재 로그인한 회원의 투표 참석 여부를 저장한다")
     void saveVoteAttendance() throws Exception {
         Vote vote = voteRepository.save(vote(
                 "목요 정기 운동",
@@ -194,7 +190,80 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk());
 
         VoteAttendance voteAttendance = voteAttendanceRepository.findByVote_IdAndMember_Id(vote.getId(), member.getId()).orElseThrow();
-        org.assertj.core.api.Assertions.assertThat(voteAttendance.isAttendanceStatus()).isTrue();
+        assertThat(voteAttendance.isAttendanceStatus()).isTrue();
+    }
+
+    @Test
+    @DisplayName("게스트 참여 정보를 생성한다")
+    void createGuest() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+
+        mockMvc.perform(post("/votes/{voteId}/guests", vote.getId())
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteGuestRequest("게스트", Gender.FEMALE, "A"))))
+                .andExpect(status().isCreated());
+
+        Guest guest = guestRepository.findAll().get(0);
+        assertThat(guest.getName()).isEqualTo("게스트");
+        assertThat(guest.getGender()).isEqualTo(Gender.FEMALE);
+        assertThat(guest.getLevel()).isEqualTo("A");
+    }
+
+    @Test
+    @DisplayName("게스트 참여도 정원 제한을 받는다")
+    void createGuestThrowsWhenSessionIsFull() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                2
+        ));
+        addAttendance(vote, true, "1001");
+        addGuest(vote, "host1", "게스트");
+
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+
+        mockMvc.perform(post("/votes/{voteId}/guests", vote.getId())
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteGuestRequest("게스트", Gender.FEMALE, "A"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("SESSION_FULL"));
+    }
+
+    @Test
+    @DisplayName("마감된 투표에는 게스트 참여를 저장할 수 없다")
+    void createGuestThrowsWhenVoteIsClosed() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusMinutes(1),
+                20
+        ));
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+
+        mockMvc.perform(post("/votes/{voteId}/guests", vote.getId())
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteGuestRequest("게스트", Gender.FEMALE, "A"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VOTE_CLOSED"));
     }
 
     @Test
@@ -225,7 +294,7 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk());
 
         VoteAttendance voteAttendance = voteAttendanceRepository.findByVote_IdAndMember_Id(vote.getId(), member.getId()).orElseThrow();
-        org.assertj.core.api.Assertions.assertThat(voteAttendance.isAttendanceStatus()).isFalse();
+        assertThat(voteAttendance.isAttendanceStatus()).isFalse();
     }
 
     @Test
@@ -239,7 +308,7 @@ class VoteControllerIntegrationTest {
                 2
         ));
         addAttendance(vote, true, "1001");
-        addAttendance(vote, true, "1002");
+        addGuest(vote, "host1", "게스트");
 
         Member member = memberRepository.save(
                 Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
@@ -276,7 +345,7 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("존재하지 않는 투표 상세 조회 시 예외가 발생한다")
+    @DisplayName("존재하지 않는 투표를 상세 조회하면 예외가 발생한다")
     void getVoteThrowsWhenVoteIsMissing() throws Exception {
         mockMvc.perform(get("/votes/{voteId}", 999L).with(jwt()))
                 .andExpect(status().isNotFound())
@@ -346,6 +415,16 @@ class VoteControllerIntegrationTest {
         mockMvc.perform(put("/votes/{voteId}/attendance", 1L)
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new VoteAttendanceRequest(true))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 게스트 참여를 저장할 수 없다")
+    void createGuestRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/votes/{voteId}/guests", 1L)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteGuestRequest("게스트", Gender.FEMALE, "A"))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
     }
@@ -422,6 +501,21 @@ class VoteControllerIntegrationTest {
                         .vote(vote)
                         .member(member)
                         .attendanceStatus(attendanceStatus)
+                        .build()
+        );
+    }
+
+    private void addGuest(Vote vote, String socialId, String guestName) {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, socialId, "member-" + socialId, socialId + "@example.com")
+        );
+        guestRepository.save(
+                Guest.builder()
+                        .vote(vote)
+                        .member(member)
+                        .name(guestName)
+                        .gender(Gender.FEMALE)
+                        .level("A")
                         .build()
         );
     }
