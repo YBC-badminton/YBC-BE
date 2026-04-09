@@ -2,7 +2,7 @@ package com.ybc.ybc.vote.service;
 
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
-import com.ybc.ybc.auth.repository.MemberRepository;
+import com.ybc.ybc.auth.service.MemberService;
 import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Vote;
@@ -41,7 +41,7 @@ class VoteServiceTest {
     private VoteAttendanceRepository voteAttendanceRepository;
 
     @Mock
-    private MemberRepository memberRepository;
+    private MemberService memberService;
 
     @InjectMocks
     private VoteService voteService;
@@ -51,7 +51,7 @@ class VoteServiceTest {
     void getVoteReturnsDetailResponse() {
         Vote vote = savedVote(1L, "목요 정기 운동");
         when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
-        when(voteAttendanceRepository.countByVote_IdAndAttendanceStatusTrue(1L)).thenReturn(2L);
+        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(2L);
 
         VoteDetailResponse response = voteService.getVote(1L);
 
@@ -70,8 +70,9 @@ class VoteServiceTest {
         Vote vote = savedVote(1L, "목요 정기 운동");
         Member member = savedMember(2L, "2001");
         when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
-        when(memberRepository.findById(2L)).thenReturn(Optional.of(member));
+        when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.empty());
+        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(0L);
 
         voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true));
 
@@ -94,13 +95,52 @@ class VoteServiceTest {
                 .build();
 
         when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
-        when(memberRepository.findById(2L)).thenReturn(Optional.of(member));
+        when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.of(attendance));
 
         voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(false));
 
         assertThat(attendance.isAttendanceStatus()).isFalse();
         verify(voteAttendanceRepository, never()).save(any(VoteAttendance.class));
+    }
+
+    @Test
+    @DisplayName("정원이 가득 찬 투표에 새로 참석하면 예외가 발생한다")
+    void saveVoteAttendanceThrowsWhenSessionIsFullOnCreate() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        ReflectionTestUtils.setField(vote, "capacity", 2);
+        Member member = savedMember(2L, "2001");
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(memberService.getMemberById(2L)).thenReturn(member);
+        when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.empty());
+        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(2L);
+
+        assertThatThrownBy(() -> voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true)))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("해당 모임의 정원이 모두 찼습니다.");
+    }
+
+    @Test
+    @DisplayName("정원이 가득 찬 투표에서 불참을 참석으로 바꾸면 예외가 발생한다")
+    void saveVoteAttendanceThrowsWhenSessionIsFullOnUpdate() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        ReflectionTestUtils.setField(vote, "capacity", 2);
+        Member member = savedMember(2L, "2001");
+        VoteAttendance attendance = VoteAttendance.builder()
+                .vote(vote)
+                .member(member)
+                .attendanceStatus(false)
+                .build();
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(memberService.getMemberById(2L)).thenReturn(member);
+        when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.of(attendance));
+        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(2L);
+
+        assertThatThrownBy(() -> voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true)))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("해당 모임의 정원이 모두 찼습니다.");
     }
 
     @Test

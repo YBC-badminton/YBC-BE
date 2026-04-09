@@ -48,7 +48,7 @@ public class VoteService {
      */
     public VoteDetailResponse getVote(Long voteId) {
         Vote vote = getVoteEntity(voteId);
-        long currentParticipantCount = voteAttendanceRepository.countByVote_IdAndAttendanceStatusTrue(voteId);
+        long currentParticipantCount = voteAttendanceRepository.countAttendancesByVoteId(voteId);
         return VoteDetailResponse.from(vote, currentParticipantCount);
     }
 
@@ -62,14 +62,8 @@ public class VoteService {
 
         voteAttendanceRepository.findByVote_IdAndMember_Id(voteId, memberId)
                 .ifPresentOrElse(
-                        voteAttendance -> voteAttendance.updateAttendanceStatus(request.attendanceStatus()),
-                        () -> voteAttendanceRepository.save(
-                                VoteAttendance.builder()
-                                        .vote(vote)
-                                        .member(member)
-                                        .attendanceStatus(request.attendanceStatus())
-                                        .build()
-                        )
+                        voteAttendance -> updateVoteAttendance(vote, voteAttendance, request.attendanceStatus()),
+                        () -> createVoteAttendance(vote, member, request.attendanceStatus())
                 );
     }
 
@@ -92,5 +86,33 @@ public class VoteService {
     private Vote getVoteEntity(Long voteId) {
         return voteRepository.findById(voteId)
                 .orElseThrow(() -> new YbcException(ExceptionCode.VOTE_NOT_FOUND));
+    }
+
+    private void updateVoteAttendance(Vote vote, VoteAttendance voteAttendance, boolean attendanceStatus) {
+        if (!voteAttendance.isAttendanceStatus() && attendanceStatus) {
+            validateCapacity(vote);
+        }
+        voteAttendance.updateAttendanceStatus(attendanceStatus);
+    }
+
+    private void createVoteAttendance(Vote vote, Member member, boolean attendanceStatus) {
+        if (attendanceStatus) {
+            validateCapacity(vote);
+        }
+
+        voteAttendanceRepository.save(
+                VoteAttendance.builder()
+                        .vote(vote)
+                        .member(member)
+                        .attendanceStatus(attendanceStatus)
+                        .build()
+        );
+    }
+
+    private void validateCapacity(Vote vote) {
+        long currentParticipantCount = voteAttendanceRepository.countAttendancesByVoteId(vote.getId());
+        if (currentParticipantCount >= vote.getCapacity()) {
+            throw new YbcException(ExceptionCode.SESSION_FULL);
+        }
     }
 }

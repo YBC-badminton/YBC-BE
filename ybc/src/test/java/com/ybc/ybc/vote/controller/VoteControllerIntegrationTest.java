@@ -182,6 +182,31 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("정원이 가득 찬 투표에는 추가 참석할 수 없다")
+    void saveVoteAttendanceThrowsWhenSessionIsFull() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                2
+        ));
+        addAttendance(vote, true, "1001");
+        addAttendance(vote, true, "1002");
+
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+
+        mockMvc.perform(put("/votes/{voteId}/attendance", vote.getId())
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteAttendanceRequest(true))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("SESSION_FULL"));
+    }
+
+    @Test
     @DisplayName("존재하지 않는 투표 상세 조회 시 예외가 발생한다")
     void getVoteThrowsWhenVoteIsMissing() throws Exception {
         mockMvc.perform(get("/votes/{voteId}", 999L).with(jwt()))

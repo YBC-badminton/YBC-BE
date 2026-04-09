@@ -20,7 +20,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
      */
     @Query(
             value = """
-                    select new com.ybc.ybc.vote.dto.VoteSummaryResponse(
+                    select new com.ybc.ybc.vote.dto.response.VoteSummaryResponse(
                         v.id,
                         v.title,
                         v.activityType,
@@ -52,7 +52,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
      */
     @Query(
             value = """
-                    select new com.ybc.ybc.vote.dto.VoteSummaryResponse(
+                    select new com.ybc.ybc.vote.dto.response.VoteSummaryResponse(
                         v.id,
                         v.title,
                         v.activityType,
