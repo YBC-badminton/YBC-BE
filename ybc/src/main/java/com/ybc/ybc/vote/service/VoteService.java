@@ -70,6 +70,7 @@ public class VoteService {
     @Transactional
     public void saveVoteAttendance(Long voteId, Long memberId, VoteAttendanceRequest request) {
         Vote vote = getVoteEntity(voteId);
+        validateVoteIsJoinable(vote);
         Member member = memberService.getMemberById(memberId);
 
         voteAttendanceRepository.findByVote_IdAndMember_Id(voteId, memberId)
@@ -125,6 +126,12 @@ public class VoteService {
         long currentParticipantCount = voteAttendanceRepository.countAttendancesByVoteId(vote.getId());
         if (currentParticipantCount >= vote.getCapacity()) {
             throw new YbcException(ExceptionCode.SESSION_FULL);
+        }
+    }
+
+    private void validateVoteIsJoinable(Vote vote) {
+        if (!vote.getVoteEndAt().isAfter(LocalDateTime.now())) {
+            throw new YbcException(ExceptionCode.VOTE_CLOSED);
         }
     }
 }

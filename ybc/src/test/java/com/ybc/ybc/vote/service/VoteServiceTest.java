@@ -138,6 +138,29 @@ class VoteServiceTest {
     }
 
     @Test
+    @DisplayName("마감된 투표에는 참석 여부를 저장할 수 없다")
+    void saveVoteAttendanceThrowsWhenVoteIsClosed() {
+        Vote vote = Vote.builder()
+                .title("목요 정기 운동")
+                .activityType(ActivityType.REGULAR)
+                .activityDate(LocalDate.of(2026, 4, 10))
+                .activityTime("19:00")
+                .location("이화체육관")
+                .memo("테스트 모임")
+                .voteStartAt(LocalDateTime.now().minusDays(2))
+                .voteEndAt(LocalDateTime.now().minusMinutes(1))
+                .capacity(20)
+                .build();
+        ReflectionTestUtils.setField(vote, "id", 1L);
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+
+        assertThatThrownBy(() -> voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true)))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("마감된 투표에는 참여할 수 없습니다.");
+    }
+
+    @Test
     @DisplayName("정원이 가득 찬 투표에 새로 참석하면 예외가 발생한다")
     void saveVoteAttendanceThrowsWhenSessionIsFullOnCreate() {
         Vote vote = savedVote(1L, "목요 정기 운동");
