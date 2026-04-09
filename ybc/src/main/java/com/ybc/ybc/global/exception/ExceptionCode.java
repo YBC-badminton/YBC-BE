@@ -12,6 +12,12 @@ public enum ExceptionCode {
     KAKAO_AUTH_FAILED(HttpStatus.BAD_GATEWAY, ClientExceptionCode.KAKAO_AUTH_FAILED, "카카오 로그인 처리 중 문제가 발생했습니다."),
     INVALID_JWT_TOKEN(HttpStatus.UNAUTHORIZED, ClientExceptionCode.INVALID_JWT_TOKEN, "유효하지 않은 JWT 토큰입니다."),
     REFRESH_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED, ClientExceptionCode.REFRESH_TOKEN_NOT_FOUND, "다시 로그인이 필요합니다."),
+    APPLICATION_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.APPLICATION_NOT_FOUND, "존재하지 않는 지원서입니다."),
+    INVALID_APPLICATION_STATUS(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_APPLICATION_STATUS, "지원자 상태값이 올바르지 않습니다."),
+    APPLICATION_NOT_INTERVIEW_TARGET(HttpStatus.BAD_REQUEST, ClientExceptionCode.APPLICATION_NOT_INTERVIEW_TARGET, "면접 관리 대상 지원서가 아닙니다."),
+    INVALID_INTERVIEW_STATUS(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_INTERVIEW_STATUS, "면접 상태값이 올바르지 않습니다."),
+    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.MEMBER_NOT_FOUND, "존재하지 않는 부원입니다."),
+    INVALID_MEMBER_COURT(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MEMBER_COURT, "코트 번호는 1부터 4까지만 가능합니다."),
 
     // 모임
     SESSION_FULL(HttpStatus.BAD_REQUEST, ClientExceptionCode.SESSION_FULL, "해당 모임의 정원이 모두 찼습니다.");
