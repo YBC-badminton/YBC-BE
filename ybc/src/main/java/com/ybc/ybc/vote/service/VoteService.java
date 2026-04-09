@@ -11,6 +11,7 @@ import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
+import com.ybc.ybc.vote.dto.response.VoteGuestListResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
 import com.ybc.ybc.vote.dto.response.VoteListResponse;
 import com.ybc.ybc.vote.dto.response.VoteSummaryResponse;
@@ -55,6 +56,14 @@ public class VoteService {
         Vote vote = getVoteEntity(voteId);
         long currentParticipantCount = countCurrentParticipantCount(voteId);
         return VoteDetailResponse.from(vote, currentParticipantCount);
+    }
+
+    /**
+     * 특정 투표에 참여한 게스트 수와 게스트 상세 목록을 조회하여 반환한다.
+     */
+    public VoteGuestListResponse getVoteGuests(Long voteId) {
+        getVoteEntity(voteId);
+        return VoteGuestListResponse.from(guestRepository.findAllByVote_IdOrderByIdAsc(voteId));
     }
 
     /**

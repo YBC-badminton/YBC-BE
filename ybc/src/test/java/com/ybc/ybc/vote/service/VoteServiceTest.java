@@ -13,6 +13,7 @@ import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
+import com.ybc.ybc.vote.dto.response.VoteGuestListResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
@@ -28,6 +29,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,6 +73,36 @@ class VoteServiceTest {
         assertThat(response.location()).isEqualTo("이화체육관");
         assertThat(response.memo()).isEqualTo("테스트 모임");
         assertThat(response.currentParticipantCount()).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("특정 투표의 게스트 목록을 반환한다")
+    void getVoteGuestsReturnsGuestList() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        Member inviter = savedMember(2L, "2001");
+        ReflectionTestUtils.setField(inviter, "nickname", "host-2001");
+
+        Guest guest = Guest.builder()
+                .vote(vote)
+                .member(inviter)
+                .name("게스트")
+                .gender(Gender.FEMALE)
+                .level("A")
+                .build();
+        ReflectionTestUtils.setField(guest, "id", 10L);
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(guestRepository.findAllByVote_IdOrderByIdAsc(1L)).thenReturn(List.of(guest));
+
+        VoteGuestListResponse response = voteService.getVoteGuests(1L);
+
+        assertThat(response.totalGuestCount()).isEqualTo(1L);
+        assertThat(response.guests()).hasSize(1);
+        assertThat(response.guests().get(0).guestId()).isEqualTo(10L);
+        assertThat(response.guests().get(0).inviterName()).isEqualTo("host-2001");
+        assertThat(response.guests().get(0).guestName()).isEqualTo("게스트");
+        assertThat(response.guests().get(0).gender()).isEqualTo(Gender.FEMALE);
+        assertThat(response.guests().get(0).level()).isEqualTo("A");
     }
 
     @Test

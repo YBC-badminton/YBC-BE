@@ -5,6 +5,7 @@ import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
+import com.ybc.ybc.vote.dto.response.VoteGuestListResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
 import com.ybc.ybc.vote.dto.response.VoteListResponse;
 import com.ybc.ybc.vote.service.VoteService;
@@ -44,6 +45,14 @@ public class VoteController {
     @GetMapping("/{voteId}")
     public ResponseEntity<VoteDetailResponse> getVote(@PathVariable Long voteId) {
         return ResponseEntity.ok(voteService.getVote(voteId));
+    }
+
+    /**
+     * 특정 투표에 대한 게스트 수와 게스트 상세 목록을 조회하여 반환한다.
+     */
+    @GetMapping("/{voteId}/guests")
+    public ResponseEntity<VoteGuestListResponse> getVoteGuests(@PathVariable Long voteId) {
+        return ResponseEntity.ok(voteService.getVoteGuests(voteId));
     }
 
     /**
