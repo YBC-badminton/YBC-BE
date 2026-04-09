@@ -1,6 +1,16 @@
 package com.ybc.ybc.vote.service;
 
-import com.ybc.ybc.vote.dto.VoteHistoryResponse;
+import com.ybc.ybc.auth.domain.Member;
+import com.ybc.ybc.auth.domain.SocialProvider;
+import com.ybc.ybc.auth.repository.MemberRepository;
+import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.vote.domain.ActivityType;
+import com.ybc.ybc.vote.domain.Vote;
+import com.ybc.ybc.vote.domain.VoteAttendance;
+import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
+import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
+import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
+import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,10 +19,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -21,16 +37,89 @@ class VoteServiceTest {
     @Mock
     private VoteRepository voteRepository;
 
+    @Mock
+    private VoteAttendanceRepository voteAttendanceRepository;
+
+    @Mock
+    private MemberRepository memberRepository;
+
     @InjectMocks
     private VoteService voteService;
 
     @Test
+    @DisplayName("투표 상세 조회 시 투표 정보와 현재 참석 인원 수를 반환한다")
+    void getVoteReturnsDetailResponse() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.countByVote_IdAndAttendanceStatusTrue(1L)).thenReturn(2L);
+
+        VoteDetailResponse response = voteService.getVote(1L);
+
+        assertThat(response.voteId()).isEqualTo(1L);
+        assertThat(response.name()).isEqualTo("목요 정기 운동");
+        assertThat(response.type()).isEqualTo(ActivityType.REGULAR);
+        assertThat(response.activityDate()).isEqualTo(LocalDate.of(2026, 4, 10));
+        assertThat(response.location()).isEqualTo("이화체육관");
+        assertThat(response.memo()).isEqualTo("테스트 모임");
+        assertThat(response.currentParticipantCount()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("투표 참여 정보가 없으면 새로 생성한다")
+    void saveVoteAttendanceCreatesNewAttendance() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        Member member = savedMember(2L, "2001");
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(memberRepository.findById(2L)).thenReturn(Optional.of(member));
+        when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.empty());
+
+        voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true));
+
+        ArgumentCaptor<VoteAttendance> captor = ArgumentCaptor.forClass(VoteAttendance.class);
+        verify(voteAttendanceRepository).save(captor.capture());
+        assertThat(captor.getValue().isAttendanceStatus()).isTrue();
+        assertThat(captor.getValue().getVote()).isEqualTo(vote);
+        assertThat(captor.getValue().getMember()).isEqualTo(member);
+    }
+
+    @Test
+    @DisplayName("기존 투표 참여 정보가 있으면 참석 여부만 수정한다")
+    void saveVoteAttendanceUpdatesExistingAttendance() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        Member member = savedMember(2L, "2001");
+        VoteAttendance attendance = VoteAttendance.builder()
+                .vote(vote)
+                .member(member)
+                .attendanceStatus(true)
+                .build();
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(memberRepository.findById(2L)).thenReturn(Optional.of(member));
+        when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.of(attendance));
+
+        voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(false));
+
+        assertThat(attendance.isAttendanceStatus()).isFalse();
+        verify(voteAttendanceRepository, never()).save(any(VoteAttendance.class));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 투표를 상세 조회하면 예외가 발생한다")
+    void getVoteThrowsWhenVoteIsMissing() {
+        when(voteRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> voteService.getVote(999L))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("존재하지 않는 투표입니다.");
+    }
+
+    @Test
     @DisplayName("투표 히스토리 조회 시 현재 참여 가능한 투표 수와 올해 생성된 투표 수를 반환한다")
     void getVoteHistoryReturnsJoinableAndThisYearVoteCounts() {
-        when(voteRepository.countByVoteEndAtAfter(org.mockito.ArgumentMatchers.any(LocalDateTime.class))).thenReturn(2L);
+        when(voteRepository.countByVoteEndAtAfter(any(LocalDateTime.class))).thenReturn(2L);
         when(voteRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                org.mockito.ArgumentMatchers.any(LocalDateTime.class),
-                org.mockito.ArgumentMatchers.any(LocalDateTime.class)
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
         )).thenReturn(18L);
 
         VoteHistoryResponse response = voteService.getVoteHistory();
@@ -42,10 +131,10 @@ class VoteServiceTest {
     @Test
     @DisplayName("투표 히스토리 조회 시 올해 생성 건수 집계를 위해 올해 시작 시각과 다음 해 시작 시각을 사용한다")
     void getVoteHistoryUsesThisYearRange() {
-        when(voteRepository.countByVoteEndAtAfter(org.mockito.ArgumentMatchers.any(LocalDateTime.class))).thenReturn(0L);
+        when(voteRepository.countByVoteEndAtAfter(any(LocalDateTime.class))).thenReturn(0L);
         when(voteRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                org.mockito.ArgumentMatchers.any(LocalDateTime.class),
-                org.mockito.ArgumentMatchers.any(LocalDateTime.class)
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
         )).thenReturn(0L);
 
         voteService.getVoteHistory();
@@ -63,5 +152,27 @@ class VoteServiceTest {
 
         assertThat(startOfYear).isEqualTo(LocalDateTime.of(now.getYear(), 1, 1, 0, 0));
         assertThat(startOfNextYear).isEqualTo(LocalDateTime.of(now.getYear() + 1, 1, 1, 0, 0));
+    }
+
+    private Vote savedVote(Long id, String title) {
+        Vote vote = Vote.builder()
+                .title(title)
+                .activityType(ActivityType.REGULAR)
+                .activityDate(LocalDate.of(2026, 4, 10))
+                .activityTime("19:00")
+                .location("이화체육관")
+                .memo("테스트 모임")
+                .voteStartAt(LocalDateTime.of(2026, 4, 9, 10, 0))
+                .voteEndAt(LocalDateTime.of(2026, 4, 10, 22, 0))
+                .capacity(20)
+                .build();
+        ReflectionTestUtils.setField(vote, "id", id);
+        return vote;
+    }
+
+    private Member savedMember(Long id, String socialId) {
+        Member member = Member.createSocialMember(SocialProvider.KAKAO, socialId, "member-" + socialId, socialId + "@example.com");
+        ReflectionTestUtils.setField(member, "id", id);
+        return member;
     }
 }

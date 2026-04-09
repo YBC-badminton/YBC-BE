@@ -1,7 +1,7 @@
 package com.ybc.ybc.vote.repository;
 
 import com.ybc.ybc.vote.domain.Vote;
-import com.ybc.ybc.vote.dto.VoteSummaryResponse;
+import com.ybc.ybc.vote.dto.response.VoteSummaryResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

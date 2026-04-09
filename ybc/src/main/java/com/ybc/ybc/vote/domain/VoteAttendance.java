@@ -52,6 +52,10 @@ public class VoteAttendance {
         this.attendanceStatus = attendanceStatus;
     }
 
+    public void updateAttendanceStatus(boolean attendanceStatus) {
+        this.attendanceStatus = attendanceStatus;
+    }
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
