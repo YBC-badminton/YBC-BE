@@ -1,4 +1,4 @@
-package com.ybc.ybc.vote.dto;
+package com.ybc.ybc.vote.dto.response;
 
 import com.ybc.ybc.vote.domain.ActivityType;
 
