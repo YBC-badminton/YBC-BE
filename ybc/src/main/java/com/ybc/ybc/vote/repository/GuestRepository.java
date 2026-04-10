@@ -13,6 +13,8 @@ public interface GuestRepository extends JpaRepository<Guest, Long> {
 
     List<Guest> findAllByVote_IdOrderByIdAsc(Long voteId);
 
+    void deleteAllByVote_Id(Long voteId);
+
     @Query("""
             select new com.ybc.ybc.vote.repository.projection.VoteGuestCountProjection(
                 g.vote.id,

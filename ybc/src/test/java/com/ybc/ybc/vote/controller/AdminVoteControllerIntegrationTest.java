@@ -31,8 +31,11 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -94,6 +97,52 @@ class AdminVoteControllerIntegrationTest {
         Vote savedVote = voteRepository.findAll().get(0);
         assertThat(savedVote.getCapacity()).isEqualTo(20);
         assertThat(savedVote.getActivityType()).isEqualTo(ActivityType.FLUSH);
+    }
+
+    @Test
+    @DisplayName("인증된 사용자는 투표 예약을 수정할 수 있다")
+    void updateVoteReturnsUpdatedVoteWhenAuthenticated() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "3월 4주차 정기 배드민턴 투표",
+                LocalDate.now(),
+                ActivityType.FLUSH,
+                LocalDateTime.now().minusHours(2),
+                LocalDateTime.now().plusHours(2),
+                20
+        ));
+        addAttendance(vote, true, "2001");
+        addAttendance(vote, true, "2002");
+        addGuest(vote, "host-update", "게스트");
+
+        mockMvc.perform(patch(ADMIN_VOTES_API + "/{voteId}", vote.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "activityType", "REGULAR",
+                                "title", "[장소변경] 3월 4주차 정기 배드민턴 투표",
+                                "activityDate", LocalDate.now(),
+                                "activityTime", "15:00 ~ 18:00",
+                                "location", "마포구민체육센터",
+                                "memo", "체육관 대관 사정으로 장소와 시간이 변경되었습니다. 확인 부탁드립니다!",
+                                "voteStartAt", LocalDateTime.now().minusHours(1),
+                                "voteEndAt", LocalDateTime.now().plusHours(3)
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voteId").value(vote.getId()))
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.activityType").value("REGULAR"))
+                .andExpect(jsonPath("$.title").value("[장소변경] 3월 4주차 정기 배드민턴 투표"))
+                .andExpect(jsonPath("$.activityTime").value("15:00 ~ 18:00"))
+                .andExpect(jsonPath("$.location").value("마포구민체육센터"))
+                .andExpect(jsonPath("$.attendance.currentAttendees").value(2))
+                .andExpect(jsonPath("$.attendance.currentGuests").value(1))
+                .andExpect(jsonPath("$.attendance.totalParticipants").value(3));
+
+        Vote updatedVote = voteRepository.findById(vote.getId()).orElseThrow();
+        assertThat(updatedVote.getActivityType()).isEqualTo(ActivityType.REGULAR);
+        assertThat(updatedVote.getTitle()).isEqualTo("[장소변경] 3월 4주차 정기 배드민턴 투표");
+        assertThat(updatedVote.getLocation()).isEqualTo("마포구민체육센터");
+        assertThat(updatedVote.getCapacity()).isEqualTo(20);
     }
 
     @Test
@@ -236,6 +285,57 @@ class AdminVoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("PUT으로 투표 수정 요청 시 405를 반환한다")
+    void updateVoteReturnsMethodNotAllowedWhenUsingPut() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "수정 대상 투표",
+                LocalDate.now(),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusHours(2),
+                20
+        ));
+
+        mockMvc.perform(put(ADMIN_VOTES_API + "/{voteId}", vote.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "activityType", "REGULAR",
+                                "title", "PUT 수정 요청",
+                                "activityDate", LocalDate.now(),
+                                "activityTime", "15:00 ~ 18:00",
+                                "location", "마포구민체육센터",
+                                "memo", "PUT은 허용하지 않음",
+                                "voteStartAt", LocalDateTime.now().minusHours(1),
+                                "voteEndAt", LocalDateTime.now().plusHours(3)
+                        ))))
+                .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    @DisplayName("인증된 사용자는 투표 예약을 삭제할 수 있다")
+    void deleteVoteRemovesVoteAndRelatedDataWhenAuthenticated() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "삭제할 투표",
+                LocalDate.now(),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusHours(1),
+                20
+        ));
+        addAttendance(vote, true, "3001");
+        addGuest(vote, "host-delete", "삭제용 게스트");
+
+        mockMvc.perform(delete(ADMIN_VOTES_API + "/{voteId}", vote.getId())
+                        .with(authorizedUser()))
+                .andExpect(status().isOk());
+
+        assertThat(voteRepository.findById(vote.getId())).isEmpty();
+        assertThat(voteAttendanceRepository.count()).isZero();
+        assertThat(guestRepository.count()).isZero();
+    }
+
+    @Test
     @DisplayName("활동 유형이 잘못되면 400을 반환한다")
     void createVoteReturnsBadRequestWhenActivityTypeIsInvalid() throws Exception {
         mockMvc.perform(post(ADMIN_VOTES_API)
@@ -271,6 +371,35 @@ class AdminVoteControllerIntegrationTest {
                         ))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("INVALID_VOTE_ACTIVITY_TYPE"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 투표 수정 시 404를 반환한다")
+    void updateVoteReturnsNotFoundWhenVoteDoesNotExist() throws Exception {
+        mockMvc.perform(patch(ADMIN_VOTES_API + "/{voteId}", 9999L)
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "activityType", "REGULAR",
+                                "title", "없는 투표 수정",
+                                "activityDate", LocalDate.now(),
+                                "activityTime", "15:00 ~ 18:00",
+                                "location", "마포구민체육센터",
+                                "memo", "존재하지 않는 투표입니다.",
+                                "voteStartAt", LocalDateTime.now().minusHours(1),
+                                "voteEndAt", LocalDateTime.now().plusHours(3)
+                        ))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("VOTE_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 투표 삭제 시 404를 반환한다")
+    void deleteVoteReturnsNotFoundWhenVoteDoesNotExist() throws Exception {
+        mockMvc.perform(delete(ADMIN_VOTES_API + "/{voteId}", 9999L)
+                        .with(authorizedUser()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("VOTE_NOT_FOUND"));
     }
 
     @Test

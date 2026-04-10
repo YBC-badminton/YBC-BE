@@ -98,11 +98,11 @@ class AdminMemberControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("인증된 사용자는 부원 정보를 수정할 수 있다")
+    @DisplayName("인증된 사용자는 PATCH로 부원 정보를 수정할 수 있다")
     void updateMemberReturnsUpdatedMemberWhenAuthenticated() throws Exception {
         ClubMember member = saveMember("홍길동", "한국대학교", "010-0000-0000", "03", "2기", 1);
 
-        mockMvc.perform(put(ADMIN_MEMBERS_API + "/{memberId}", member.getId())
+        mockMvc.perform(patch(ADMIN_MEMBERS_API + "/{memberId}", member.getId())
                         .with(authorizedUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
@@ -125,11 +125,11 @@ class AdminMemberControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("PATCH 요청으로도 부원 정보를 수정할 수 있다")
-    void patchMemberAlsoUpdatesMember() throws Exception {
+    @DisplayName("PUT 요청으로는 부원 정보를 수정할 수 없다")
+    void updateMemberReturnsMethodNotAllowedWhenUsingPut() throws Exception {
         ClubMember member = saveMember("홍길동", "한국대학교", "010-0000-0000", "03", "2기", 1);
 
-        mockMvc.perform(patch(ADMIN_MEMBERS_API + "/{memberId}", member.getId())
+        mockMvc.perform(put(ADMIN_MEMBERS_API + "/{memberId}", member.getId())
                         .with(authorizedUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
@@ -139,9 +139,7 @@ class AdminMemberControllerIntegrationTest {
                                 "term", "10기",
                                 "court", 2
                         ))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.memberId").value(member.getId()))
-                .andExpect(jsonPath("$.court").value(2));
+                .andExpect(status().isMethodNotAllowed());
     }
 
     @Test

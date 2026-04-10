@@ -99,6 +99,26 @@ public class Vote {
                 .build();
     }
 
+    public void update(ActivityType activityType,
+                       String title,
+                       LocalDate activityDate,
+                       String activityTime,
+                       String location,
+                       String memo,
+                       LocalDateTime voteStartAt,
+                       LocalDateTime voteEndAt,
+                       int capacity) {
+        this.activityType = activityType;
+        this.title = title;
+        this.activityDate = activityDate;
+        this.activityTime = activityTime;
+        this.location = location;
+        this.memo = memo;
+        this.voteStartAt = voteStartAt;
+        this.voteEndAt = voteEndAt;
+        this.capacity = capacity;
+    }
+
     public boolean isAdditionalParticipationVote() {
         return title != null && title.endsWith(ADDITIONAL_PARTICIPATION_SUFFIX);
     }

@@ -4,9 +4,11 @@ import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.dto.request.AdminVoteCreateRequest;
+import com.ybc.ybc.vote.dto.response.AdminVoteListItemResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteQueueResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteReservationResponse;
+import com.ybc.ybc.vote.dto.response.AdminVoteStatus;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
@@ -28,6 +30,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -106,6 +109,64 @@ class AdminVoteServiceTest {
         assertThatThrownBy(() -> adminVoteService.createVote(request))
                 .isInstanceOf(YbcException.class)
                 .hasMessage("투표 시작 시간과 종료 시간을 다시 확인해 주세요.");
+    }
+
+    @Test
+    @DisplayName("투표 예약 수정 시 현재 참석 집계와 상태를 함께 반환한다")
+    void updateVoteReturnsManagementItemWithAttendance() {
+        Vote vote = vote(1L, "기존 번개 운동",
+                LocalDate.of(2026, 4, 10),
+                LocalDateTime.of(2026, 4, 10, 9, 0),
+                LocalDateTime.of(2026, 4, 10, 21, 0),
+                ActivityType.FLUSH,
+                20);
+        AdminVoteCreateRequest request = new AdminVoteCreateRequest(
+                "REGULAR",
+                "수정된 정기 운동",
+                LocalDate.of(2026, 4, 10),
+                "15:00 ~ 18:00",
+                "마포구민체육센터",
+                "장소 변경 안내",
+                LocalDateTime.of(2026, 4, 10, 11, 0),
+                LocalDateTime.of(2026, 4, 10, 18, 0),
+                null
+        );
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(12L);
+        when(guestRepository.countByVote_Id(1L)).thenReturn(2L);
+
+        AdminVoteListItemResponse response = adminVoteService.updateVote(1L, request);
+
+        assertThat(vote.getActivityType()).isEqualTo(ActivityType.REGULAR);
+        assertThat(vote.getTitle()).isEqualTo("수정된 정기 운동");
+        assertThat(vote.getLocation()).isEqualTo("마포구민체육센터");
+        assertThat(vote.getCapacity()).isEqualTo(20);
+        assertThat(response.status()).isEqualTo(AdminVoteStatus.IN_PROGRESS);
+        assertThat(response.attendance().currentAttendees()).isEqualTo(12L);
+        assertThat(response.attendance().currentGuests()).isEqualTo(2L);
+        assertThat(response.attendance().totalParticipants()).isEqualTo(14L);
+    }
+
+    @Test
+    @DisplayName("투표 예약 삭제 시 참석자와 게스트를 먼저 정리한 뒤 투표를 삭제한다")
+    void deleteVoteRemovesRelatedDataBeforeDeletingVote() {
+        Vote vote = vote(1L, "삭제할 투표",
+                LocalDate.of(2026, 4, 10),
+                LocalDateTime.of(2026, 4, 10, 9, 0),
+                LocalDateTime.of(2026, 4, 10, 21, 0),
+                ActivityType.REGULAR,
+                20);
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+
+        adminVoteService.deleteVote(1L);
+
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(voteRepository, guestRepository, voteAttendanceRepository);
+        inOrder.verify(voteRepository).findById(1L);
+        inOrder.verify(guestRepository).deleteAllByVote_Id(1L);
+        inOrder.verify(voteAttendanceRepository).deleteAllByVote_Id(1L);
+        inOrder.verify(voteRepository).delete(vote);
     }
 
     @Test
@@ -195,7 +256,7 @@ class AdminVoteServiceTest {
         when(voteRepository.findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime.of(2026, 4, 10, 12, 0)))
                 .thenReturn(List.of(endedVote));
         when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(1L)))
-                .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 14L)));
+                .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 16L)));
         when(guestRepository.countGuestsByVoteIds(List.of(1L)))
                 .thenReturn(List.of(new VoteGuestCountProjection(1L, 1L)));
 
@@ -211,6 +272,28 @@ class AdminVoteServiceTest {
         assertThat(additionalVote.getVoteEndAt()).isEqualTo(LocalDateTime.of(2026, 4, 10, 12, 0));
         assertThat(additionalVote.getCapacity()).isEqualTo(5);
         assertThat(additionalVote.getMemo()).contains("추가참여비 4000원");
+    }
+
+    @Test
+    @DisplayName("정규운동 공석이 4자리 이상이면 추가참여 투표를 만들지 않는다")
+    void reconcileAdditionalVotesSkipsWhenVacancyExceedsThree() {
+        Vote endedVote = vote(1L, "목요 정기 운동",
+                LocalDate.of(2026, 4, 10),
+                LocalDateTime.of(2026, 4, 9, 12, 0),
+                LocalDateTime.of(2026, 4, 10, 11, 0),
+                ActivityType.REGULAR,
+                20);
+
+        when(voteRepository.findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime.of(2026, 4, 10, 12, 0)))
+                .thenReturn(List.of(endedVote));
+        when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(1L)))
+                .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 16L)));
+        when(guestRepository.countGuestsByVoteIds(List.of(1L)))
+                .thenReturn(List.of());
+
+        adminVoteService.reconcileAdditionalVotes();
+
+        verify(voteRepository, org.mockito.Mockito.never()).saveAll(any());
     }
 
     @Test

@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdminVoteService {
     private static final int DEFAULT_CAPACITY = 20;
+    private static final int ADDITIONAL_VOTE_TRIGGER_VACANCY = 3;
     private static final int ADDITIONAL_WEEKDAY_CAPACITY = 5;
     private static final int ADDITIONAL_WEEKEND_CAPACITY = 3;
 
@@ -42,14 +43,11 @@ public class AdminVoteService {
     private final GuestRepository guestRepository;
     private final Clock clock;
 
+    // 투표 예약 생성
     @Transactional
     public AdminVoteReservationResponse createVote(AdminVoteCreateRequest request) {
         validateVotePeriod(request.voteStartAt(), request.voteEndAt());
-
-        int capacity = request.capacity() == null ? DEFAULT_CAPACITY : request.capacity();
-        if (capacity < 1) {
-            throw new YbcException(ExceptionCode.INVALID_VOTE_CAPACITY);
-        }
+        int capacity = resolveCapacity(request.capacity(), DEFAULT_CAPACITY);
 
         Vote savedVote = voteRepository.saveAndFlush(
                 Vote.builder()
@@ -68,6 +66,30 @@ public class AdminVoteService {
         return AdminVoteReservationResponse.from(savedVote);
     }
 
+    // 투표 정보 수정
+    @Transactional
+    public AdminVoteListItemResponse updateVote(Long voteId, AdminVoteCreateRequest request) {
+        validateVotePeriod(request.voteStartAt(), request.voteEndAt());
+
+        Vote vote = getVote(voteId);
+        int capacity = resolveCapacity(request.capacity(), vote.getCapacity());
+
+        vote.update(
+                ActivityType.from(request.activityType()),
+                request.title(),
+                request.activityDate(),
+                request.activityTime(),
+                request.location(),
+                request.memo(),
+                request.voteStartAt(),
+                request.voteEndAt(),
+                capacity
+        );
+
+        return toManagementItem(vote);
+    }
+
+    // 투표 예약 대기열 조회
     @Transactional
     public AdminVoteQueueResponse getVoteQueue() {
         reconcileAdditionalVotes();
@@ -86,6 +108,7 @@ public class AdminVoteService {
         return new AdminVoteQueueResponse(queue.size(), queue);
     }
 
+    // 투표 현황 리스트 조회
     @Transactional
     public AdminVoteListResponse getVoteManagement() {
         reconcileAdditionalVotes();
@@ -114,6 +137,16 @@ public class AdminVoteService {
         );
     }
 
+    // 투표 삭제
+    @Transactional
+    public void deleteVote(Long voteId) {
+        Vote vote = getVote(voteId);
+        guestRepository.deleteAllByVote_Id(voteId);
+        voteAttendanceRepository.deleteAllByVote_Id(voteId);
+        voteRepository.delete(vote);
+    }
+
+    // 추가참여 투표 자동 생성 규칙
     @Transactional
     public void reconcileAdditionalVotes() {
         LocalDateTime now = LocalDateTime.now(clock);
@@ -142,7 +175,7 @@ public class AdminVoteService {
         long guestCount = voteCountBundle.guestCounts().getOrDefault(vote.getId(), 0L);
         long totalParticipants = attendeeCount + guestCount;
         int additionalCapacity = resolveAdditionalCapacity(vote);
-        long threshold = Math.max(vote.getCapacity() - additionalCapacity, 0);
+        long threshold = Math.max(vote.getCapacity() - ADDITIONAL_VOTE_TRIGGER_VACANCY, 0);
 
         if (totalParticipants < threshold) {
             return null;
@@ -189,6 +222,14 @@ public class AdminVoteService {
         return new VoteCountBundle(attendeeCounts, guestCounts);
     }
 
+    private AdminVoteListItemResponse toManagementItem(Vote vote) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        long attendeeCount = voteAttendanceRepository.countAttendancesByVoteId(vote.getId());
+        long guestCount = guestRepository.countByVote_Id(vote.getId());
+        AdminVoteStatus status = AdminVoteStatus.from(vote.getVoteStartAt(), vote.getVoteEndAt(), now);
+        return AdminVoteListItemResponse.from(vote, status, attendeeCount, guestCount);
+    }
+
     private AdminVoteListSummaryResponse summarize(List<AdminVoteListItemResponse> data) {
         return new AdminVoteListSummaryResponse(
                 data.size(),
@@ -202,6 +243,19 @@ public class AdminVoteService {
         if (!voteEndAt.isAfter(voteStartAt)) {
             throw new YbcException(ExceptionCode.INVALID_VOTE_PERIOD);
         }
+    }
+
+    private int resolveCapacity(Integer requestedCapacity, int fallbackCapacity) {
+        int capacity = requestedCapacity == null ? fallbackCapacity : requestedCapacity;
+        if (capacity < 1) {
+            throw new YbcException(ExceptionCode.INVALID_VOTE_CAPACITY);
+        }
+        return capacity;
+    }
+
+    private Vote getVote(Long voteId) {
+        return voteRepository.findById(voteId)
+                .orElseThrow(() -> new YbcException(ExceptionCode.VOTE_NOT_FOUND));
     }
 
     private int resolveAdditionalCapacity(Vote vote) {
