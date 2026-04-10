@@ -30,3 +30,6 @@ app:
       issuer: ybc-test
       access-token-expiration-seconds: 3600
       refresh-token-expiration-seconds: 1209600
+  vote:
+    additional-reservation:
+      scheduler-enabled: false

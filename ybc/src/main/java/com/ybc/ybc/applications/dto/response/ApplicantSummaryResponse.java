@@ -1,13 +1,11 @@
 package com.ybc.ybc.applications.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ybc.ybc.applications.domain.Application;
 
 import java.time.LocalDateTime;
 
 public record ApplicantSummaryResponse(
-        @JsonProperty("application_id")
         Long applicationId,
         String name,
         String gender,
@@ -15,7 +13,6 @@ public record ApplicantSummaryResponse(
         String university,
         String major,
         String phone,
-        @JsonProperty("created_at")
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
         LocalDateTime createdAt,
         String status

@@ -8,7 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface VoteRepository extends JpaRepository<Vote, Long> {
     long countByVoteEndAtAfter(LocalDateTime now);
@@ -79,5 +81,15 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
     Page<VoteSummaryResponse> findClosedVoteSummaries(
             @Param("now") LocalDateTime now,
             Pageable pageable
+    );
+
+    List<Vote> findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime now);
+
+    boolean existsByTitleAndActivityTypeAndActivityDateAndVoteStartAtAndVoteEndAt(
+            String title,
+            com.ybc.ybc.vote.domain.ActivityType activityType,
+            LocalDate activityDate,
+            LocalDateTime voteStartAt,
+            LocalDateTime voteEndAt
     );
 }

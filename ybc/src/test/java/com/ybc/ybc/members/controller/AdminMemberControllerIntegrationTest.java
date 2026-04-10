@@ -68,16 +68,16 @@ class AdminMemberControllerIntegrationTest {
         mockMvc.perform(get(ADMIN_MEMBERS_API)
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary.total_members").value(3))
-                .andExpect(jsonPath("$.summary.court_1").value(1))
-                .andExpect(jsonPath("$.summary.court_2").value(1))
-                .andExpect(jsonPath("$.summary.court_3").value(0))
-                .andExpect(jsonPath("$.summary.court_4").value(1))
-                .andExpect(jsonPath("$.members[0].member_id").value(firstMember.getId()))
+                .andExpect(jsonPath("$.summary.totalMembers").value(3))
+                .andExpect(jsonPath("$.summary.court1").value(1))
+                .andExpect(jsonPath("$.summary.court2").value(1))
+                .andExpect(jsonPath("$.summary.court3").value(0))
+                .andExpect(jsonPath("$.summary.court4").value(1))
+                .andExpect(jsonPath("$.members[0].memberId").value(firstMember.getId()))
                 .andExpect(jsonPath("$.members[0].name").value("홍길동"))
-                .andExpect(jsonPath("$.members[1].member_id").value(secondMember.getId()))
+                .andExpect(jsonPath("$.members[1].memberId").value(secondMember.getId()))
                 .andExpect(jsonPath("$.members[1].term").value("7.5기"))
-                .andExpect(jsonPath("$.members[2].member_id").value(thirdMember.getId()))
+                .andExpect(jsonPath("$.members[2].memberId").value(thirdMember.getId()))
                 .andExpect(jsonPath("$.members[2].court").value(4));
     }
 
@@ -89,7 +89,7 @@ class AdminMemberControllerIntegrationTest {
         mockMvc.perform(get(ADMIN_MEMBERS_API)
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary.total_members").value(1))
+                .andExpect(jsonPath("$.summary.totalMembers").value(1))
                 .andExpect(jsonPath("$.members[0].name").value("김철수"))
                 .andExpect(jsonPath("$.members[0].age").value(expectedBirthYear(24)))
                 .andExpect(jsonPath("$.members[0].term").value("미정"));
@@ -113,7 +113,7 @@ class AdminMemberControllerIntegrationTest {
                                 "court", 2
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.member_id").value(member.getId()))
+                .andExpect(jsonPath("$.memberId").value(member.getId()))
                 .andExpect(jsonPath("$.phone").value("010-0000-0000"))
                 .andExpect(jsonPath("$.age").value("02"))
                 .andExpect(jsonPath("$.term").value("10기"))
@@ -140,7 +140,7 @@ class AdminMemberControllerIntegrationTest {
                                 "court", 2
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.member_id").value(member.getId()))
+                .andExpect(jsonPath("$.memberId").value(member.getId()))
                 .andExpect(jsonPath("$.court").value(2));
     }
 
@@ -153,7 +153,7 @@ class AdminMemberControllerIntegrationTest {
                         .param("name", "홍길동")
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.member_id").value(member.getId()))
+                .andExpect(jsonPath("$.memberId").value(member.getId()))
                 .andExpect(jsonPath("$.name").value("홍길동"))
                 .andExpect(jsonPath("$.phone").value("010-1234-5678"));
     }
@@ -173,7 +173,7 @@ class AdminMemberControllerIntegrationTest {
                                 "court", 1
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.member_id").isNumber())
+                .andExpect(jsonPath("$.memberId").isNumber())
                 .andExpect(jsonPath("$.name").value("홍길동"))
                 .andExpect(jsonPath("$.age").value("03"))
                 .andExpect(jsonPath("$.court").value(1));

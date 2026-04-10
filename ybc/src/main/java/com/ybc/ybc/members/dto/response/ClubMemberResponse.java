@@ -1,10 +1,8 @@
 package com.ybc.ybc.members.dto.response;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ybc.ybc.members.domain.ClubMember;
 
 public record ClubMemberResponse(
-        @JsonProperty("member_id")
         Long memberId,
         String name,
         String university,

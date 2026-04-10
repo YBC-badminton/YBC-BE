@@ -78,7 +78,7 @@ class VoteControllerIntegrationTest {
         ));
         Vote closedVote = voteRepository.save(vote(
                 "지난 번개 운동",
-                ActivityType.FLASH,
+                ActivityType.FLUSH,
                 LocalDateTime.now().minusDays(2),
                 LocalDateTime.now().minusDays(1),
                 12
@@ -474,7 +474,7 @@ class VoteControllerIntegrationTest {
         ));
         Vote anotherJoinableVote = voteRepository.save(vote(
                 "번개 운동",
-                ActivityType.FLASH,
+                ActivityType.FLUSH,
                 LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusHours(3),
                 12
