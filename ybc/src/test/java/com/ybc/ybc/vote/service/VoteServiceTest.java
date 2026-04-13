@@ -327,6 +327,7 @@ class VoteServiceTest {
     }
 
     private Vote savedVote(Long id, String title) {
+        LocalDateTime now = LocalDateTime.now();
         Vote vote = Vote.builder()
                 .title(title)
                 .activityType(ActivityType.REGULAR)
@@ -334,8 +335,8 @@ class VoteServiceTest {
                 .activityTime("19:00")
                 .location("이화체육관")
                 .memo("테스트 모임")
-                .voteStartAt(LocalDateTime.of(2026, 4, 9, 10, 0))
-                .voteEndAt(LocalDateTime.of(2026, 4, 10, 22, 0))
+                .voteStartAt(now.minusHours(1))
+                .voteEndAt(now.plusDays(1))
                 .capacity(20)
                 .build();
         ReflectionTestUtils.setField(vote, "id", id);
