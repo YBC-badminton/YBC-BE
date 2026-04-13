@@ -142,7 +142,7 @@ class VoteServiceTest {
     void createGuestSavesGuest() {
         Vote vote = savedVote(1L, "목요 정기 운동");
         Member member = savedMember(2L, "2001");
-        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
         when(guestRepository.countByVote_Id(1L)).thenReturn(0L);
@@ -161,7 +161,7 @@ class VoteServiceTest {
     void createGuestThrowsWhenSessionIsFull() {
         Vote vote = savedVote(1L, "목요 정기 운동");
         ReflectionTestUtils.setField(vote, "capacity", 2);
-        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
         when(guestRepository.countByVote_Id(1L)).thenReturn(1L);
 
@@ -175,7 +175,7 @@ class VoteServiceTest {
     void saveVoteAttendanceCreatesNewAttendance() {
         Vote vote = savedVote(1L, "목요 정기 운동");
         Member member = savedMember(2L, "2001");
-        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.empty());
         when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(0L);
@@ -201,7 +201,7 @@ class VoteServiceTest {
                 .attendanceStatus(true)
                 .build();
 
-        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.of(attendance));
 
@@ -227,7 +227,7 @@ class VoteServiceTest {
                 .build();
         ReflectionTestUtils.setField(vote, "id", 1L);
 
-        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
 
         assertThatThrownBy(() -> voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true)))
                 .isInstanceOf(YbcException.class)
@@ -241,7 +241,7 @@ class VoteServiceTest {
         ReflectionTestUtils.setField(vote, "capacity", 2);
         Member member = savedMember(2L, "2001");
 
-        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.empty());
         when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
@@ -264,7 +264,7 @@ class VoteServiceTest {
                 .attendanceStatus(false)
                 .build();
 
-        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.of(attendance));
         when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
