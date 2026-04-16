@@ -91,4 +91,10 @@ public class Recruitment extends BaseEntity {
         this.membershipFee = membershipFee;
         this.activityPeriod = activityPeriod;
     }
+
+    public void updateBasicInfo(String term, LocalDateTime startAt, LocalDateTime endAt) {
+        this.term = term;
+        this.startAt = startAt;
+        this.endAt = endAt;
+    }
 }

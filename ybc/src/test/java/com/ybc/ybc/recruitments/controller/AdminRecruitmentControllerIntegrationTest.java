@@ -1,5 +1,7 @@
 package com.ybc.ybc.recruitments.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.ybc.ybc.recruitments.domain.Recruitment;
 import com.ybc.ybc.recruitments.repository.RecruitmentRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -8,15 +10,20 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -31,6 +38,10 @@ class AdminRecruitmentControllerIntegrationTest {
 
     @Autowired
     private RecruitmentRepository recruitmentRepository;
+
+    private final ObjectMapper objectMapper = JsonMapper.builder()
+            .findAndAddModules()
+            .build();
 
     @BeforeEach
     void setUp() {
@@ -66,6 +77,87 @@ class AdminRecruitmentControllerIntegrationTest {
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
     }
 
+    @Test
+    @DisplayName("인증된 사용자는 모집 기수를 생성할 수 있다")
+    void createRecruitmentReturnsCreatedRecruitmentWhenAuthenticated() throws Exception {
+        mockMvc.perform(post(ADMIN_RECRUITMENTS_API)
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRecruitmentRequest())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.recruitmentId").isNumber())
+                .andExpect(jsonPath("$.term").value("10.5기"))
+                .andExpect(jsonPath("$.startAt").value("2026-03-01T09:00:00"))
+                .andExpect(jsonPath("$.endAt").value("2026-03-15T23:59:59"))
+                .andExpect(jsonPath("$.firstResultDate").value("2026-03-17"))
+                .andExpect(jsonPath("$.finalResultDate").value("2026-03-25"))
+                .andExpect(jsonPath("$.interviewDate").value("2026-03-22"))
+                .andExpect(jsonPath("$.interviewLocation").value("마포구 청년센터 3층 회의실"))
+                .andExpect(jsonPath("$.interviewFirstTime").value("13:00 ~ 15:00"))
+                .andExpect(jsonPath("$.interviewSecondTime").value("15:30 ~ 18:00"))
+                .andExpect(jsonPath("$.otDate").value("2026-03-28"))
+                .andExpect(jsonPath("$.membershipFee").value(50000))
+                .andExpect(jsonPath("$.activityPeriod").value(6));
+    }
+
+    @Test
+    @DisplayName("인증 정보가 없으면 모집 기수 생성은 401을 반환한다")
+    void createRecruitmentReturnsUnauthorizedWithoutAccessToken() throws Exception {
+        mockMvc.perform(post(ADMIN_RECRUITMENTS_API)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRecruitmentRequest())))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("인증된 사용자는 모집 기수의 기본 정보를 수정할 수 있다")
+    void updateRecruitmentReturnsUpdatedRecruitmentWhenAuthenticated() throws Exception {
+        Recruitment recruitment = saveRecruitment("10기");
+
+        mockMvc.perform(patch(ADMIN_RECRUITMENTS_API + "/{recruitmentId}", recruitment.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRecruitmentUpdateRequest())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recruitmentId").value(recruitment.getId()))
+                .andExpect(jsonPath("$.term").value("7.5기"))
+                .andExpect(jsonPath("$.startAt").value("2026-03-01T09:00:00"))
+                .andExpect(jsonPath("$.endAt").value("2026-03-15T23:59:59"))
+                .andExpect(jsonPath("$.firstResultDate").value("2026-04-10"))
+                .andExpect(jsonPath("$.finalResultDate").value("2026-04-17"))
+                .andExpect(jsonPath("$.interviewDate").value("2026-04-12"));
+
+        Recruitment updatedRecruitment = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
+        assertThat(updatedRecruitment.getTerm()).isEqualTo("7.5기");
+        assertThat(updatedRecruitment.getStartAt()).isEqualTo(LocalDateTime.of(2026, 3, 1, 9, 0));
+        assertThat(updatedRecruitment.getEndAt()).isEqualTo(LocalDateTime.of(2026, 3, 15, 23, 59, 59));
+        assertThat(updatedRecruitment.getInterviewLocation()).isEqualTo("ECC");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 모집 기수 수정은 404를 반환한다")
+    void updateRecruitmentReturnsNotFoundWhenRecruitmentDoesNotExist() throws Exception {
+        mockMvc.perform(patch(ADMIN_RECRUITMENTS_API + "/{recruitmentId}", 999L)
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRecruitmentUpdateRequest())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("RECRUITMENT_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("인증 정보가 없으면 모집 기수 수정은 401을 반환한다")
+    void updateRecruitmentReturnsUnauthorizedWithoutAccessToken() throws Exception {
+        Recruitment recruitment = saveRecruitment("10기");
+
+        mockMvc.perform(patch(ADMIN_RECRUITMENTS_API + "/{recruitmentId}", recruitment.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRecruitmentUpdateRequest())))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
     private Recruitment saveRecruitment(String term) {
         Recruitment recruitment = Recruitment.builder()
                 .term(term)
@@ -93,5 +185,30 @@ class AdminRecruitmentControllerIntegrationTest {
                 .claim("socialId", "123456789")
                 .claim("email", "admin@example.com")
                 .claim("nickname", "admin"));
+    }
+
+    private Map<String, Object> createRecruitmentRequest() {
+        return Map.ofEntries(
+                Map.entry("term", "10.5기"),
+                Map.entry("startAt", "2026-03-01T09:00:00"),
+                Map.entry("endAt", "2026-03-15T23:59:59"),
+                Map.entry("firstResultDate", "2026-03-17"),
+                Map.entry("finalResultDate", "2026-03-25"),
+                Map.entry("interviewDate", "2026-03-22"),
+                Map.entry("interviewLocation", "마포구 청년센터 3층 회의실"),
+                Map.entry("interviewFirstTime", "13:00 ~ 15:00"),
+                Map.entry("interviewSecondTime", "15:30 ~ 18:00"),
+                Map.entry("otDate", "2026-03-28"),
+                Map.entry("membershipFee", 50000),
+                Map.entry("activityPeriod", 6)
+        );
+    }
+
+    private Map<String, Object> createRecruitmentUpdateRequest() {
+        return Map.of(
+                "term", "7.5기",
+                "startAt", "2026-03-01T09:00:00",
+                "endAt", "2026-03-15T23:59:59"
+        );
     }
 }
