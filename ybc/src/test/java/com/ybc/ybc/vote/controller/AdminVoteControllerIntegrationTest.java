@@ -225,6 +225,59 @@ class AdminVoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("인증된 사용자는 투표 완료된 운동 리스트를 조회할 수 있다")
+    void getCompletedVotesReturnsCompletedVotesWhenAuthenticated() throws Exception {
+        Vote latestCompletedVote = voteRepository.save(vote(
+                "3월 4주차 정기 배드민턴 투표",
+                LocalDate.of(2026, 3, 28),
+                ActivityType.REGULAR,
+                LocalDateTime.of(2026, 3, 25, 9, 0),
+                LocalDateTime.of(2026, 3, 27, 18, 0),
+                20
+        ));
+        Vote secondCompletedVote = voteRepository.save(vote(
+                "평일 야간 번개 운동",
+                LocalDate.of(2026, 3, 25),
+                ActivityType.FLASH,
+                LocalDateTime.of(2026, 3, 23, 9, 0),
+                LocalDateTime.of(2026, 3, 24, 18, 0),
+                20
+        ));
+        voteRepository.save(vote(
+                "다음주 정기 운동",
+                LocalDate.now().plusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().plusHours(3),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+
+        addAttendance(latestCompletedVote, true, "completed-1001");
+        addAttendance(latestCompletedVote, true, "completed-1002");
+        addGuest(latestCompletedVote, "completed-host1", "게스트1");
+        addGuest(latestCompletedVote, "completed-host2", "게스트2");
+        addAttendance(secondCompletedVote, true, "completed-2001");
+
+        mockMvc.perform(get(ADMIN_VOTES_API)
+                        .param("status", "completed")
+                        .with(authorizedUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].voteId").value(latestCompletedVote.getId()))
+                .andExpect(jsonPath("$[0].title").value("3월 4주차 정기 배드민턴 투표"))
+                .andExpect(jsonPath("$[0].activityDay").value("토요일"))
+                .andExpect(jsonPath("$[0].activityDate").value("2026-03-28"))
+                .andExpect(jsonPath("$[0].location").value("망원체육관"))
+                .andExpect(jsonPath("$[0].attendance.currentAttendees").value(2))
+                .andExpect(jsonPath("$[0].attendance.currentGuests").value(2))
+                .andExpect(jsonPath("$[0].attendance.totalParticipants").value(4))
+                .andExpect(jsonPath("$[1].voteId").value(secondCompletedVote.getId()))
+                .andExpect(jsonPath("$[1].activityDay").value("수요일"))
+                .andExpect(jsonPath("$[1].attendance.totalParticipants").value(1));
+    }
+
+    @Test
     @DisplayName("정규운동이 마감되면 현황 조회 시 추가참여 투표가 자동 생성된다")
     void getVoteManagementCreatesAdditionalVoteWhenThresholdIsReached() throws Exception {
         Vote endedVote = voteRepository.save(vote(

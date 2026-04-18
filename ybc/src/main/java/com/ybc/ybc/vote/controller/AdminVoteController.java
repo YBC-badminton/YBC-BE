@@ -1,6 +1,7 @@
 package com.ybc.ybc.vote.controller;
 
 import com.ybc.ybc.vote.dto.request.AdminVoteCreateRequest;
+import com.ybc.ybc.vote.dto.response.AdminCompletedVoteResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListItemResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteQueueResponse;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -58,9 +61,18 @@ public class AdminVoteController {
      * GET /admin/votes
      * 투표 현황 리스트 조회
      */
-    @GetMapping
+    @GetMapping(params = "!status")
     public AdminVoteListResponse getVoteManagement() {
         return adminVoteService.getVoteManagement();
+    }
+
+    /**
+     * GET /admin/votes?status=completed
+     * 투표 완료된 운동 리스트 조회
+     */
+    @GetMapping(params = "status=completed")
+    public List<AdminCompletedVoteResponse> getCompletedVotes() {
+        return adminVoteService.getCompletedVotes();
     }
 
     /**

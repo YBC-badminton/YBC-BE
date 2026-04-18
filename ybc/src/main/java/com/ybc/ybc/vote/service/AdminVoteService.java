@@ -5,6 +5,7 @@ import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.dto.request.AdminVoteCreateRequest;
+import com.ybc.ybc.vote.dto.response.AdminCompletedVoteResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListItemResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListSummaryResponse;
@@ -132,6 +133,31 @@ public class AdminVoteService {
                 summarize(data),
                 data
         );
+    }
+
+    // 투표 완료된 운동 리스트 조회
+    @Transactional
+    public List<AdminCompletedVoteResponse> getCompletedVotes() {
+        reconcileAdditionalVotes();
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        List<Vote> completedVotes = voteRepository.findAll(
+                        Sort.by(
+                                Sort.Order.desc("activityDate"),
+                                Sort.Order.desc("id")
+                        )
+                ).stream()
+                .filter(vote -> AdminVoteStatus.from(vote.getVoteStartAt(), vote.getVoteEndAt(), now) == AdminVoteStatus.COMPLETED)
+                .toList();
+        VoteCountBundle voteCountBundle = buildVoteCountBundle(completedVotes);
+
+        return completedVotes.stream()
+                .map(vote -> AdminCompletedVoteResponse.from(
+                        vote,
+                        voteCountBundle.attendeeCounts().getOrDefault(vote.getId(), 0L),
+                        voteCountBundle.guestCounts().getOrDefault(vote.getId(), 0L)
+                ))
+                .toList();
     }
 
     // 투표 삭제
