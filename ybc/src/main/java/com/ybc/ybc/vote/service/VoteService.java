@@ -82,7 +82,7 @@ public class VoteService {
      */
     @Transactional
     public void saveVoteAttendance(Long voteId, Long memberId, VoteAttendanceRequest request) {
-        Vote vote = getVoteEntity(voteId);
+        Vote vote = getVoteEntityForUpdate(voteId);
         validateVoteIsJoinable(vote);
         Member member = memberService.getMemberById(memberId);
 
@@ -98,7 +98,7 @@ public class VoteService {
      */
     @Transactional
     public void createGuest(Long voteId, Long memberId, VoteGuestRequest request) {
-        Vote vote = getVoteEntity(voteId);
+        Vote vote = getVoteEntityForUpdate(voteId);
         validateVoteIsJoinable(vote);
         validateCapacity(vote);
         Member member = memberService.getMemberById(memberId);
@@ -132,6 +132,11 @@ public class VoteService {
 
     private Vote getVoteEntity(Long voteId) {
         return voteRepository.findById(voteId)
+                .orElseThrow(() -> new YbcException(ExceptionCode.VOTE_NOT_FOUND));
+    }
+
+    private Vote getVoteEntityForUpdate(Long voteId) {
+        return voteRepository.findByIdForUpdate(voteId)
                 .orElseThrow(() -> new YbcException(ExceptionCode.VOTE_NOT_FOUND));
     }
 

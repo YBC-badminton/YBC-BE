@@ -26,7 +26,7 @@ import static lombok.AccessLevel.PROTECTED;
 public class VoteAttendance {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "vote_attendace_id", nullable = false)
+    @Column(name = "vote_attendance_id", nullable = false)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
