@@ -60,10 +60,10 @@ class AdminVoteServiceTest {
     }
 
     @Test
-    @DisplayName("투표 예약 시 정원이 없으면 기본 정원 20명으로 저장한다")
-    void createVoteUsesDefaultCapacityWhenMissing() {
+    @DisplayName("투표 예약 시 요청 정원으로 저장한다")
+    void createVoteUsesRequestedCapacity() {
         AdminVoteCreateRequest request = new AdminVoteCreateRequest(
-                "FLUSH",
+                "FLASH",
                 "금요일 번개 운동",
                 LocalDate.of(2026, 4, 11),
                 "19:00 ~ 21:00",
@@ -71,7 +71,7 @@ class AdminVoteServiceTest {
                 "라켓 지참",
                 LocalDateTime.of(2026, 4, 10, 18, 0),
                 LocalDateTime.of(2026, 4, 10, 23, 0),
-                null
+                20
         );
 
         when(voteRepository.saveAndFlush(any(Vote.class))).thenAnswer(invocation -> {
@@ -87,7 +87,7 @@ class AdminVoteServiceTest {
         verify(voteRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getCapacity()).isEqualTo(20);
         assertThat(response.voteId()).isEqualTo(1L);
-        assertThat(response.activityType()).isEqualTo(ActivityType.FLUSH);
+        assertThat(response.activityType()).isEqualTo(ActivityType.FLASH);
         assertThat(response.title()).isEqualTo("금요일 번개 운동");
     }
 
@@ -118,7 +118,7 @@ class AdminVoteServiceTest {
                 LocalDate.of(2026, 4, 10),
                 LocalDateTime.of(2026, 4, 10, 9, 0),
                 LocalDateTime.of(2026, 4, 10, 21, 0),
-                ActivityType.FLUSH,
+                ActivityType.FLASH,
                 20);
         AdminVoteCreateRequest request = new AdminVoteCreateRequest(
                 "REGULAR",
@@ -129,7 +129,7 @@ class AdminVoteServiceTest {
                 "장소 변경 안내",
                 LocalDateTime.of(2026, 4, 10, 11, 0),
                 LocalDateTime.of(2026, 4, 10, 18, 0),
-                null
+                30
         );
 
         when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
@@ -141,7 +141,7 @@ class AdminVoteServiceTest {
         assertThat(vote.getActivityType()).isEqualTo(ActivityType.REGULAR);
         assertThat(vote.getTitle()).isEqualTo("수정된 정기 운동");
         assertThat(vote.getLocation()).isEqualTo("마포구민체육센터");
-        assertThat(vote.getCapacity()).isEqualTo(20);
+        assertThat(vote.getCapacity()).isEqualTo(30);
         assertThat(response.status()).isEqualTo(AdminVoteStatus.IN_PROGRESS);
         assertThat(response.attendance().currentAttendees()).isEqualTo(12L);
         assertThat(response.attendance().currentGuests()).isEqualTo(2L);
@@ -182,7 +182,7 @@ class AdminVoteServiceTest {
                 LocalDate.of(2026, 4, 10),
                 LocalDateTime.of(2026, 4, 10, 11, 0),
                 LocalDateTime.of(2026, 4, 10, 20, 0),
-                ActivityType.FLUSH,
+                ActivityType.FLASH,
                 20);
 
         when(voteRepository.findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime.of(2026, 4, 10, 12, 0)))
@@ -210,7 +210,7 @@ class AdminVoteServiceTest {
                 LocalDate.of(2026, 4, 10),
                 LocalDateTime.of(2026, 4, 10, 11, 0),
                 LocalDateTime.of(2026, 4, 10, 20, 0),
-                ActivityType.FLUSH,
+                ActivityType.FLASH,
                 20);
         Vote completedVote = vote(3L, "지난 이벤트 운동",
                 LocalDate.of(2026, 4, 9),
@@ -331,7 +331,7 @@ class AdminVoteServiceTest {
                 LocalDate.of(2026, 4, 10),
                 LocalDateTime.of(2026, 4, 9, 9, 0),
                 LocalDateTime.of(2026, 4, 10, 11, 0),
-                ActivityType.FLUSH,
+                ActivityType.FLASH,
                 20);
 
         when(voteRepository.findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime.of(2026, 4, 10, 12, 0)))

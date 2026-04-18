@@ -216,7 +216,26 @@ class AdminMemberControllerIntegrationTest {
                                 "court", 5
                         ))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("INVALID_MEMBER_COURT"));
+                .andExpect(jsonPath("$.error").value("ILLEGAL_ARGUMENT"))
+                .andExpect(jsonPath("$.message").value("코트 번호는 4 이하여야 합니다."));
+    }
+
+    @Test
+    @DisplayName("코트 번호가 없으면 400을 반환한다")
+    void createMemberReturnsBadRequestWhenCourtIsMissing() throws Exception {
+        mockMvc.perform(post(ADMIN_MEMBERS_API)
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "name", "홍길동",
+                                "university", "한국대학교",
+                                "phone", "010-1234-5678",
+                                "age", "03",
+                                "term", "2기"
+                        ))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("ILLEGAL_ARGUMENT"))
+                .andExpect(jsonPath("$.message").value("코트 번호를 입력해 주세요."));
     }
 
     @Test

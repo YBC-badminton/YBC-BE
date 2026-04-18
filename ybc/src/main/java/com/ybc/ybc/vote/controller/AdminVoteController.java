@@ -8,6 +8,7 @@ import com.ybc.ybc.vote.dto.response.AdminVoteReservationResponse;
 import com.ybc.ybc.vote.service.AdminVoteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,8 +30,9 @@ public class AdminVoteController {
      * 투표 예약 (추가 참여는 자동 생성)
      */
     @PostMapping
-    public AdminVoteReservationResponse createVote(@Valid @RequestBody AdminVoteCreateRequest request) {
-        return adminVoteService.createVote(request);
+    public ResponseEntity<AdminVoteReservationResponse> createVote(@Valid @RequestBody AdminVoteCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(adminVoteService.createVote(request));
     }
 
     /**

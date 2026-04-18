@@ -79,24 +79,25 @@ class AdminVoteControllerIntegrationTest {
                         .with(authorizedUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "activityType", "FLUSH",
+                                "activityType", "FLASH",
                                 "title", "금요일 퇴근 후 번개 운동",
                                 "activityDate", "2026-04-11",
                                 "activityTime", "19:00 ~ 21:00",
                                 "location", "망원체육관",
                                 "memo", "가볍게 칠 분 모집",
                                 "voteStartAt", "2026-04-10T18:00:00",
-                                "voteEndAt", "2026-04-10T23:00:00"
+                                "voteEndAt", "2026-04-10T23:00:00",
+                                "capacity", 20
                         ))))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.voteId").isNumber())
-                .andExpect(jsonPath("$.activityType").value("FLUSH"))
+                .andExpect(jsonPath("$.activityType").value("FLASH"))
                 .andExpect(jsonPath("$.title").value("금요일 퇴근 후 번개 운동"))
                 .andExpect(jsonPath("$.createdAt").exists());
 
         Vote savedVote = voteRepository.findAll().get(0);
         assertThat(savedVote.getCapacity()).isEqualTo(20);
-        assertThat(savedVote.getActivityType()).isEqualTo(ActivityType.FLUSH);
+        assertThat(savedVote.getActivityType()).isEqualTo(ActivityType.FLASH);
     }
 
     @Test
@@ -105,7 +106,7 @@ class AdminVoteControllerIntegrationTest {
         Vote vote = voteRepository.save(vote(
                 "3월 4주차 정기 배드민턴 투표",
                 LocalDate.now(),
-                ActivityType.FLUSH,
+                ActivityType.FLASH,
                 LocalDateTime.now().minusHours(2),
                 LocalDateTime.now().plusHours(2),
                 20
@@ -125,7 +126,8 @@ class AdminVoteControllerIntegrationTest {
                                 "location", "마포구민체육센터",
                                 "memo", "체육관 대관 사정으로 장소와 시간이 변경되었습니다. 확인 부탁드립니다!",
                                 "voteStartAt", LocalDateTime.now().minusHours(1),
-                                "voteEndAt", LocalDateTime.now().plusHours(3)
+                                "voteEndAt", LocalDateTime.now().plusHours(3),
+                                "capacity", 20
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.voteId").value(vote.getId()))
@@ -151,7 +153,7 @@ class AdminVoteControllerIntegrationTest {
         voteRepository.save(vote(
                 "오늘 번개 운동",
                 LocalDate.now(),
-                ActivityType.FLUSH,
+                ActivityType.FLASH,
                 LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusHours(4),
                 20
@@ -188,7 +190,7 @@ class AdminVoteControllerIntegrationTest {
         Vote inProgressVote = voteRepository.save(vote(
                 "오늘 번개 운동",
                 LocalDate.now(),
-                ActivityType.FLUSH,
+                ActivityType.FLASH,
                 LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusHours(4),
                 20
@@ -261,18 +263,18 @@ class AdminVoteControllerIntegrationTest {
 
     @Test
     @DisplayName("번개 운동은 인원이 많아도 추가참여 투표가 생성되지 않는다")
-    void getVoteManagementDoesNotCreateAdditionalVoteForFlush() throws Exception {
+    void getVoteManagementDoesNotCreateAdditionalVoteForFlash() throws Exception {
         Vote endedVote = voteRepository.save(vote(
                 "금요 번개 운동",
                 nextWeekday(LocalDate.now().plusDays(1)),
-                ActivityType.FLUSH,
+                ActivityType.FLASH,
                 LocalDateTime.now().minusDays(1),
                 LocalDateTime.now().minusHours(1),
                 20
         ));
 
         for (int index = 0; index < 20; index++) {
-            addAttendance(endedVote, true, "flush-member-" + index);
+            addAttendance(endedVote, true, "flash-member-" + index);
         }
 
         mockMvc.perform(get(ADMIN_VOTES_API)
@@ -307,7 +309,8 @@ class AdminVoteControllerIntegrationTest {
                                 "location", "마포구민체육센터",
                                 "memo", "PUT은 허용하지 않음",
                                 "voteStartAt", LocalDateTime.now().minusHours(1),
-                                "voteEndAt", LocalDateTime.now().plusHours(3)
+                                "voteEndAt", LocalDateTime.now().plusHours(3),
+                                "capacity", 20
                         ))))
                 .andExpect(status().isMethodNotAllowed());
     }
@@ -348,10 +351,31 @@ class AdminVoteControllerIntegrationTest {
                                 "activityTime", "19:00 ~ 21:00",
                                 "location", "망원체육관",
                                 "voteStartAt", "2026-04-10T18:00:00",
-                                "voteEndAt", "2026-04-10T23:00:00"
+                                "voteEndAt", "2026-04-10T23:00:00",
+                                "capacity", 20
                         ))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("INVALID_VOTE_ACTIVITY_TYPE"));
+    }
+
+    @Test
+    @DisplayName("투표 정원이 없으면 400을 반환한다")
+    void createVoteReturnsBadRequestWhenCapacityIsMissing() throws Exception {
+        mockMvc.perform(post(ADMIN_VOTES_API)
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "activityType", "FLASH",
+                                "title", "정원 없는 투표",
+                                "activityDate", "2026-04-11",
+                                "activityTime", "19:00 ~ 21:00",
+                                "location", "망원체육관",
+                                "voteStartAt", "2026-04-10T18:00:00",
+                                "voteEndAt", "2026-04-10T23:00:00"
+                        ))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("ILLEGAL_ARGUMENT"))
+                .andExpect(jsonPath("$.message").value("투표 정원을 입력해 주세요."));
     }
 
     @Test
@@ -367,7 +391,8 @@ class AdminVoteControllerIntegrationTest {
                                 "activityTime", "19:00 ~ 21:00",
                                 "location", "망원체육관",
                                 "voteStartAt", "2026-04-10T18:00:00",
-                                "voteEndAt", "2026-04-10T23:00:00"
+                                "voteEndAt", "2026-04-10T23:00:00",
+                                "capacity", 20
                         ))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("INVALID_VOTE_ACTIVITY_TYPE"));
@@ -387,7 +412,8 @@ class AdminVoteControllerIntegrationTest {
                                 "location", "마포구민체육센터",
                                 "memo", "존재하지 않는 투표입니다.",
                                 "voteStartAt", LocalDateTime.now().minusHours(1),
-                                "voteEndAt", LocalDateTime.now().plusHours(3)
+                                "voteEndAt", LocalDateTime.now().plusHours(3),
+                                "capacity", 20
                         ))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("VOTE_NOT_FOUND"));

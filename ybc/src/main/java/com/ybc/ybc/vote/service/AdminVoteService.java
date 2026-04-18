@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AdminVoteService {
-    private static final int DEFAULT_CAPACITY = 20;
     private static final int ADDITIONAL_VOTE_TRIGGER_VACANCY = 3;
     private static final int ADDITIONAL_WEEKDAY_CAPACITY = 5;
     private static final int ADDITIONAL_WEEKEND_CAPACITY = 3;
@@ -47,7 +46,6 @@ public class AdminVoteService {
     @Transactional
     public AdminVoteReservationResponse createVote(AdminVoteCreateRequest request) {
         validateVotePeriod(request.voteStartAt(), request.voteEndAt());
-        int capacity = resolveCapacity(request.capacity(), DEFAULT_CAPACITY);
 
         Vote savedVote = voteRepository.saveAndFlush(
                 Vote.builder()
@@ -59,7 +57,7 @@ public class AdminVoteService {
                         .memo(request.memo())
                         .voteStartAt(request.voteStartAt())
                         .voteEndAt(request.voteEndAt())
-                        .capacity(capacity)
+                        .capacity(request.capacity())
                         .build()
         );
 
@@ -72,7 +70,6 @@ public class AdminVoteService {
         validateVotePeriod(request.voteStartAt(), request.voteEndAt());
 
         Vote vote = getVote(voteId);
-        int capacity = resolveCapacity(request.capacity(), vote.getCapacity());
 
         vote.update(
                 ActivityType.from(request.activityType()),
@@ -83,7 +80,7 @@ public class AdminVoteService {
                 request.memo(),
                 request.voteStartAt(),
                 request.voteEndAt(),
-                capacity
+                request.capacity()
         );
 
         return toManagementItem(vote);
@@ -243,14 +240,6 @@ public class AdminVoteService {
         if (!voteEndAt.isAfter(voteStartAt)) {
             throw new YbcException(ExceptionCode.INVALID_VOTE_PERIOD);
         }
-    }
-
-    private int resolveCapacity(Integer requestedCapacity, int fallbackCapacity) {
-        int capacity = requestedCapacity == null ? fallbackCapacity : requestedCapacity;
-        if (capacity < 1) {
-            throw new YbcException(ExceptionCode.INVALID_VOTE_CAPACITY);
-        }
-        return capacity;
     }
 
     private Vote getVote(Long voteId) {

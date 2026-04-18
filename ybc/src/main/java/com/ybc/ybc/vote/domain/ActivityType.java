@@ -8,7 +8,7 @@ import java.util.Locale;
 
 public enum ActivityType {
     REGULAR("REGULAR"),
-    FLUSH("FLUSH"),
+    FLASH("FLASH"),
     EVENT("EVENT");
 
     private final String apiValue;
@@ -27,21 +27,7 @@ public enum ActivityType {
             String normalized = value.trim().toUpperCase(Locale.ROOT);
             return switch (normalized) {
                 case "REGULAR" -> REGULAR;
-                case "FLUSH" -> FLUSH;
-                case "EVENT" -> EVENT;
-                default -> throw new IllegalArgumentException("Unsupported activity type");
-            };
-        } catch (RuntimeException exception) {
-            throw new YbcException(ExceptionCode.INVALID_VOTE_ACTIVITY_TYPE);
-        }
-    }
-
-    public static ActivityType fromStoredValue(String value) {
-        try {
-            String normalized = value.trim().toUpperCase(Locale.ROOT);
-            return switch (normalized) {
-                case "REGULAR" -> REGULAR;
-                case "FLUSH", "LIGHTNING", "FLASH" -> FLUSH;
+                case "FLASH" -> FLASH;
                 case "EVENT" -> EVENT;
                 default -> throw new IllegalArgumentException("Unsupported activity type");
             };

@@ -3,6 +3,7 @@ package com.ybc.ybc.members.dto.request;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
 public record ClubMemberCreateRequest(
@@ -17,8 +18,9 @@ public record ClubMemberCreateRequest(
         String age,
         @NotBlank(message = "기수를 입력해 주세요.")
         String term,
+        @NotNull(message = "코트 번호를 입력해 주세요.")
         @Min(value = 1, message = "코트 번호를 입력해 주세요.")
         @Max(value = 4, message = "코트 번호는 4 이하여야 합니다.")
-        int court
+        Integer court
 ) {
 }

@@ -23,6 +23,7 @@ public record AdminVoteCreateRequest(
         LocalDateTime voteStartAt,
         @NotNull(message = "투표 종료 시간을 입력해 주세요.")
         LocalDateTime voteEndAt,
+        @NotNull(message = "투표 정원을 입력해 주세요.")
         @Positive(message = "투표 정원은 1명 이상이어야 합니다.")
         Integer capacity
 ) {

@@ -12,6 +12,6 @@ public class ActivityTypeConverter implements AttributeConverter<ActivityType, S
 
     @Override
     public ActivityType convertToEntityAttribute(String value) {
-        return value == null ? null : ActivityType.fromStoredValue(value);
+        return value == null ? null : ActivityType.from(value);
     }
 }
