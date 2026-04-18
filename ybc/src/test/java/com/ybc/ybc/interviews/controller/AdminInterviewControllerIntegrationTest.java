@@ -75,19 +75,19 @@ class AdminInterviewControllerIntegrationTest {
         mockMvc.perform(get(ADMIN_INTERVIEWS_API)
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary.total_interviewees").value(4))
-                .andExpect(jsonPath("$.summary.passed_count").value(1))
-                .andExpect(jsonPath("$.summary.failed_count").value(1))
-                .andExpect(jsonPath("$.summary.hold_count").value(1))
-                .andExpect(jsonPath("$.interview_list[0].application_id").value(firstPassApplication.getId()))
-                .andExpect(jsonPath("$.interview_list[0].available_sessions[0]").value("FIRST_SESSION"))
-                .andExpect(jsonPath("$.interview_list[0].available_sessions[1]").value("SECOND_SESSION"))
-                .andExpect(jsonPath("$.interview_list[0].scheduled_at").doesNotExist())
-                .andExpect(jsonPath("$.interview_list[1].application_id").value(finalPassApplication.getId()))
-                .andExpect(jsonPath("$.interview_list[1].scheduled_at").value("SECOND_SESSION"))
-                .andExpect(jsonPath("$.interview_list[1].memo").value("레슨 경험 있음"))
-                .andExpect(jsonPath("$.interview_list[2].application_id").value(failApplication.getId()))
-                .andExpect(jsonPath("$.interview_list[3].application_id").value(holdApplication.getId()));
+                .andExpect(jsonPath("$.summary.totalInterviewees").value(4))
+                .andExpect(jsonPath("$.summary.passedCount").value(1))
+                .andExpect(jsonPath("$.summary.failedCount").value(1))
+                .andExpect(jsonPath("$.summary.holdCount").value(1))
+                .andExpect(jsonPath("$.interviewList[0].applicationId").value(firstPassApplication.getId()))
+                .andExpect(jsonPath("$.interviewList[0].availableSessions[0]").value("FIRST_SESSION"))
+                .andExpect(jsonPath("$.interviewList[0].availableSessions[1]").value("SECOND_SESSION"))
+                .andExpect(jsonPath("$.interviewList[0].scheduledAt").doesNotExist())
+                .andExpect(jsonPath("$.interviewList[1].applicationId").value(finalPassApplication.getId()))
+                .andExpect(jsonPath("$.interviewList[1].scheduledAt").value("SECOND_SESSION"))
+                .andExpect(jsonPath("$.interviewList[1].memo").value("레슨 경험 있음"))
+                .andExpect(jsonPath("$.interviewList[2].applicationId").value(failApplication.getId()))
+                .andExpect(jsonPath("$.interviewList[3].applicationId").value(holdApplication.getId()));
     }
 
     @Test
@@ -105,14 +105,14 @@ class AdminInterviewControllerIntegrationTest {
                                 "memo", "양배추 지인"
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary.total_interviewees").value(2))
-                .andExpect(jsonPath("$.summary.passed_count").value(1))
-                .andExpect(jsonPath("$.summary.failed_count").value(0))
-                .andExpect(jsonPath("$.summary.hold_count").value(1))
-                .andExpect(jsonPath("$.interview_list[0].application_id").value(firstPassApplication.getId()))
-                .andExpect(jsonPath("$.interview_list[0].scheduled_at").value("FIRST_SESSION"))
-                .andExpect(jsonPath("$.interview_list[0].status").value("FINAL_PASS"))
-                .andExpect(jsonPath("$.interview_list[0].memo").value("양배추 지인"));
+                .andExpect(jsonPath("$.summary.totalInterviewees").value(2))
+                .andExpect(jsonPath("$.summary.passedCount").value(1))
+                .andExpect(jsonPath("$.summary.failedCount").value(0))
+                .andExpect(jsonPath("$.summary.holdCount").value(1))
+                .andExpect(jsonPath("$.interviewList[0].applicationId").value(firstPassApplication.getId()))
+                .andExpect(jsonPath("$.interviewList[0].scheduledAt").value("FIRST_SESSION"))
+                .andExpect(jsonPath("$.interviewList[0].status").value("FINAL_PASS"))
+                .andExpect(jsonPath("$.interviewList[0].memo").value("양배추 지인"));
 
         Application updatedApplication = applicationRepository.findById(firstPassApplication.getId()).orElseThrow();
         Interview interview = interviewRepository.findByApplication_Id(firstPassApplication.getId()).orElseThrow();
@@ -135,7 +135,7 @@ class AdminInterviewControllerIntegrationTest {
                                 "memo", "합격"
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.interview_list[0].status").value("FINAL_PASS"));
+                .andExpect(jsonPath("$.interviewList[0].status").value("FINAL_PASS"));
 
         ClubMember clubMember = clubMemberRepository.findByApplicationId(application.getId()).orElseThrow();
         assertThat(clubMember.getAge()).isEqualTo(expectedBirthYear(24));
@@ -169,7 +169,7 @@ class AdminInterviewControllerIntegrationTest {
                                 "memo", "재검토"
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.interview_list[0].status").value("HOLD"));
+                .andExpect(jsonPath("$.interviewList[0].status").value("HOLD"));
 
         assertThat(clubMemberRepository.findByApplicationId(application.getId())).isEmpty();
     }

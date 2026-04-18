@@ -65,13 +65,13 @@ class AdminApplicationControllerIntegrationTest {
         mockMvc.perform(get(ADMIN_APPLICATIONS_API)
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.total_count").value(2))
-                .andExpect(jsonPath("$.applicants[0].application_id").value(secondApplication.getId()))
+                .andExpect(jsonPath("$.totalCount").value(2))
+                .andExpect(jsonPath("$.applicants[0].applicationId").value(secondApplication.getId()))
                 .andExpect(jsonPath("$.applicants[0].name").value("이영희"))
                 .andExpect(jsonPath("$.applicants[0].gender").value("여성"))
                 .andExpect(jsonPath("$.applicants[0].status").value("FIRST_PASS"))
-                .andExpect(jsonPath("$.applicants[0].created_at").value(format(secondApplication.getCreatedAt())))
-                .andExpect(jsonPath("$.applicants[1].application_id").value(firstApplication.getId()))
+                .andExpect(jsonPath("$.applicants[0].createdAt").value(format(secondApplication.getCreatedAt())))
+                .andExpect(jsonPath("$.applicants[1].applicationId").value(firstApplication.getId()))
                 .andExpect(jsonPath("$.applicants[1].name").value("김철수"));
     }
 
@@ -83,15 +83,15 @@ class AdminApplicationControllerIntegrationTest {
         mockMvc.perform(get(ADMIN_APPLICATIONS_API + "/{applicationId}", application.getId())
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.application_id").value(application.getId()))
+                .andExpect(jsonPath("$.applicationId").value(application.getId()))
                 .andExpect(jsonPath("$.name").value("김철수"))
                 .andExpect(jsonPath("$.address").value("서울 강서구"))
                 .andExpect(jsonPath("$.gender").value("남성"))
-                .andExpect(jsonPath("$.discovery_source").value("인스타그램"))
-                .andExpect(jsonPath("$.interview_available_times[0]").value("앞타임"))
-                .andExpect(jsonPath("$.interview_available_times[1]").value("뒷타임"))
+                .andExpect(jsonPath("$.discoverySource").value("인스타그램"))
+                .andExpect(jsonPath("$.interviewAvailableTimes[0]").value("앞타임"))
+                .andExpect(jsonPath("$.interviewAvailableTimes[1]").value("뒷타임"))
                 .andExpect(jsonPath("$.status").value("NONE"))
-                .andExpect(jsonPath("$.created_at").value(format(application.getCreatedAt())))
+                .andExpect(jsonPath("$.createdAt").value(format(application.getCreatedAt())))
                 .andExpect(jsonPath("$.email").value("email@example.com"));
     }
 
@@ -105,7 +105,7 @@ class AdminApplicationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("status", "FIRST_PASS"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.application_id").value(application.getId()))
+                .andExpect(jsonPath("$.applicationId").value(application.getId()))
                 .andExpect(jsonPath("$.status").value("FIRST_PASS"));
 
         Application updatedApplication = applicationRepository.findById(application.getId()).orElseThrow();

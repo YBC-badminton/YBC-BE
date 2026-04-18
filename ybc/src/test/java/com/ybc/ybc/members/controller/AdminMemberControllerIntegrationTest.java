@@ -68,16 +68,16 @@ class AdminMemberControllerIntegrationTest {
         mockMvc.perform(get(ADMIN_MEMBERS_API)
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary.total_members").value(3))
-                .andExpect(jsonPath("$.summary.court_1").value(1))
-                .andExpect(jsonPath("$.summary.court_2").value(1))
-                .andExpect(jsonPath("$.summary.court_3").value(0))
-                .andExpect(jsonPath("$.summary.court_4").value(1))
-                .andExpect(jsonPath("$.members[0].member_id").value(firstMember.getId()))
+                .andExpect(jsonPath("$.summary.totalMembers").value(3))
+                .andExpect(jsonPath("$.summary.court1").value(1))
+                .andExpect(jsonPath("$.summary.court2").value(1))
+                .andExpect(jsonPath("$.summary.court3").value(0))
+                .andExpect(jsonPath("$.summary.court4").value(1))
+                .andExpect(jsonPath("$.members[0].memberId").value(firstMember.getId()))
                 .andExpect(jsonPath("$.members[0].name").value("홍길동"))
-                .andExpect(jsonPath("$.members[1].member_id").value(secondMember.getId()))
+                .andExpect(jsonPath("$.members[1].memberId").value(secondMember.getId()))
                 .andExpect(jsonPath("$.members[1].term").value("7.5기"))
-                .andExpect(jsonPath("$.members[2].member_id").value(thirdMember.getId()))
+                .andExpect(jsonPath("$.members[2].memberId").value(thirdMember.getId()))
                 .andExpect(jsonPath("$.members[2].court").value(4));
     }
 
@@ -89,7 +89,7 @@ class AdminMemberControllerIntegrationTest {
         mockMvc.perform(get(ADMIN_MEMBERS_API)
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary.total_members").value(1))
+                .andExpect(jsonPath("$.summary.totalMembers").value(1))
                 .andExpect(jsonPath("$.members[0].name").value("김철수"))
                 .andExpect(jsonPath("$.members[0].age").value(expectedBirthYear(24)))
                 .andExpect(jsonPath("$.members[0].term").value("미정"));
@@ -98,35 +98,8 @@ class AdminMemberControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("인증된 사용자는 부원 정보를 수정할 수 있다")
+    @DisplayName("인증된 사용자는 PATCH로 부원 정보를 수정할 수 있다")
     void updateMemberReturnsUpdatedMemberWhenAuthenticated() throws Exception {
-        ClubMember member = saveMember("홍길동", "한국대학교", "010-0000-0000", "03", "2기", 1);
-
-        mockMvc.perform(put(ADMIN_MEMBERS_API + "/{memberId}", member.getId())
-                        .with(authorizedUser())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of(
-                                "name", "홍길동",
-                                "age", "02",
-                                "university", "한국대학교",
-                                "term", "10기",
-                                "court", 2
-                        ))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.member_id").value(member.getId()))
-                .andExpect(jsonPath("$.phone").value("010-0000-0000"))
-                .andExpect(jsonPath("$.age").value("02"))
-                .andExpect(jsonPath("$.term").value("10기"))
-                .andExpect(jsonPath("$.court").value(2));
-
-        ClubMember updatedMember = clubMemberRepository.findById(member.getId()).orElseThrow();
-        assertThat(updatedMember.getCourt()).isEqualTo(2);
-        assertThat(updatedMember.getAge()).isEqualTo("02");
-    }
-
-    @Test
-    @DisplayName("PATCH 요청으로도 부원 정보를 수정할 수 있다")
-    void patchMemberAlsoUpdatesMember() throws Exception {
         ClubMember member = saveMember("홍길동", "한국대학교", "010-0000-0000", "03", "2기", 1);
 
         mockMvc.perform(patch(ADMIN_MEMBERS_API + "/{memberId}", member.getId())
@@ -140,8 +113,33 @@ class AdminMemberControllerIntegrationTest {
                                 "court", 2
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.member_id").value(member.getId()))
+                .andExpect(jsonPath("$.memberId").value(member.getId()))
+                .andExpect(jsonPath("$.phone").value("010-0000-0000"))
+                .andExpect(jsonPath("$.age").value("02"))
+                .andExpect(jsonPath("$.term").value("10기"))
                 .andExpect(jsonPath("$.court").value(2));
+
+        ClubMember updatedMember = clubMemberRepository.findById(member.getId()).orElseThrow();
+        assertThat(updatedMember.getCourt()).isEqualTo(2);
+        assertThat(updatedMember.getAge()).isEqualTo("02");
+    }
+
+    @Test
+    @DisplayName("PUT 요청으로는 부원 정보를 수정할 수 없다")
+    void updateMemberReturnsMethodNotAllowedWhenUsingPut() throws Exception {
+        ClubMember member = saveMember("홍길동", "한국대학교", "010-0000-0000", "03", "2기", 1);
+
+        mockMvc.perform(put(ADMIN_MEMBERS_API + "/{memberId}", member.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "name", "홍길동",
+                                "age", "02",
+                                "university", "한국대학교",
+                                "term", "10기",
+                                "court", 2
+                        ))))
+                .andExpect(status().isMethodNotAllowed());
     }
 
     @Test
@@ -153,7 +151,7 @@ class AdminMemberControllerIntegrationTest {
                         .param("name", "홍길동")
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.member_id").value(member.getId()))
+                .andExpect(jsonPath("$.memberId").value(member.getId()))
                 .andExpect(jsonPath("$.name").value("홍길동"))
                 .andExpect(jsonPath("$.phone").value("010-1234-5678"));
     }
@@ -173,7 +171,7 @@ class AdminMemberControllerIntegrationTest {
                                 "court", 1
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.member_id").isNumber())
+                .andExpect(jsonPath("$.memberId").isNumber())
                 .andExpect(jsonPath("$.name").value("홍길동"))
                 .andExpect(jsonPath("$.age").value("03"))
                 .andExpect(jsonPath("$.court").value(1));
@@ -218,7 +216,26 @@ class AdminMemberControllerIntegrationTest {
                                 "court", 5
                         ))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("INVALID_MEMBER_COURT"));
+                .andExpect(jsonPath("$.error").value("ILLEGAL_ARGUMENT"))
+                .andExpect(jsonPath("$.message").value("코트 번호는 4 이하여야 합니다."));
+    }
+
+    @Test
+    @DisplayName("코트 번호가 없으면 400을 반환한다")
+    void createMemberReturnsBadRequestWhenCourtIsMissing() throws Exception {
+        mockMvc.perform(post(ADMIN_MEMBERS_API)
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "name", "홍길동",
+                                "university", "한국대학교",
+                                "phone", "010-1234-5678",
+                                "age", "03",
+                                "term", "2기"
+                        ))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("ILLEGAL_ARGUMENT"))
+                .andExpect(jsonPath("$.message").value("코트 번호를 입력해 주세요."));
     }
 
     @Test
