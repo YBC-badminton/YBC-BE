@@ -51,6 +51,8 @@ class ClubMemberSyncServiceTest {
         assertThat(memberCaptor.getValue().getApplicationId()).isEqualTo(1L);
         assertThat(memberCaptor.getValue().getName()).isEqualTo("홍길동");
         assertThat(memberCaptor.getValue().getAge()).isEqualTo(expectedBirthYear(23));
+        assertThat(memberCaptor.getValue().getEmail()).isEqualTo("email@example.com");
+        assertThat(memberCaptor.getValue().getGender()).isEqualTo(Gender.MALE);
         assertThat(memberCaptor.getValue().getTerm()).isEqualTo("미정");
         assertThat(memberCaptor.getValue().getCourt()).isNull();
     }
@@ -69,6 +71,8 @@ class ClubMemberSyncServiceTest {
         assertThat(clubMember.getUniversity()).isEqualTo("한국대학교");
         assertThat(clubMember.getPhone()).isEqualTo("010-1234-5678");
         assertThat(clubMember.getAge()).isEqualTo(expectedBirthYear(24));
+        assertThat(clubMember.getEmail()).isEqualTo("email@example.com");
+        assertThat(clubMember.getGender()).isEqualTo(Gender.MALE);
     }
 
     @Test

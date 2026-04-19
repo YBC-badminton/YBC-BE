@@ -42,7 +42,9 @@ public class ClubMemberService {
                 request.phone(),
                 request.age(),
                 request.term(),
-                request.court()
+                request.court(),
+                request.email(),
+                request.gender()
         );
         return ClubMemberResponse.from(clubMemberRepository.save(clubMember));
     }
@@ -56,7 +58,9 @@ public class ClubMemberService {
                 request.age(),
                 request.university(),
                 request.term(),
-                request.court()
+                request.court(),
+                request.email(),
+                request.gender()
         );
         return ClubMemberResponse.from(clubMember);
     }

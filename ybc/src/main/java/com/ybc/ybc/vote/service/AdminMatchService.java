@@ -2,6 +2,10 @@ package com.ybc.ybc.vote.service;
 
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.members.domain.ClubMember;
+import com.ybc.ybc.members.repository.ClubMemberRepository;
+import com.ybc.ybc.members.service.ClubMemberSyncService;
+import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.domain.VoteMatch;
@@ -10,7 +14,11 @@ import com.ybc.ybc.vote.dto.request.AdminMatchCourtRequest;
 import com.ybc.ybc.vote.dto.request.AdminMatchGameRequest;
 import com.ybc.ybc.vote.dto.response.AdminMatchCourtResponse;
 import com.ybc.ybc.vote.dto.response.AdminMatchGameResponse;
+import com.ybc.ybc.vote.dto.response.AdminMatchParticipantListResponse;
+import com.ybc.ybc.vote.dto.response.AdminMatchParticipantProfileResponse;
+import com.ybc.ybc.vote.dto.response.AdminMatchParticipantResponse;
 import com.ybc.ybc.vote.dto.response.AdminMatchRegistrationResponse;
+import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
 import com.ybc.ybc.vote.repository.VoteMatchRepository;
@@ -20,9 +28,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -37,8 +48,40 @@ public class AdminMatchService {
 
     private final VoteRepository voteRepository;
     private final VoteAttendanceRepository voteAttendanceRepository;
+    private final GuestRepository guestRepository;
+    private final ClubMemberRepository clubMemberRepository;
+    private final ClubMemberSyncService clubMemberSyncService;
     private final VoteMatchRepository voteMatchRepository;
     private final VoteMatchGroupRepository voteMatchGroupRepository;
+
+    @Transactional
+    public AdminMatchParticipantListResponse getParticipants(Long voteId) {
+        clubMemberSyncService.reconcileFinalPassMembers();
+        Vote vote = voteRepository.findById(voteId)
+                .orElseThrow(() -> new YbcException(ExceptionCode.VOTE_NOT_FOUND));
+        List<VoteAttendance> attendances = voteAttendanceRepository.findAllActiveWithMemberByVoteId(vote.getId());
+        List<Guest> guests = guestRepository.findAllByVote_IdOrderByIdAsc(vote.getId());
+        Map<String, ClubMember> clubMembersByEmail = getClubMembersByEmail(attendances);
+
+        List<AdminMatchParticipantResponse> participants = new ArrayList<>();
+        attendances.forEach(attendance -> {
+            AdminMatchParticipantProfileResponse profile = toMemberProfile(attendance, clubMembersByEmail);
+            participants.add(new AdminMatchParticipantResponse(
+                    attendance.getId(),
+                    "MEMBER",
+                    profile.name(),
+                    profile.gender()
+            ));
+        });
+        guests.forEach(guest -> participants.add(new AdminMatchParticipantResponse(
+                guest.getId(),
+                "GUEST",
+                guest.getName(),
+                guest.getGender()
+        )));
+
+        return new AdminMatchParticipantListResponse(vote.getId(), participants.size(), participants);
+    }
 
     @Transactional
     public AdminMatchRegistrationResponse registerMatches(Long voteId, List<AdminMatchCourtRequest> request) {
@@ -46,9 +89,11 @@ public class AdminMatchService {
             throw new YbcException(ExceptionCode.INVALID_MATCH_REQUEST);
         }
 
+        clubMemberSyncService.reconcileFinalPassMembers();
         Vote vote = voteRepository.findById(voteId)
                 .orElseThrow(() -> new YbcException(ExceptionCode.VOTE_NOT_FOUND));
         Map<Long, VoteAttendance> attendanceMap = getAttendanceMap(voteId, request);
+        Map<String, ClubMember> clubMembersByEmail = getClubMembersByEmail(attendanceMap.values());
 
         voteMatchRepository.deleteAllByVote_Id(voteId);
         VoteMatchGroup matchGroup = voteMatchGroupRepository.findByVote_Id(voteId)
@@ -61,7 +106,7 @@ public class AdminMatchService {
                 vote.getId(),
                 matchGroup.getId(),
                 request.size(),
-                toResponse(request, attendanceMap)
+                toResponse(request, attendanceMap, clubMembersByEmail)
         );
     }
 
@@ -127,25 +172,67 @@ public class AdminMatchService {
     }
 
     private List<AdminMatchCourtResponse> toResponse(List<AdminMatchCourtRequest> request,
-                                                     Map<Long, VoteAttendance> attendanceMap) {
+                                                     Map<Long, VoteAttendance> attendanceMap,
+                                                     Map<String, ClubMember> clubMembersByEmail) {
         return request.stream()
                 .map(court -> new AdminMatchCourtResponse(
                         court.courtNumber(),
                         court.courtMatches().stream()
                                 .map(game -> new AdminMatchGameResponse(
                                         game.matchNumber(),
-                                        toMemberNames(game.team1(), attendanceMap),
-                                        toMemberNames(game.team2(), attendanceMap)
+                                        toMemberProfiles(game.team1(), attendanceMap, clubMembersByEmail),
+                                        toMemberProfiles(game.team2(), attendanceMap, clubMembersByEmail)
                                 ))
                                 .toList()
                 ))
                 .toList();
     }
 
-    private List<String> toMemberNames(List<Long> attendanceIds, Map<Long, VoteAttendance> attendanceMap) {
+    private List<AdminMatchParticipantProfileResponse> toMemberProfiles(List<Long> attendanceIds,
+                                                                        Map<Long, VoteAttendance> attendanceMap,
+                                                                        Map<String, ClubMember> clubMembersByEmail) {
         return attendanceIds.stream()
-                .map(attendanceId -> attendanceMap.get(attendanceId).getMember().getNickname())
+                .map(attendanceId -> toMemberProfile(attendanceMap.get(attendanceId), clubMembersByEmail))
                 .toList();
+    }
+
+    private AdminMatchParticipantProfileResponse toMemberProfile(VoteAttendance attendance,
+                                                                 Map<String, ClubMember> clubMembersByEmail) {
+        String email = normalizeEmail(attendance.getMember().getEmail());
+        ClubMember clubMember = clubMembersByEmail.get(email);
+        if (clubMember != null) {
+            return new AdminMatchParticipantProfileResponse(clubMember.getName(), clubMember.getGender());
+        }
+        return new AdminMatchParticipantProfileResponse(attendance.getMember().getNickname(), null);
+    }
+
+    private Map<String, ClubMember> getClubMembersByEmail(Iterable<VoteAttendance> attendances) {
+        Set<String> emails = new LinkedHashSet<>();
+        attendances.forEach(attendance -> {
+            String email = normalizeEmail(attendance.getMember().getEmail());
+            if (email != null) {
+                emails.add(email);
+            }
+        });
+        if (emails.isEmpty()) {
+            return Map.of();
+        }
+
+        return clubMemberRepository.findAllByNormalizedEmailInOrderByIdAsc(emails).stream()
+                .filter(clubMember -> normalizeEmail(clubMember.getEmail()) != null)
+                .collect(Collectors.toMap(
+                        clubMember -> Objects.requireNonNull(normalizeEmail(clubMember.getEmail())),
+                        Function.identity(),
+                        (first, ignored) -> first,
+                        LinkedHashMap::new
+                ));
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return null;
+        }
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 
     private void validateGame(AdminMatchGameRequest game) {

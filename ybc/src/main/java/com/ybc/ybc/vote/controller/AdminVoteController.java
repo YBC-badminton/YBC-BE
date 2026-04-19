@@ -3,6 +3,7 @@ package com.ybc.ybc.vote.controller;
 import com.ybc.ybc.vote.dto.request.AdminVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.AdminMatchCourtRequest;
 import com.ybc.ybc.vote.dto.response.AdminCompletedVoteResponse;
+import com.ybc.ybc.vote.dto.response.AdminMatchParticipantListResponse;
 import com.ybc.ybc.vote.dto.response.AdminMatchRegistrationResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListItemResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListResponse;
@@ -87,6 +88,15 @@ public class AdminVoteController {
     public ResponseEntity<Void> deleteVote(@PathVariable Long voteId) {
         adminVoteService.deleteVote(voteId);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * GET /admin/votes/{voteId}/matches
+     * 대진 등록용 참석 인원 조회
+     */
+    @GetMapping("/{voteId}/matches")
+    public AdminMatchParticipantListResponse getMatchParticipants(@PathVariable Long voteId) {
+        return adminMatchService.getParticipants(voteId);
     }
 
     /**

@@ -26,6 +26,16 @@ public interface VoteAttendanceRepository extends JpaRepository<VoteAttendance, 
     @Query("""
             select va
             from VoteAttendance va
+            join fetch va.member
+            where va.vote.id = :voteId
+              and va.attendanceStatus = true
+            order by va.id
+            """)
+    List<VoteAttendance> findAllActiveWithMemberByVoteId(@Param("voteId") Long voteId);
+
+    @Query("""
+            select va
+            from VoteAttendance va
             join fetch va.vote
             join fetch va.member
             where va.id in :ids

@@ -1,5 +1,6 @@
 package com.ybc.ybc.members.dto.response;
 
+import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.members.domain.ClubMember;
 
 public record ClubMemberResponse(
@@ -7,6 +8,8 @@ public record ClubMemberResponse(
         String name,
         String university,
         String phone,
+        String email,
+        Gender gender,
         String age,
         String term,
         Integer court
@@ -17,6 +20,8 @@ public record ClubMemberResponse(
                 clubMember.getName(),
                 clubMember.getUniversity(),
                 clubMember.getPhone(),
+                clubMember.getEmail(),
+                clubMember.getGender(),
                 clubMember.getAge(),
                 clubMember.getTerm(),
                 clubMember.getCourt()

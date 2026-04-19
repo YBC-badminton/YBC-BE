@@ -4,7 +4,7 @@ import java.util.List;
 
 public record AdminMatchGameResponse(
         Integer matchNumber,
-        List<String> team1,
-        List<String> team2
+        List<AdminMatchParticipantProfileResponse> team1,
+        List<AdminMatchParticipantProfileResponse> team2
 ) {
 }

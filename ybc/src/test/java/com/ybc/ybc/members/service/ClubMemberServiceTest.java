@@ -1,5 +1,6 @@
 package com.ybc.ybc.members.service;
 
+import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.members.domain.ClubMember;
 import com.ybc.ybc.members.dto.request.ClubMemberCreateRequest;
@@ -62,7 +63,9 @@ class ClubMemberServiceTest {
     @Test
     @DisplayName("부원 추가 시 저장된 부원 정보를 반환한다")
     void createMemberSavesAndReturnsMember() {
-        ClubMemberCreateRequest request = new ClubMemberCreateRequest("홍길동", "한국대학교", "010-1234-5678", "03", "2기", 1);
+        ClubMemberCreateRequest request = new ClubMemberCreateRequest(
+                "홍길동", "한국대학교", "010-1234-5678", "03", "2기", 1, "hong@example.com", Gender.MALE
+        );
         ClubMember savedMember = savedMember(50L, "홍길동", "한국대학교", "010-1234-5678", "03", "2기", 1);
         when(clubMemberRepository.save(any(ClubMember.class))).thenReturn(savedMember);
 
@@ -71,6 +74,8 @@ class ClubMemberServiceTest {
         ArgumentCaptor<ClubMember> memberCaptor = ArgumentCaptor.forClass(ClubMember.class);
         verify(clubMemberRepository).save(memberCaptor.capture());
         assertThat(memberCaptor.getValue().getName()).isEqualTo("홍길동");
+        assertThat(memberCaptor.getValue().getEmail()).isEqualTo("hong@example.com");
+        assertThat(memberCaptor.getValue().getGender()).isEqualTo(Gender.MALE);
         assertThat(response.memberId()).isEqualTo(50L);
         assertThat(response.phone()).isEqualTo("010-1234-5678");
     }
@@ -83,13 +88,15 @@ class ClubMemberServiceTest {
 
         ClubMemberResponse response = clubMemberService.updateMember(
                 1L,
-                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "10기", 2)
+                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "10기", 2, "hong@example.com", Gender.MALE)
         );
 
         assertThat(member.getPhone()).isEqualTo("010-0000-0000");
         assertThat(member.getAge()).isEqualTo("02");
         assertThat(member.getTerm()).isEqualTo("10기");
         assertThat(member.getCourt()).isEqualTo(2);
+        assertThat(member.getEmail()).isEqualTo("hong@example.com");
+        assertThat(member.getGender()).isEqualTo(Gender.MALE);
         assertThat(response.court()).isEqualTo(2);
     }
 
