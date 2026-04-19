@@ -12,6 +12,8 @@ import com.ybc.ybc.vote.dto.response.AdminVoteReservationResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteStatus;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
+import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
+import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import com.ybc.ybc.vote.repository.projection.VoteAttendanceCountProjection;
 import com.ybc.ybc.vote.repository.projection.VoteGuestCountProjection;
@@ -53,11 +55,17 @@ class AdminVoteServiceTest {
     @Mock
     private GuestRepository guestRepository;
 
+    @Mock
+    private VoteMatchRepository voteMatchRepository;
+
+    @Mock
+    private VoteMatchGroupRepository voteMatchGroupRepository;
+
     private AdminVoteService adminVoteService;
 
     @BeforeEach
     void setUp() {
-        adminVoteService = new AdminVoteService(voteRepository, voteAttendanceRepository, guestRepository, FIXED_CLOCK);
+        adminVoteService = new AdminVoteService(voteRepository, voteAttendanceRepository, guestRepository, voteMatchRepository, voteMatchGroupRepository, FIXED_CLOCK);
     }
 
     @Test
@@ -163,8 +171,10 @@ class AdminVoteServiceTest {
 
         adminVoteService.deleteVote(1L);
 
-        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(voteRepository, guestRepository, voteAttendanceRepository);
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(voteRepository, voteMatchRepository, voteMatchGroupRepository, guestRepository, voteAttendanceRepository);
         inOrder.verify(voteRepository).findById(1L);
+        inOrder.verify(voteMatchRepository).deleteAllByVote_Id(1L);
+        inOrder.verify(voteMatchGroupRepository).deleteAllByVote_Id(1L);
         inOrder.verify(guestRepository).deleteAllByVote_Id(1L);
         inOrder.verify(voteAttendanceRepository).deleteAllByVote_Id(1L);
         inOrder.verify(voteRepository).delete(vote);

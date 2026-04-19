@@ -1,11 +1,14 @@
 package com.ybc.ybc.vote.controller;
 
 import com.ybc.ybc.vote.dto.request.AdminVoteCreateRequest;
+import com.ybc.ybc.vote.dto.request.AdminMatchCourtRequest;
 import com.ybc.ybc.vote.dto.response.AdminCompletedVoteResponse;
+import com.ybc.ybc.vote.dto.response.AdminMatchRegistrationResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListItemResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteQueueResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteReservationResponse;
+import com.ybc.ybc.vote.service.AdminMatchService;
 import com.ybc.ybc.vote.service.AdminVoteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,7 @@ import java.util.List;
 @RequestMapping("/admin/votes")
 public class AdminVoteController {
     private final AdminVoteService adminVoteService;
+    private final AdminMatchService adminMatchService;
 
     /**
      * POST /admin/votes
@@ -83,5 +87,15 @@ public class AdminVoteController {
     public ResponseEntity<Void> deleteVote(@PathVariable Long voteId) {
         adminVoteService.deleteVote(voteId);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * POST /admin/votes/{voteId}/matches
+     * 대진 등록
+     */
+    @PostMapping("/{voteId}/matches")
+    public AdminMatchRegistrationResponse registerMatches(@PathVariable Long voteId,
+                                                          @Valid @RequestBody List<@Valid AdminMatchCourtRequest> request) {
+        return adminMatchService.registerMatches(voteId, request);
     }
 }

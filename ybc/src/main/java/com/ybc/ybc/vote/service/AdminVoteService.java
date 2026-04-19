@@ -15,6 +15,8 @@ import com.ybc.ybc.vote.dto.response.AdminVoteReservationResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteStatus;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
+import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
+import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import com.ybc.ybc.vote.repository.projection.VoteAttendanceCountProjection;
 import com.ybc.ybc.vote.repository.projection.VoteGuestCountProjection;
@@ -41,6 +43,8 @@ public class AdminVoteService {
     private final VoteRepository voteRepository;
     private final VoteAttendanceRepository voteAttendanceRepository;
     private final GuestRepository guestRepository;
+    private final VoteMatchRepository voteMatchRepository;
+    private final VoteMatchGroupRepository voteMatchGroupRepository;
     private final Clock clock;
 
     // 투표 예약 생성
@@ -164,6 +168,8 @@ public class AdminVoteService {
     @Transactional
     public void deleteVote(Long voteId) {
         Vote vote = getVote(voteId);
+        voteMatchRepository.deleteAllByVote_Id(voteId);
+        voteMatchGroupRepository.deleteAllByVote_Id(voteId);
         guestRepository.deleteAllByVote_Id(voteId);
         voteAttendanceRepository.deleteAllByVote_Id(voteId);
         voteRepository.delete(vote);

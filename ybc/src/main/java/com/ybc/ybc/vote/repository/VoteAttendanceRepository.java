@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,6 +22,15 @@ public interface VoteAttendanceRepository extends JpaRepository<VoteAttendance, 
     Optional<VoteAttendance> findByVote_IdAndMember_Id(Long voteId, Long memberId);
 
     void deleteAllByVote_Id(Long voteId);
+
+    @Query("""
+            select va
+            from VoteAttendance va
+            join fetch va.vote
+            join fetch va.member
+            where va.id in :ids
+            """)
+    List<VoteAttendance> findAllWithVoteAndMemberByIdIn(@Param("ids") Collection<Long> ids);
 
     @Query("""
             select new com.ybc.ybc.vote.repository.projection.VoteAttendanceCountProjection(
