@@ -52,6 +52,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class AdminVoteControllerIntegrationTest {
     private static final String ADMIN_VOTES_API = "/admin/votes";
+    private static final String ADMIN_MATCHES_API = "/admin/matches";
 
     @Autowired
     private MockMvc mockMvc;
@@ -455,6 +456,133 @@ class AdminVoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("인증된 사용자는 matchId로 등록된 대진을 조회할 수 있다")
+    void getMatchReturnsRegisteredMatchesWhenAuthenticated() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "대진 조회용 정기 운동",
+                LocalDate.now().minusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                20
+        ));
+        VoteAttendance first = addMatchParticipant(vote, "get-match-1001", "김민준", Gender.MALE);
+        VoteAttendance second = addMatchParticipant(vote, "get-match-1002", "이서연", Gender.FEMALE);
+        VoteAttendance third = addMatchParticipant(vote, "get-match-1003", "박지훈", Gender.MALE);
+        VoteAttendance fourth = addMatchParticipant(vote, "get-match-1004", "최하은", Gender.FEMALE);
+        List<Map<String, Object>> requestBody = List.of(Map.of(
+                "courtNumber", 1,
+                "courtMatches", List.of(Map.of(
+                        "matchNumber", 1,
+                        "team1", List.of(first.getId(), second.getId()),
+                        "team2", List.of(third.getId(), fourth.getId())
+                ))
+        ));
+
+        mockMvc.perform(post(ADMIN_VOTES_API + "/{voteId}/matches", vote.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBody)))
+                .andExpect(status().isOk());
+
+        Long matchId = voteMatchGroupRepository.findAll().get(0).getId();
+
+        mockMvc.perform(get(ADMIN_MATCHES_API + "/{matchId}", matchId)
+                        .with(authorizedUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voteId").value(vote.getId()))
+                .andExpect(jsonPath("$.matchId").value(matchId))
+                .andExpect(jsonPath("$.courtCount").value(1))
+                .andExpect(jsonPath("$.matches[0].courtNumber").value(1))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].matchNumber").value(1))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[0].name").value("김민준"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[0].gender").value("MALE"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[1].name").value("이서연"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[1].gender").value("FEMALE"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[0].name").value("박지훈"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].name").value("최하은"));
+    }
+
+    @Test
+    @DisplayName("인증된 사용자는 matchId로 특정 경기 대진을 수정하고 전체 대진을 조회할 수 있다")
+    void updateMatchReplacesRequestedGameAndKeepsOtherGames() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "대진 수정용 정기 운동",
+                LocalDate.now().minusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                20
+        ));
+        VoteAttendance first = addMatchParticipant(vote, "patch-match-1001", "김민준", Gender.MALE);
+        VoteAttendance second = addMatchParticipant(vote, "patch-match-1002", "이서연", Gender.FEMALE);
+        VoteAttendance third = addMatchParticipant(vote, "patch-match-1003", "박지훈", Gender.MALE);
+        VoteAttendance fourth = addMatchParticipant(vote, "patch-match-1004", "최하은", Gender.FEMALE);
+        VoteAttendance fifth = addMatchParticipant(vote, "patch-match-1005", "정도윤", Gender.MALE);
+        VoteAttendance sixth = addMatchParticipant(vote, "patch-match-1006", "강지우", Gender.FEMALE);
+        VoteAttendance seventh = addMatchParticipant(vote, "patch-match-1007", "조현우", Gender.MALE);
+        VoteAttendance eighth = addMatchParticipant(vote, "patch-match-1008", "윤서아", Gender.FEMALE);
+        List<Map<String, Object>> originalRequest = List.of(Map.of(
+                "courtNumber", 1,
+                "courtMatches", List.of(
+                        Map.of(
+                                "matchNumber", 1,
+                                "team1", List.of(first.getId(), second.getId()),
+                                "team2", List.of(third.getId(), fourth.getId())
+                        ),
+                        Map.of(
+                                "matchNumber", 2,
+                                "team1", List.of(fifth.getId(), sixth.getId()),
+                                "team2", List.of(seventh.getId(), eighth.getId())
+                        )
+                )
+        ));
+        mockMvc.perform(post(ADMIN_VOTES_API + "/{voteId}/matches", vote.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(originalRequest)))
+                .andExpect(status().isOk());
+
+        Long matchId = voteMatchGroupRepository.findAll().get(0).getId();
+        List<Map<String, Object>> updateRequest = List.of(Map.of(
+                "courtNumber", 1,
+                "courtMatches", List.of(Map.of(
+                        "matchNumber", 1,
+                        "team1", List.of(fifth.getId(), sixth.getId()),
+                        "team2", List.of(seventh.getId(), eighth.getId())
+                ))
+        ));
+
+        mockMvc.perform(patch(ADMIN_MATCHES_API + "/{matchId}", matchId)
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voteId").value(vote.getId()))
+                .andExpect(jsonPath("$.matchId").value(matchId))
+                .andExpect(jsonPath("$.courtCount").value(1))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].matchNumber").value(1))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[0].name").value("정도윤"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[1].name").value("강지우"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[0].name").value("조현우"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].name").value("윤서아"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[1].matchNumber").value(2))
+                .andExpect(jsonPath("$.matches[0].courtMatches[1].team1[0].name").value("정도윤"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[1].team2[1].name").value("윤서아"));
+
+        assertThat(voteMatchRepository.findAll()).hasSize(8);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 matchId로 대진 조회 시 404를 반환한다")
+    void getMatchReturnsNotFoundWhenMatchDoesNotExist() throws Exception {
+        mockMvc.perform(get(ADMIN_MATCHES_API + "/{matchId}", 9999L)
+                        .with(authorizedUser()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("MATCH_NOT_FOUND"));
+    }
+
+    @Test
     @DisplayName("정규운동이 마감되면 현황 조회 시 추가참여 투표가 자동 생성된다")
     void getVoteManagementCreatesAdditionalVoteWhenThresholdIsReached() throws Exception {
         Vote endedVote = voteRepository.save(vote(
@@ -703,6 +831,12 @@ class AdminVoteControllerIntegrationTest {
                 .member(member)
                 .attendanceStatus(attendanceStatus)
                 .build());
+    }
+
+    private VoteAttendance addMatchParticipant(Vote vote, String socialId, String name, Gender gender) {
+        VoteAttendance attendance = addAttendance(vote, true, socialId, name);
+        saveClubMember(name, socialId + "@example.com", gender);
+        return attendance;
     }
 
     private void addGuest(Vote vote, String socialId, String guestName) {

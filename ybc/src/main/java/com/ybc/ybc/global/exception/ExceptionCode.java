@@ -19,6 +19,7 @@ public enum ExceptionCode {
     INVALID_VOTE_CAPACITY(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_VOTE_CAPACITY, "투표 정원은 1명 이상이어야 합니다."),
     INVALID_MATCH_REQUEST(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MATCH_REQUEST, "대진 요청이 올바르지 않습니다."),
     MATCH_PARTICIPANT_NOT_FOUND(HttpStatus.BAD_REQUEST, ClientExceptionCode.MATCH_PARTICIPANT_NOT_FOUND, "대진에 포함된 참석자를 찾을 수 없습니다."),
+    MATCH_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.MATCH_NOT_FOUND, "존재하지 않는 대진입니다."),
     APPLICATION_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.APPLICATION_NOT_FOUND, "존재하지 않는 지원서입니다."),
     INVALID_APPLICATION_STATUS(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_APPLICATION_STATUS, "지원자 상태값이 올바르지 않습니다."),
     APPLICATION_NOT_INTERVIEW_TARGET(HttpStatus.BAD_REQUEST, ClientExceptionCode.APPLICATION_NOT_INTERVIEW_TARGET, "면접 관리 대상 지원서가 아닙니다."),
