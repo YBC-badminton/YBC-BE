@@ -20,6 +20,7 @@ public enum ExceptionCode {
     INVALID_INTERVIEW_STATUS(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_INTERVIEW_STATUS, "면접 상태값이 올바르지 않습니다."),
     RECRUITMENT_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.RECRUITMENT_NOT_FOUND, "존재하지 않는 모집 기수입니다."),
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.MEMBER_NOT_FOUND, "존재하지 않는 부원입니다."),
+    INVALID_RECRUITMENT_SCHEDULE(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_RECRUITMENT_SCHEDULE, "모집 일정 순서가 올바르지 않습니다."),
     INVALID_MEMBER_COURT(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MEMBER_COURT, "코트 번호는 1부터 4까지만 가능합니다.");
 
     private final HttpStatus httpStatus;

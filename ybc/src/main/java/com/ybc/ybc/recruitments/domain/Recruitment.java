@@ -1,6 +1,8 @@
 package com.ybc.ybc.recruitments.domain;
 
 import com.ybc.ybc.global.domain.BaseEntity;
+import com.ybc.ybc.global.exception.ExceptionCode;
+import com.ybc.ybc.global.exception.YbcException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -12,7 +14,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDate;
@@ -78,6 +79,7 @@ public class Recruitment extends BaseEntity {
                         LocalDate otDate,
                         int membershipFee,
                         int activityPeriod) {
+        validateSchedule(startAt, endAt, firstResultDate, finalResultDate, interviewDate);
         this.term = term;
         this.startAt = startAt;
         this.endAt = endAt;
@@ -93,8 +95,27 @@ public class Recruitment extends BaseEntity {
     }
 
     public void updateBasicInfo(String term, LocalDateTime startAt, LocalDateTime endAt) {
+        validateSchedule(startAt, endAt, firstResultDate, finalResultDate, interviewDate);
         this.term = term;
         this.startAt = startAt;
         this.endAt = endAt;
+    }
+
+    private void validateSchedule(LocalDateTime startAt,
+                                  LocalDateTime endAt,
+                                  LocalDate firstResultDate,
+                                  LocalDate finalResultDate,
+                                  LocalDate interviewDate) {
+        if (!startAt.isBefore(endAt)) {
+            throw new YbcException(ExceptionCode.INVALID_RECRUITMENT_SCHEDULE);
+        }
+
+        if (firstResultDate.isAfter(finalResultDate)) {
+            throw new YbcException(ExceptionCode.INVALID_RECRUITMENT_SCHEDULE);
+        }
+
+        if (interviewDate.isBefore(endAt.toLocalDate())) {
+            throw new YbcException(ExceptionCode.INVALID_RECRUITMENT_SCHEDULE);
+        }
     }
 }

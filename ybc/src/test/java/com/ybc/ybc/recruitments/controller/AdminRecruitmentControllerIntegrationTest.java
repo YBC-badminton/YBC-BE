@@ -111,6 +111,17 @@ class AdminRecruitmentControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("잘못된 모집 일정으로 모집 기수를 생성하면 400을 반환한다")
+    void createRecruitmentReturnsBadRequestWhenScheduleIsInvalid() throws Exception {
+        mockMvc.perform(post(ADMIN_RECRUITMENTS_API)
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRecruitmentCreateRequest())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_RECRUITMENT_SCHEDULE"));
+    }
+
+    @Test
     @DisplayName("인증된 사용자는 모집 기수의 기본 정보를 수정할 수 있다")
     void updateRecruitmentReturnsUpdatedRecruitmentWhenAuthenticated() throws Exception {
         Recruitment recruitment = saveRecruitment("10기");
@@ -156,6 +167,19 @@ class AdminRecruitmentControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(createRecruitmentUpdateRequest())))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("기본 정보 수정으로 일정 순서가 깨지면 400을 반환한다")
+    void updateRecruitmentReturnsBadRequestWhenScheduleIsInvalid() throws Exception {
+        Recruitment recruitment = saveRecruitment("10기");
+
+        mockMvc.perform(patch(ADMIN_RECRUITMENTS_API + "/{recruitmentId}", recruitment.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRecruitmentUpdateRequest())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_RECRUITMENT_SCHEDULE"));
     }
 
     private Recruitment saveRecruitment(String term) {
@@ -209,6 +233,31 @@ class AdminRecruitmentControllerIntegrationTest {
                 "term", "7.5기",
                 "startAt", "2026-03-01T09:00:00",
                 "endAt", "2026-03-15T23:59:59"
+        );
+    }
+
+    private Map<String, Object> invalidRecruitmentCreateRequest() {
+        return Map.ofEntries(
+                Map.entry("term", "10.5기"),
+                Map.entry("startAt", "2026-03-15T09:00:00"),
+                Map.entry("endAt", "2026-03-15T09:00:00"),
+                Map.entry("firstResultDate", "2026-03-17"),
+                Map.entry("finalResultDate", "2026-03-25"),
+                Map.entry("interviewDate", "2026-03-22"),
+                Map.entry("interviewLocation", "마포구 청년센터 3층 회의실"),
+                Map.entry("interviewFirstTime", "13:00 ~ 15:00"),
+                Map.entry("interviewSecondTime", "15:30 ~ 18:00"),
+                Map.entry("otDate", "2026-03-28"),
+                Map.entry("membershipFee", 50000),
+                Map.entry("activityPeriod", 6)
+        );
+    }
+
+    private Map<String, Object> invalidRecruitmentUpdateRequest() {
+        return Map.of(
+                "term", "7.5기",
+                "startAt", "2026-04-10T09:00:00",
+                "endAt", "2026-04-13T18:00:00"
         );
     }
 }
