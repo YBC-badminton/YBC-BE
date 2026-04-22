@@ -1,0 +1,41 @@
+spring:
+  datasource:
+    driver-class-name: ${BENCHMARK_DB_DRIVER:org.h2.Driver}
+    url: ${BENCHMARK_DB_URL:jdbc:h2:mem:ybc-benchmark;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: ${BENCHMARK_JPA_DDL_AUTO:create-drop}
+    properties:
+      hibernate:
+        dialect: ${BENCHMARK_JPA_DIALECT:org.hibernate.dialect.H2Dialect}
+  data:
+    redis:
+      host: ${BENCHMARK_REDIS_HOST:localhost}
+      port: ${BENCHMARK_REDIS_PORT:6379}
+
+app:
+  auth:
+    kakao:
+      client-id: ${BENCHMARK_KAKAO_CLIENT_ID:benchmark-client-id}
+      client-secret: ${BENCHMARK_KAKAO_CLIENT_SECRET:}
+      redirect-uri: ${BENCHMARK_KAKAO_REDIRECT_URI:http://localhost:8080/api/v1/auth/kakao/callback}
+      authorization-base-url: ${BENCHMARK_KAKAO_AUTHORIZATION_BASE_URL:https://kauth.kakao.com/oauth/authorize}
+      token-url: ${BENCHMARK_KAKAO_TOKEN_URL:https://kauth.kakao.com/oauth/token}
+      user-info-url: ${BENCHMARK_KAKAO_USER_INFO_URL:https://kapi.kakao.com/v2/user/me}
+      scope: ${BENCHMARK_KAKAO_SCOPE:profile_nickname,account_email}
+    jwt:
+      secret-key: ${JWT_SECRET_KEY}
+      issuer: ${BENCHMARK_JWT_ISSUER:ybc-benchmark}
+      access-token-expiration-seconds: ${BENCHMARK_JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:3600}
+      refresh-token-expiration-seconds: ${BENCHMARK_JWT_REFRESH_TOKEN_EXPIRATION_SECONDS:1209600}
+  vote:
+    additional-reservation:
+      scheduler-enabled: ${BENCHMARK_VOTE_SCHEDULER_ENABLED:false}
+  mail:
+    from: ${BENCHMARK_MAIL_FROM:benchmark@ybc.local}
+    stub-enabled: ${BENCHMARK_MAIL_STUB_ENABLED:true}
+    stub-delay-ms: ${BENCHMARK_MAIL_STUB_DELAY_MS:300}
+    application:
+      async-enabled: ${BENCHMARK_APPLICATION_MAIL_ASYNC_ENABLED:false}
