@@ -4,12 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.ybc.ybc.applications.domain.Application;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
+import com.ybc.ybc.applications.service.ApplicationSubmissionMailService;
+import com.ybc.ybc.support.TestMailConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -20,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,6 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(TestMailConfig.class)
 class ApplicationControllerIntegrationTest {
     private static final String APPLICATIONS_API = "/applications";
 
@@ -35,6 +41,9 @@ class ApplicationControllerIntegrationTest {
 
     @Autowired
     private ApplicationRepository applicationRepository;
+
+    @Autowired
+    private ApplicationSubmissionMailService applicationSubmissionMailService;
 
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
@@ -76,6 +85,10 @@ class ApplicationControllerIntegrationTest {
         assertThat(application.getFinalComment()).isEqualTo(request.get("finalComment"));
         assertThat(application.getStatus().name()).isEqualTo(request.get("status"));
         assertThat(application.getEmail()).isEqualTo(request.get("email"));
+
+        ArgumentCaptor<Application> applicationCaptor = ArgumentCaptor.forClass(Application.class);
+        verify(applicationSubmissionMailService).sendApplicationSubmittedMail(applicationCaptor.capture());
+        assertThat(applicationCaptor.getValue().getEmail()).isEqualTo(request.get("email"));
     }
 
     @Test

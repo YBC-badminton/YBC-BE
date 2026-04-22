@@ -23,12 +23,14 @@ import java.util.List;
 public class ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final ClubMemberSyncService clubMemberSyncService;
+    private final ApplicationSubmissionMailService applicationSubmissionMailService;
 
     // 지원서 저장
     @Transactional
     public void createApplication(ApplicationRequest request){
         Application application = request.toApplication();
         applicationRepository.save(application);
+        applicationSubmissionMailService.sendApplicationSubmittedMail(application);
     }
 
     public ApplicantListResponse getApplicants() {
