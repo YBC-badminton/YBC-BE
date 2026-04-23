@@ -154,6 +154,138 @@ class EquipmentReviewControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("장비 후기 목록을 생성일 내림차순으로 조회한다")
+    void getEquipmentReviews() throws Exception {
+        Member memberOne = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "김민수", "3001@example.com")
+        );
+        Member memberTwo = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3002", "오시온", "3002@example.com")
+        );
+        Brand yonex = brandRepository.save(Brand.create("YONEX"));
+        Brand victor = brandRepository.save(Brand.create("VICTOR"));
+        Equipment racket = equipmentRepository.save(
+                Equipment.create("아스트록스 99 프로", EquipmentCategory.RACKET, yonex)
+        );
+        Equipment shoes = equipmentRepository.save(
+                Equipment.create("P9200TD", EquipmentCategory.SHOES, victor)
+        );
+        EquipmentReview reviewOne = equipmentReviewRepository.save(
+                EquipmentReview.create(
+                        5L,
+                        "헤드헤비 라켓이지만 스윙이 편하고 파워가 좋습니다. 특히 스매싱할 때 위력이 엄청나요. 처음엔 무게감이 느껴졌지만 적응하고 나니 제 실력이 한 단계 올라간 느낌입니다. 중급자 이상에게 강력 추천합니다.",
+                        6,
+                        memberOne,
+                        racket
+                )
+        );
+        EquipmentReview reviewTwo = equipmentReviewRepository.save(
+                EquipmentReview.create(
+                        4L,
+                        "쿠션감이 좋고 발목 지지력이 탁월합니다. 장시간 경기에도 발이 편하고 미끄럼 방지 기능이 우수해요. 다만 내구성이 조금 아쉽습니다.",
+                        12,
+                        memberTwo,
+                        shoes
+                )
+        );
+        updateReviewTimestamps(reviewOne.getId(), LocalDateTime.of(2026, 3, 15, 14, 30), LocalDateTime.of(2026, 3, 15, 14, 30));
+        updateReviewTimestamps(reviewTwo.getId(), LocalDateTime.of(2026, 3, 14, 11, 20), LocalDateTime.of(2026, 3, 14, 11, 20));
+        entityManager.flush();
+        entityManager.clear();
+
+        mockMvc.perform(get("/reviews")
+                        .with(authenticatedMember(memberOne))
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("sort", "desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviews.length()").value(2))
+                .andExpect(jsonPath("$.reviews[0].reviewId").value(reviewOne.getId()))
+                .andExpect(jsonPath("$.reviews[0].category").value("RACKET"))
+                .andExpect(jsonPath("$.reviews[0].brandName").value("YONEX"))
+                .andExpect(jsonPath("$.reviews[0].productName").value("아스트록스 99 프로"))
+                .andExpect(jsonPath("$.reviews[0].rating").value(5))
+                .andExpect(jsonPath("$.reviews[0].usageMonth").value(6))
+                .andExpect(jsonPath("$.reviews[0].memberNickname").value("김민수"))
+                .andExpect(jsonPath("$.reviews[0].createdAt").value("2026-03-15T14:30:00"))
+                .andExpect(jsonPath("$.reviews[1].reviewId").value(reviewTwo.getId()))
+                .andExpect(jsonPath("$.reviews[1].category").value("SHOES"))
+                .andExpect(jsonPath("$.reviews[1].brandName").value("VICTOR"))
+                .andExpect(jsonPath("$.reviews[1].productName").value("P9200TD"))
+                .andExpect(jsonPath("$.reviews[1].rating").value(4))
+                .andExpect(jsonPath("$.reviews[1].usageMonth").value(12))
+                .andExpect(jsonPath("$.reviews[1].memberNickname").value("오시온"))
+                .andExpect(jsonPath("$.reviews[1].createdAt").value("2026-03-14T11:20:00"))
+                .andExpect(jsonPath("$.pageInfo.totalElements").value(2))
+                .andExpect(jsonPath("$.pageInfo.totalPages").value(1))
+                .andExpect(jsonPath("$.pageInfo.isLast").value(true));
+    }
+
+    @Test
+    @DisplayName("카테고리 필터와 오름차순 정렬로 장비 후기 목록을 조회한다")
+    void getEquipmentReviewsByCategoryInAscendingOrder() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "김민수", "3001@example.com")
+        );
+        Brand yonex = brandRepository.save(Brand.create("YONEX"));
+        Brand victor = brandRepository.save(Brand.create("VICTOR"));
+        Equipment racketOne = equipmentRepository.save(
+                Equipment.create("아스트록스 99 프로", EquipmentCategory.RACKET, yonex)
+        );
+        Equipment racketTwo = equipmentRepository.save(
+                Equipment.create("드라이브X 9X", EquipmentCategory.RACKET, victor)
+        );
+        Equipment shoes = equipmentRepository.save(
+                Equipment.create("P9200TD", EquipmentCategory.SHOES, victor)
+        );
+        EquipmentReview olderReview = equipmentReviewRepository.save(
+                EquipmentReview.create(4L, "오래된 라켓 후기", 4, member, racketOne)
+        );
+        EquipmentReview newerReview = equipmentReviewRepository.save(
+                EquipmentReview.create(5L, "최신 라켓 후기", 8, member, racketTwo)
+        );
+        equipmentReviewRepository.save(
+                EquipmentReview.create(3L, "신발 후기", 12, member, shoes)
+        );
+        updateReviewTimestamps(olderReview.getId(), LocalDateTime.of(2026, 3, 10, 10, 0), LocalDateTime.of(2026, 3, 10, 10, 0));
+        updateReviewTimestamps(newerReview.getId(), LocalDateTime.of(2026, 3, 20, 10, 0), LocalDateTime.of(2026, 3, 20, 10, 0));
+        entityManager.flush();
+        entityManager.clear();
+
+        mockMvc.perform(get("/reviews")
+                        .with(authenticatedMember(member))
+                        .param("category", "RACKET")
+                        .param("sort", "asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviews.length()").value(2))
+                .andExpect(jsonPath("$.reviews[0].reviewId").value(olderReview.getId()))
+                .andExpect(jsonPath("$.reviews[1].reviewId").value(newerReview.getId()))
+                .andExpect(jsonPath("$.pageInfo.totalElements").value(2));
+    }
+
+    @Test
+    @DisplayName("유효하지 않은 정렬 조건으로 장비 후기 목록을 조회하면 예외가 발생한다")
+    void getEquipmentReviewsThrowsWhenSortIsInvalid() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "김민수", "3001@example.com")
+        );
+
+        mockMvc.perform(get("/reviews")
+                        .with(authenticatedMember(member))
+                        .param("sort", "latest"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_REVIEW_SORT"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 장비 후기 목록을 조회할 수 없다")
+    void getEquipmentReviewsRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/reviews"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
     @DisplayName("장비 후기 상세를 조회한다")
     void getEquipmentReview() throws Exception {
         Member author = memberRepository.save(

@@ -27,7 +27,8 @@ public enum ExceptionCode {
     INVALID_RECRUITMENT_SCHEDULE(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_RECRUITMENT_SCHEDULE, "모집 일정 순서가 올바르지 않습니다."),
     INVALID_MEMBER_COURT(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MEMBER_COURT, "코트 번호는 1부터 4까지만 가능합니다."),
     INVALID_EQUIPMENT_REVIEW_RATING(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_EQUIPMENT_REVIEW_RATING, "장비 후기 평점은 1점부터 5점까지만 가능합니다."),
-    INVALID_EQUIPMENT_USAGE_MONTH(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_EQUIPMENT_USAGE_MONTH, "장비 사용 기간은 1개월 이상이어야 합니다.");
+    INVALID_EQUIPMENT_USAGE_MONTH(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_EQUIPMENT_USAGE_MONTH, "장비 사용 기간은 1개월 이상이어야 합니다."),
+    INVALID_REVIEW_SORT(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_REVIEW_SORT, "후기 정렬 조건은 asc 또는 desc만 가능합니다.");
 
     private final HttpStatus httpStatus;
     private final ClientExceptionCode clientExceptionCode;
