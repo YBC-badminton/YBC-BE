@@ -1,4 +1,4 @@
-package com.ybc.ybc.equipment.domain;
+package com.ybc.ybc.brands.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

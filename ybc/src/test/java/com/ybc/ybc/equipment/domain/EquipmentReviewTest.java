@@ -2,6 +2,7 @@ package com.ybc.ybc.equipment.domain;
 
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
+import com.ybc.ybc.brands.domain.Brand;
 import com.ybc.ybc.global.exception.YbcException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

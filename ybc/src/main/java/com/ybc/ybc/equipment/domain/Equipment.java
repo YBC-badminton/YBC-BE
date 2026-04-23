@@ -1,5 +1,6 @@
 package com.ybc.ybc.equipment.domain;
 
+import com.ybc.ybc.brands.domain.Brand;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

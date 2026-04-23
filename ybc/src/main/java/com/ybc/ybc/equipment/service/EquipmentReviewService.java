@@ -2,7 +2,8 @@ package com.ybc.ybc.equipment.service;
 
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.service.MemberService;
-import com.ybc.ybc.equipment.domain.Brand;
+import com.ybc.ybc.brands.domain.Brand;
+import com.ybc.ybc.brands.repository.BrandRepository;
 import com.ybc.ybc.equipment.domain.Equipment;
 import com.ybc.ybc.equipment.domain.EquipmentCategory;
 import com.ybc.ybc.equipment.domain.EquipmentReview;
@@ -11,7 +12,6 @@ import com.ybc.ybc.equipment.dto.response.EquipmentReviewCreateResponse;
 import com.ybc.ybc.equipment.dto.response.EquipmentReviewDetailResponse;
 import com.ybc.ybc.equipment.dto.response.EquipmentReviewListResponse;
 import com.ybc.ybc.equipment.dto.response.EquipmentReviewSummaryResponse;
-import com.ybc.ybc.equipment.repository.BrandRepository;
 import com.ybc.ybc.equipment.repository.EquipmentRepository;
 import com.ybc.ybc.equipment.repository.EquipmentReviewRepository;
 import com.ybc.ybc.global.exception.ExceptionCode;
