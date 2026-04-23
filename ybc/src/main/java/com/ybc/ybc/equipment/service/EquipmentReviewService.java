@@ -7,9 +7,12 @@ import com.ybc.ybc.equipment.domain.Equipment;
 import com.ybc.ybc.equipment.domain.EquipmentReview;
 import com.ybc.ybc.equipment.dto.request.EquipmentReviewCreateRequest;
 import com.ybc.ybc.equipment.dto.response.EquipmentReviewCreateResponse;
+import com.ybc.ybc.equipment.dto.response.EquipmentReviewDetailResponse;
 import com.ybc.ybc.equipment.repository.BrandRepository;
 import com.ybc.ybc.equipment.repository.EquipmentRepository;
 import com.ybc.ybc.equipment.repository.EquipmentReviewRepository;
+import com.ybc.ybc.global.exception.ExceptionCode;
+import com.ybc.ybc.global.exception.YbcException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,5 +51,11 @@ public class EquipmentReviewService {
         );
 
         return EquipmentReviewCreateResponse.from(review);
+    }
+
+    public EquipmentReviewDetailResponse getReview(Long reviewId, Long memberId) {
+        EquipmentReview review = equipmentReviewRepository.findWithDetailsById(reviewId)
+                .orElseThrow(() -> new YbcException(ExceptionCode.REVIEW_NOT_FOUND));
+        return EquipmentReviewDetailResponse.from(review, memberId);
     }
 }

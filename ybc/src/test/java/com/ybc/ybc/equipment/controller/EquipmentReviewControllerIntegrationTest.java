@@ -15,18 +15,23 @@ import com.ybc.ybc.equipment.dto.request.EquipmentReviewCreateRequest;
 import com.ybc.ybc.equipment.repository.BrandRepository;
 import com.ybc.ybc.equipment.repository.EquipmentRepository;
 import com.ybc.ybc.equipment.repository.EquipmentReviewRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -49,6 +54,12 @@ class EquipmentReviewControllerIntegrationTest {
 
     @Autowired
     private EquipmentReviewRepository equipmentReviewRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManager entityManager;
 
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
@@ -140,6 +151,100 @@ class EquipmentReviewControllerIntegrationTest {
                         ))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("장비 후기 상세를 조회한다")
+    void getEquipmentReview() throws Exception {
+        Member author = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "김민수", "3001@example.com")
+        );
+        Brand brand = brandRepository.save(Brand.create("YONEX"));
+        Equipment equipment = equipmentRepository.save(
+                Equipment.create("아스트록스 99 프로", EquipmentCategory.RACKET, brand)
+        );
+        EquipmentReview review = equipmentReviewRepository.save(
+                EquipmentReview.create(
+                        5L,
+                        "헤드헤비 라켓이지만 스윙이 편하고 파워가 좋습니다. 특히 스매싱할 때 위력이 엄청나요. 처음엔 무게감이 느껴졌지만 적응하고 나니 제 실력이 한 단계 올라간 느낌입니다. 중급자 이상에게 강력 추천합니다.",
+                        6,
+                        author,
+                        equipment
+                )
+        );
+        LocalDateTime timestamp = LocalDateTime.of(2026, 3, 15, 14, 30);
+        updateReviewTimestamps(review.getId(), timestamp, timestamp);
+        entityManager.flush();
+        entityManager.clear();
+
+        mockMvc.perform(get("/reviews/{reviewId}", review.getId())
+                        .with(authenticatedMember(author)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviewId").value(review.getId()))
+                .andExpect(jsonPath("$.category").value("RACKET"))
+                .andExpect(jsonPath("$.brandName").value("YONEX"))
+                .andExpect(jsonPath("$.equipmentName").value("아스트록스 99 프로"))
+                .andExpect(jsonPath("$.rating").value(5))
+                .andExpect(jsonPath("$.usageMonth").value(6))
+                .andExpect(jsonPath("$.content").value(review.getContent()))
+                .andExpect(jsonPath("$.memberId").value(author.getId()))
+                .andExpect(jsonPath("$.writer").value("김민수"))
+                .andExpect(jsonPath("$.createdAt").value("2026-03-15T14:30:00"))
+                .andExpect(jsonPath("$.updatedAt").value("2026-03-15T14:30:00"))
+                .andExpect(jsonPath("$.isAuthor").value(true));
+    }
+
+    @Test
+    @DisplayName("작성자가 아닌 회원이 장비 후기 상세를 조회하면 isAuthor는 false다")
+    void getEquipmentReviewSetsIsAuthorFalseForNonAuthor() throws Exception {
+        Member author = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "김민수", "3001@example.com")
+        );
+        Member viewer = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3002", "강태호", "3002@example.com")
+        );
+        Brand brand = brandRepository.save(Brand.create("YONEX"));
+        Equipment equipment = equipmentRepository.save(
+                Equipment.create("아스트록스 99 프로", EquipmentCategory.RACKET, brand)
+        );
+        EquipmentReview review = equipmentReviewRepository.save(
+                EquipmentReview.create(5L, "후기입니다.", 6, author, equipment)
+        );
+
+        mockMvc.perform(get("/reviews/{reviewId}", review.getId())
+                        .with(authenticatedMember(viewer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isAuthor").value(false));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 장비 후기 상세를 조회하면 예외가 발생한다")
+    void getEquipmentReviewThrowsWhenReviewIsMissing() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "강태호", "3001@example.com")
+        );
+
+        mockMvc.perform(get("/reviews/{reviewId}", 999L)
+                        .with(authenticatedMember(member)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("REVIEW_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 장비 후기 상세를 조회할 수 없다")
+    void getEquipmentReviewRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/reviews/{reviewId}", 1L))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    private void updateReviewTimestamps(Long reviewId, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        jdbcTemplate.update(
+                "update equipment_review set created_at = ?, updated_at = ? where equipment_review_id = ?",
+                createdAt,
+                updatedAt,
+                reviewId
+        );
     }
 
     private RequestPostProcessor authenticatedMember(Member member) {

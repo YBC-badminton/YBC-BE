@@ -1,11 +1,11 @@
 package com.ybc.ybc.equipment.domain;
 
 import com.ybc.ybc.auth.domain.Member;
+import com.ybc.ybc.global.domain.BaseEntity;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -18,17 +18,12 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
-import java.time.LocalDateTime;
 
 @Getter
 @Entity
 @Table(name = "equipment_review")
-@EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class EquipmentReview {
+public class EquipmentReview extends BaseEntity {
     private static final long MIN_RATING = 1L;
     private static final long MAX_RATING = 5L;
     private static final int MIN_USAGE_MONTH = 1;
@@ -47,10 +42,6 @@ public class EquipmentReview {
 
     @Column(name = "usage_period", nullable = false)
     private Integer usageMonth;
-
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "member_id", nullable = false)
