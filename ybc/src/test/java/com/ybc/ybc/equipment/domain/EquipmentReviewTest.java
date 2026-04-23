@@ -17,7 +17,7 @@ class EquipmentReviewTest {
         assertThatThrownBy(() -> EquipmentReview.create(
                 6L,
                 "리뷰 내용",
-                "12",
+                12,
                 createMember(),
                 createEquipment()
         ))
@@ -31,14 +31,14 @@ class EquipmentReviewTest {
         EquipmentReview review = EquipmentReview.create(
                 5L,
                 "리뷰 내용",
-                "12",
+                12,
                 createMember(),
                 createEquipment()
         );
 
         assertThat(review.getRating()).isEqualTo(5L);
         assertThat(review.getContent()).isEqualTo("리뷰 내용");
-        assertThat(review.getUsagePeriod()).isEqualTo("12");
+        assertThat(review.getUsageMonth()).isEqualTo(12);
     }
 
     private Member createMember() {

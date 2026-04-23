@@ -25,7 +25,8 @@ public enum ExceptionCode {
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.MEMBER_NOT_FOUND, "존재하지 않는 부원입니다."),
     INVALID_RECRUITMENT_SCHEDULE(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_RECRUITMENT_SCHEDULE, "모집 일정 순서가 올바르지 않습니다."),
     INVALID_MEMBER_COURT(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MEMBER_COURT, "코트 번호는 1부터 4까지만 가능합니다."),
-    INVALID_EQUIPMENT_REVIEW_RATING(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_EQUIPMENT_REVIEW_RATING, "장비 후기 평점은 1점부터 5점까지만 가능합니다.");
+    INVALID_EQUIPMENT_REVIEW_RATING(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_EQUIPMENT_REVIEW_RATING, "장비 후기 평점은 1점부터 5점까지만 가능합니다."),
+    INVALID_EQUIPMENT_USAGE_MONTH(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_EQUIPMENT_USAGE_MONTH, "장비 사용 기간은 1개월 이상이어야 합니다.");
 
     private final HttpStatus httpStatus;
     private final ClientExceptionCode clientExceptionCode;

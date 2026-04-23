@@ -31,6 +31,7 @@ import java.time.LocalDateTime;
 public class EquipmentReview {
     private static final long MIN_RATING = 1L;
     private static final long MAX_RATING = 5L;
+    private static final int MIN_USAGE_MONTH = 1;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,8 +45,8 @@ public class EquipmentReview {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "usage_period", nullable = false, length = 50)
-    private String usagePeriod;
+    @Column(name = "usage_period", nullable = false)
+    private Integer usageMonth;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -62,41 +63,49 @@ public class EquipmentReview {
     @Builder
     private EquipmentReview(Long rating,
                             String content,
-                            String usagePeriod,
+                            Integer usageMonth,
                             Member member,
                             Equipment equipment) {
         validateRating(rating);
+        validateUsageMonth(usageMonth);
         this.rating = rating;
         this.content = content;
-        this.usagePeriod = usagePeriod;
+        this.usageMonth = usageMonth;
         this.member = member;
         this.equipment = equipment;
     }
 
     public static EquipmentReview create(Long rating,
                                          String content,
-                                         String usagePeriod,
+                                         Integer usageMonth,
                                          Member member,
                                          Equipment equipment) {
         return EquipmentReview.builder()
                 .rating(rating)
                 .content(content)
-                .usagePeriod(usagePeriod)
+                .usageMonth(usageMonth)
                 .member(member)
                 .equipment(equipment)
                 .build();
     }
 
-    public void update(Long rating, String content, String usagePeriod) {
+    public void update(Long rating, String content, Integer usageMonth) {
         validateRating(rating);
+        validateUsageMonth(usageMonth);
         this.rating = rating;
         this.content = content;
-        this.usagePeriod = usagePeriod;
+        this.usageMonth = usageMonth;
     }
 
     private void validateRating(Long rating) {
         if (rating == null || rating < MIN_RATING || rating > MAX_RATING) {
             throw new YbcException(ExceptionCode.INVALID_EQUIPMENT_REVIEW_RATING);
+        }
+    }
+
+    private void validateUsageMonth(Integer usageMonth) {
+        if (usageMonth == null || usageMonth < MIN_USAGE_MONTH) {
+            throw new YbcException(ExceptionCode.INVALID_EQUIPMENT_USAGE_MONTH);
         }
     }
 }

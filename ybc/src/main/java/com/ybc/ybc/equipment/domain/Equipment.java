@@ -51,4 +51,10 @@ public class Equipment {
                 .brand(brand)
                 .build();
     }
+
+    public void update(EquipmentCategory category, Brand brand, String name) {
+        this.category = category;
+        this.brand = brand;
+        this.name = name;
+    }
 }
