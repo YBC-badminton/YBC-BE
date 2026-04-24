@@ -8,8 +8,8 @@ public record EquipmentReviewCreateResponse(
         String category,
         String brandName,
         String productName,
-        Integer usageMonth,
-        Long rating,
+        int usageMonth,
+        int rating,
         String content,
         String writer,
         LocalDateTime createdAt

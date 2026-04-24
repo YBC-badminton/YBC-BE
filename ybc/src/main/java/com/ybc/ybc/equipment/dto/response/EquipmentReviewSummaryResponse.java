@@ -9,8 +9,8 @@ public record EquipmentReviewSummaryResponse(
         String category,
         String brandName,
         String productName,
-        Long rating,
-        Integer usageMonth,
+        int rating,
+        int usageMonth,
         String content,
         String memberNickname,
         LocalDateTime createdAt

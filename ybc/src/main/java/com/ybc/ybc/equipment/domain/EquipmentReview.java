@@ -34,14 +34,14 @@ public class EquipmentReview extends BaseEntity {
     private Long id;
 
     @Column(nullable = false)
-    private Long rating;
+    private int rating;
 
     @Lob
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Column(name = "usage_period", nullable = false)
-    private Integer usageMonth;
+    private int usageMonth;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "member_id", nullable = false)
@@ -52,9 +52,9 @@ public class EquipmentReview extends BaseEntity {
     private Equipment equipment;
 
     @Builder
-    private EquipmentReview(Long rating,
+    private EquipmentReview(int rating,
                             String content,
-                            Integer usageMonth,
+                            int usageMonth,
                             Member member,
                             Equipment equipment) {
         validateRating(rating);
@@ -66,7 +66,7 @@ public class EquipmentReview extends BaseEntity {
         this.equipment = equipment;
     }
 
-    public static EquipmentReview create(Long rating,
+    public static EquipmentReview create(int rating,
                                          String content,
                                          Integer usageMonth,
                                          Member member,
@@ -80,7 +80,7 @@ public class EquipmentReview extends BaseEntity {
                 .build();
     }
 
-    public void update(Long rating, String content, Integer usageMonth) {
+    public void update(int rating, String content, int usageMonth) {
         validateRating(rating);
         validateUsageMonth(usageMonth);
         this.rating = rating;
@@ -88,8 +88,8 @@ public class EquipmentReview extends BaseEntity {
         this.usageMonth = usageMonth;
     }
 
-    private void validateRating(Long rating) {
-        if (rating == null || rating < MIN_RATING || rating > MAX_RATING) {
+    private void validateRating(int rating) {
+        if (rating < MIN_RATING || rating > MAX_RATING) {
             throw new YbcException(ExceptionCode.INVALID_EQUIPMENT_REVIEW_RATING);
         }
     }
