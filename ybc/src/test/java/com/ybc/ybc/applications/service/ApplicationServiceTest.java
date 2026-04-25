@@ -42,6 +42,9 @@ class ApplicationServiceTest {
     @Mock
     private ClubMemberSyncService clubMemberSyncService;
 
+    @Mock
+    private ApplicationSubmissionMailService applicationSubmissionMailService;
+
     @InjectMocks
     private ApplicationService applicationService;
 
@@ -55,6 +58,7 @@ class ApplicationServiceTest {
 
         ArgumentCaptor<Application> applicationCaptor = ArgumentCaptor.forClass(Application.class);
         verify(applicationRepository).save(applicationCaptor.capture());
+        verify(applicationSubmissionMailService).sendApplicationSubmittedMail(applicationCaptor.getValue());
         verifyNoMoreInteractions(applicationRepository);
 
         Application savedApplication = applicationCaptor.getValue();
@@ -87,6 +91,7 @@ class ApplicationServiceTest {
 
         ArgumentCaptor<Application> applicationCaptor = ArgumentCaptor.forClass(Application.class);
         verify(applicationRepository).save(applicationCaptor.capture());
+        verify(applicationSubmissionMailService).sendApplicationSubmittedMail(applicationCaptor.getValue());
 
         assertThat(applicationCaptor.getValue().getInterviewTimes())
                 .containsExactly(FIRST_SESSION, SECOND_SESSION);
