@@ -173,6 +173,40 @@ class VoteServiceTest {
     }
 
     @Test
+    @DisplayName("특정 투표에서 참석 상태가 false인 회원 목록과 총원을 반환한다")
+    void getVoteAbsenteesReturnsAbsenteeList() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        Member firstMember = savedMember(2L, "2001");
+        Member secondMember = savedMember(3L, "2002");
+        ReflectionTestUtils.setField(firstMember, "nickname", "member-2001");
+        ReflectionTestUtils.setField(secondMember, "nickname", "member-2002");
+
+        VoteAttendance firstAttendance = VoteAttendance.builder()
+                .vote(vote)
+                .member(firstMember)
+                .attendanceStatus(false)
+                .build();
+        VoteAttendance secondAttendance = VoteAttendance.builder()
+                .vote(vote)
+                .member(secondMember)
+                .attendanceStatus(false)
+                .build();
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.findAllByVote_IdAndAttendanceStatusFalseOrderByIdAsc(1L))
+                .thenReturn(List.of(firstAttendance, secondAttendance));
+
+        VoteAttendeeListResponse response = voteService.getVoteAbsentees(1L);
+
+        assertThat(response.totalAttendeeCount()).isEqualTo(2L);
+        assertThat(response.attendees()).hasSize(2);
+        assertThat(response.attendees().get(0).memberId()).isEqualTo(2L);
+        assertThat(response.attendees().get(0).nickname()).isEqualTo("member-2001");
+        assertThat(response.attendees().get(1).memberId()).isEqualTo(3L);
+        assertThat(response.attendees().get(1).nickname()).isEqualTo("member-2002");
+    }
+
+    @Test
     @DisplayName("게스트 참여 정보를 생성한다")
     void createGuestSavesGuest() {
         Vote vote = savedVote(1L, "목요 정기 운동");

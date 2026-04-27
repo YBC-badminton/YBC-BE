@@ -74,6 +74,14 @@ public class VoteController {
     }
 
     /**
+     * 특정 투표에서 참석 상태가 false인 회원 목록을 조회하여 반환한다.
+     */
+    @GetMapping("/{voteId}/absentees")
+    public ResponseEntity<VoteAttendeeListResponse> getVoteAbsentees(@PathVariable Long voteId) {
+        return ResponseEntity.ok(voteService.getVoteAbsentees(voteId));
+    }
+
+    /**
      * 현재 로그인한 회원의 투표 참석 여부를 생성하거나 수정한다.
      */
     @PutMapping("/{voteId}/attendance")
