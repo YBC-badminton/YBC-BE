@@ -175,6 +175,30 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("특정 투표에서 참석 상태가 true인 회원 목록과 총원을 조회한다")
+    void getVoteAttendees() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        addAttendance(vote, true, "3001");
+        addAttendance(vote, true, "3002");
+        addAttendance(vote, false, "3003");
+
+        mockMvc.perform(get("/votes/{voteId}/attendees", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalAttendeeCount").value(2))
+                .andExpect(jsonPath("$.attendees.length()").value(2))
+                .andExpect(jsonPath("$.attendees[0].nickname").value("member-3001"))
+                .andExpect(jsonPath("$.attendees[0].memberId").isNumber())
+                .andExpect(jsonPath("$.attendees[1].nickname").value("member-3002"))
+                .andExpect(jsonPath("$.attendees[1].memberId").isNumber());
+    }
+
+    @Test
     @DisplayName("아직 응답하지 않은 회원의 투표 참석 여부는 null을 반환한다")
     void getVoteAttendanceReturnsNullWhenAttendanceIsMissing() throws Exception {
         Vote vote = voteRepository.save(vote(
@@ -438,6 +462,14 @@ class VoteControllerIntegrationTest {
     @DisplayName("인증되지 않은 사용자는 투표 참석 여부를 조회할 수 없다")
     void getVoteAttendanceRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/votes/{voteId}/attendance", 1L))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 참석 회원 목록을 조회할 수 없다")
+    void getVoteAttendeesRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/votes/{voteId}/attendees", 1L))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
     }

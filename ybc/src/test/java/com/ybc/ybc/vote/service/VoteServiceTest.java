@@ -12,6 +12,7 @@ import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
+import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteGuestListResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
@@ -135,6 +136,40 @@ class VoteServiceTest {
         VoteAttendanceStatusResponse response = voteService.getVoteAttendance(1L, 2L);
 
         assertThat(response.attendanceStatus()).isNull();
+    }
+
+    @Test
+    @DisplayName("특정 투표에서 참석 상태가 true인 회원 목록과 총원을 반환한다")
+    void getVoteAttendeesReturnsAttendeeList() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        Member firstMember = savedMember(2L, "2001");
+        Member secondMember = savedMember(3L, "2002");
+        ReflectionTestUtils.setField(firstMember, "nickname", "member-2001");
+        ReflectionTestUtils.setField(secondMember, "nickname", "member-2002");
+
+        VoteAttendance firstAttendance = VoteAttendance.builder()
+                .vote(vote)
+                .member(firstMember)
+                .attendanceStatus(true)
+                .build();
+        VoteAttendance secondAttendance = VoteAttendance.builder()
+                .vote(vote)
+                .member(secondMember)
+                .attendanceStatus(true)
+                .build();
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.findAllByVote_IdAndAttendanceStatusTrueOrderByIdAsc(1L))
+                .thenReturn(List.of(firstAttendance, secondAttendance));
+
+        VoteAttendeeListResponse response = voteService.getVoteAttendees(1L);
+
+        assertThat(response.totalAttendeeCount()).isEqualTo(2L);
+        assertThat(response.attendees()).hasSize(2);
+        assertThat(response.attendees().get(0).memberId()).isEqualTo(2L);
+        assertThat(response.attendees().get(0).nickname()).isEqualTo("member-2001");
+        assertThat(response.attendees().get(1).memberId()).isEqualTo(3L);
+        assertThat(response.attendees().get(1).nickname()).isEqualTo("member-2002");
     }
 
     @Test

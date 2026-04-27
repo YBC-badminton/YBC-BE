@@ -10,6 +10,7 @@ import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
+import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteGuestListResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
@@ -75,6 +76,16 @@ public class VoteService {
                 .map(VoteAttendance::isAttendanceStatus)
                 .orElse(null);
         return VoteAttendanceStatusResponse.from(attendanceStatus);
+    }
+
+    /**
+     * 특정 투표에서 참석 상태가 true인 회원 목록과 총 참석 인원 수를 조회하여 반환한다.
+     */
+    public VoteAttendeeListResponse getVoteAttendees(Long voteId) {
+        getVoteEntity(voteId);
+        return VoteAttendeeListResponse.from(
+                voteAttendanceRepository.findAllByVote_IdAndAttendanceStatusTrueOrderByIdAsc(voteId)
+        );
     }
 
     /**
