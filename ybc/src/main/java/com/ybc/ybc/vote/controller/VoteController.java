@@ -4,6 +4,7 @@ import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
+import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteGuestListResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
@@ -62,6 +63,22 @@ public class VoteController {
     public ResponseEntity<VoteAttendanceStatusResponse> getVoteAttendance(@PathVariable Long voteId,
                                                                           @AuthenticationPrincipal MemberPrincipal memberPrincipal) {
         return ResponseEntity.ok(voteService.getVoteAttendance(voteId, memberPrincipal.getId()));
+    }
+
+    /**
+     * 특정 투표에서 참석 상태가 true인 회원 목록을 조회하여 반환한다.
+     */
+    @GetMapping("/{voteId}/attendees")
+    public ResponseEntity<VoteAttendeeListResponse> getVoteAttendees(@PathVariable Long voteId) {
+        return ResponseEntity.ok(voteService.getVoteAttendees(voteId));
+    }
+
+    /**
+     * 특정 투표에서 참석 상태가 false인 회원 목록을 조회하여 반환한다.
+     */
+    @GetMapping("/{voteId}/absentees")
+    public ResponseEntity<VoteAttendeeListResponse> getVoteAbsentees(@PathVariable Long voteId) {
+        return ResponseEntity.ok(voteService.getVoteAbsentees(voteId));
     }
 
     /**
