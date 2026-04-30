@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -24,8 +25,8 @@ public class AdminApplicationController {
      * 지원서 리스트 조회
      */
     @GetMapping
-    public ApplicantListResponse getApplicants() {
-        return applicationService.getApplicants();
+    public ApplicantListResponse getApplicants(@RequestParam(required = false) String term) {
+        return applicationService.getApplicants(term);
     }
 
     /**

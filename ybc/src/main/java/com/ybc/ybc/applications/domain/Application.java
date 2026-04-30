@@ -1,6 +1,7 @@
 package com.ybc.ybc.applications.domain;
 
 import com.ybc.ybc.global.domain.BaseEntity;
+import com.ybc.ybc.global.util.PhoneNumberUtils;
 import jakarta.persistence.*;
 import lombok.Builder;
 import static lombok.AccessLevel.PROTECTED;
@@ -12,6 +13,13 @@ import java.util.List;
 
 @Entity
 @Getter
+@Table(
+        name = "application",
+        indexes = {
+                @Index(name = "idx_application_name_normalized_phone_id", columnList = "name, normalized_phone, id"),
+                @Index(name = "idx_application_term_created_at_id", columnList = "term, created_at, id")
+        }
+)
 @NoArgsConstructor(access = PROTECTED)
 public class Application extends BaseEntity {
     @Id
@@ -33,6 +41,12 @@ public class Application extends BaseEntity {
 
     @Column(nullable = false)
     private String phone;
+
+    @Column(name = "normalized_phone", length = 30)
+    private String normalizedPhone;
+
+    @Column(nullable = false, length = 30)
+    private String term;
 
     @Column(nullable = false)
     private String university;
@@ -77,6 +91,7 @@ public class Application extends BaseEntity {
                        Gender gender,
                        int age,
                        String phone,
+                       String term,
                        String university,
                        String major,
                        String introduction,
@@ -93,7 +108,8 @@ public class Application extends BaseEntity {
         this.address = address;
         this.gender = gender;
         this.age = age;
-        this.phone = phone;
+        applyPhoneNumber(phone);
+        this.term = term;
         this.university = university;
         this.major = major;
         this.introduction = introduction;
@@ -107,6 +123,12 @@ public class Application extends BaseEntity {
         this.email = email;
     }
 
+    @PrePersist
+    @PreUpdate
+    private void syncNormalizedPhone() {
+        applyPhoneNumber(phone);
+    }
+
     public void addInterviewTime(InterviewTime time) {
         interviewTimes.add(time);
     }
@@ -117,5 +139,11 @@ public class Application extends BaseEntity {
 
     public Status getStatusOrDefault() {
         return status == null ? Status.NONE : status;
+    }
+
+    private void applyPhoneNumber(String phone) {
+        String normalizedPhoneNumber = PhoneNumberUtils.normalize(phone);
+        this.phone = normalizedPhoneNumber;
+        this.normalizedPhone = normalizedPhoneNumber;
     }
 }

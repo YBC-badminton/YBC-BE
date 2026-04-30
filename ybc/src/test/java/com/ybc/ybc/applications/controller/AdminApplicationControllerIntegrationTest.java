@@ -10,13 +10,16 @@ import com.ybc.ybc.applications.domain.Status;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
 import com.ybc.ybc.members.domain.ClubMember;
 import com.ybc.ybc.members.repository.ClubMemberRepository;
+import com.ybc.ybc.support.TestMailConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(TestMailConfig.class)
 class AdminApplicationControllerIntegrationTest {
     private static final String ADMIN_APPLICATIONS_API = "/admin/applications";
 
@@ -45,6 +49,9 @@ class AdminApplicationControllerIntegrationTest {
 
     @Autowired
     private ClubMemberRepository clubMemberRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
@@ -59,8 +66,8 @@ class AdminApplicationControllerIntegrationTest {
     @Test
     @DisplayName("인증된 사용자는 지원자 목록을 조회할 수 있다")
     void getApplicantsReturnsApplicantListWhenAuthenticated() throws Exception {
-        Application firstApplication = saveApplication("김철수", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
-        Application secondApplication = saveApplication("이영희", Status.FIRST_PASS, Gender.FEMALE, DiscoverySource.EVERYTIME);
+        Application firstApplication = saveApplication("김철수", "10기", "010-1234-5678", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
+        Application secondApplication = saveApplication("이영희", "10기", "010-8888-9999", Status.FIRST_PASS, Gender.FEMALE, DiscoverySource.EVERYTIME);
 
         mockMvc.perform(get(ADMIN_APPLICATIONS_API)
                         .with(authorizedUser()))
@@ -68,6 +75,8 @@ class AdminApplicationControllerIntegrationTest {
                 .andExpect(jsonPath("$.totalCount").value(2))
                 .andExpect(jsonPath("$.applicants[0].applicationId").value(secondApplication.getId()))
                 .andExpect(jsonPath("$.applicants[0].name").value("이영희"))
+                .andExpect(jsonPath("$.applicants[0].term").value("10기"))
+                .andExpect(jsonPath("$.applicants[0].isReapplicant").value(false))
                 .andExpect(jsonPath("$.applicants[0].gender").value("여성"))
                 .andExpect(jsonPath("$.applicants[0].status").value("FIRST_PASS"))
                 .andExpect(jsonPath("$.applicants[0].createdAt").value(format(secondApplication.getCreatedAt())))
@@ -78,15 +87,18 @@ class AdminApplicationControllerIntegrationTest {
     @Test
     @DisplayName("인증된 사용자는 지원자 상세 정보를 조회할 수 있다")
     void getApplicantReturnsApplicantDetailWhenAuthenticated() throws Exception {
-        Application application = saveApplication("김철수", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
+        Application application = saveApplication("김철수", "10기", "010-1234-5678", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
 
         mockMvc.perform(get(ADMIN_APPLICATIONS_API + "/{applicationId}", application.getId())
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.applicationId").value(application.getId()))
                 .andExpect(jsonPath("$.name").value("김철수"))
+                .andExpect(jsonPath("$.term").value("10기"))
+                .andExpect(jsonPath("$.isReapplicant").value(false))
                 .andExpect(jsonPath("$.address").value("서울 강서구"))
                 .andExpect(jsonPath("$.gender").value("남성"))
+                .andExpect(jsonPath("$.phone").value("010-1234-5678"))
                 .andExpect(jsonPath("$.discoverySource").value("인스타그램"))
                 .andExpect(jsonPath("$.interviewAvailableTimes[0]").value("앞타임"))
                 .andExpect(jsonPath("$.interviewAvailableTimes[1]").value("뒷타임"))
@@ -96,9 +108,31 @@ class AdminApplicationControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("기수로 지원자 목록을 필터링하고 재지원자 여부를 함께 조회할 수 있다")
+    void getApplicantsFiltersByTermAndMarksReapplicant() throws Exception {
+        Application previousApplicant = saveApplication("김철수", "9기", "01012345678", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
+        jdbcTemplate.update("update application set phone = ?, normalized_phone = null where id = ?",
+                "010-1234-5678",
+                previousApplicant.getId());
+        applicationRepository.backfillNormalizedPhone();
+        Application reapplicant = saveApplication("김철수", "10기", "01012345678", Status.FIRST_PASS, Gender.MALE, DiscoverySource.INSTAGRAM);
+        saveApplication("박민수", "9기", "010-5555-6666", Status.NONE, Gender.MALE, DiscoverySource.EVERYTIME);
+
+        mockMvc.perform(get(ADMIN_APPLICATIONS_API)
+                        .param("term", "10기")
+                        .with(authorizedUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.applicants[0].applicationId").value(reapplicant.getId()))
+                .andExpect(jsonPath("$.applicants[0].term").value("10기"))
+                .andExpect(jsonPath("$.applicants[0].isReapplicant").value(true))
+                .andExpect(jsonPath("$.applicants[0].phone").value("010-1234-5678"));
+    }
+
+    @Test
     @DisplayName("인증된 사용자는 지원자 상태를 수정할 수 있다")
     void updateApplicantStatusUpdatesStatusWhenAuthenticated() throws Exception {
-        Application application = saveApplication("김철수", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
+        Application application = saveApplication("김철수", "10기", "010-1234-5678", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
 
         mockMvc.perform(patch(ADMIN_APPLICATIONS_API + "/{applicationId}", application.getId())
                         .with(authorizedUser())
@@ -115,7 +149,7 @@ class AdminApplicationControllerIntegrationTest {
     @Test
     @DisplayName("지원자 상태가 최종 합격이 되면 부원 명단에 자동 추가된다")
     void updateApplicantStatusCreatesClubMemberWhenStatusBecomesFinalPass() throws Exception {
-        Application application = saveApplication("김철수", Status.FIRST_PASS, Gender.MALE, DiscoverySource.INSTAGRAM);
+        Application application = saveApplication("김철수", "10기", "010-1234-5678", Status.FIRST_PASS, Gender.MALE, DiscoverySource.INSTAGRAM);
 
         mockMvc.perform(patch(ADMIN_APPLICATIONS_API + "/{applicationId}", application.getId())
                         .with(authorizedUser())
@@ -127,7 +161,7 @@ class AdminApplicationControllerIntegrationTest {
         ClubMember clubMember = clubMemberRepository.findByApplicationId(application.getId()).orElseThrow();
         assertThat(clubMember.getName()).isEqualTo("김철수");
         assertThat(clubMember.getUniversity()).isEqualTo("한국대학교");
-        assertThat(clubMember.getPhone()).isEqualTo("010-1234-5678");
+        assertThat(clubMember.getPhone()).isEqualTo("01012345678");
         assertThat(clubMember.getAge()).isEqualTo(expectedBirthYear(24));
         assertThat(clubMember.getTerm()).isEqualTo("미정");
         assertThat(clubMember.getCourt()).isNull();
@@ -136,7 +170,7 @@ class AdminApplicationControllerIntegrationTest {
     @Test
     @DisplayName("지원자 상태가 최종 합격에서 변경되면 부원 명단에서 자동 삭제된다")
     void updateApplicantStatusDeletesClubMemberWhenStatusLeavesFinalPass() throws Exception {
-        Application application = saveApplication("김철수", Status.FIRST_PASS, Gender.MALE, DiscoverySource.INSTAGRAM);
+        Application application = saveApplication("김철수", "10기", "010-1234-5678", Status.FIRST_PASS, Gender.MALE, DiscoverySource.INSTAGRAM);
 
         mockMvc.perform(patch(ADMIN_APPLICATIONS_API + "/{applicationId}", application.getId())
                         .with(authorizedUser())
@@ -168,7 +202,7 @@ class AdminApplicationControllerIntegrationTest {
     @Test
     @DisplayName("유효하지 않은 지원자 상태값이면 400을 반환한다")
     void updateApplicantStatusReturnsBadRequestWhenStatusIsInvalid() throws Exception {
-        Application application = saveApplication("김철수", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
+        Application application = saveApplication("김철수", "10기", "010-1234-5678", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
 
         mockMvc.perform(patch(ADMIN_APPLICATIONS_API + "/{applicationId}", application.getId())
                         .with(authorizedUser())
@@ -190,6 +224,8 @@ class AdminApplicationControllerIntegrationTest {
     }
 
     private Application saveApplication(String name,
+                                        String term,
+                                        String phone,
                                         Status status,
                                         Gender gender,
                                         DiscoverySource discoverySource) {
@@ -198,7 +234,8 @@ class AdminApplicationControllerIntegrationTest {
                 .address("서울 강서구")
                 .gender(gender)
                 .age(24)
-                .phone("010-1234-5678")
+                .phone(phone)
+                .term(term)
                 .university("한국대학교")
                 .major("컴퓨터공학과")
                 .introduction("성실하게 활동할 자신 있습니다...")

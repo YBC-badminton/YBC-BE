@@ -3,6 +3,7 @@ package com.ybc.ybc.auth.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.ybc.ybc.support.TestMailConfig;
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.dto.KakaoUserProfile;
@@ -41,7 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(AuthControllerIntegrationTest.MockConfig.class)
+@Import({AuthControllerIntegrationTest.MockConfig.class, TestMailConfig.class})
 class AuthControllerIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
