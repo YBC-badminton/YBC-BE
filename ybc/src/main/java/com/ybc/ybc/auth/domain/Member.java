@@ -41,7 +41,7 @@ public class Member extends BaseEntity {
 
     @Column(nullable = false, length = 100)
     private String nickname;
-커
+
     @Column(length = 255)
     private String email;
 
