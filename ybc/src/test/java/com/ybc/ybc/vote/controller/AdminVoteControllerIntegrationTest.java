@@ -6,6 +6,7 @@ import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.repository.MemberRepository;
+import com.ybc.ybc.support.TestMailConfig;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
@@ -42,6 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(TestMailConfig.class)
 class AdminVoteControllerIntegrationTest {
     private static final String ADMIN_VOTES_API = "/admin/votes";
 
