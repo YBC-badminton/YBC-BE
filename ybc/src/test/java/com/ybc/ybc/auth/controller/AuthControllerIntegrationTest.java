@@ -8,6 +8,7 @@ import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.dto.KakaoUserProfile;
 import com.ybc.ybc.auth.repository.MemberRepository;
 import com.ybc.ybc.auth.service.KakaoApiClient;
+import com.ybc.ybc.support.TestMailConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -41,7 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(AuthControllerIntegrationTest.MockConfig.class)
+@Import({AuthControllerIntegrationTest.MockConfig.class, TestMailConfig.class})
 class AuthControllerIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
