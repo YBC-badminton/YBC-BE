@@ -14,7 +14,10 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST}
-      port: 6379
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
   mail:
     host: ${MAIL_HOST}
     port: ${MAIL_PORT}
