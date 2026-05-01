@@ -1,9 +1,9 @@
 spring:
   datasource:
     driver-class-name: ${BENCHMARK_DB_DRIVER:org.h2.Driver}
-    url: ${BENCHMARK_DB_URL:jdbc:h2:mem:ybc-benchmark;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
-    username: ${DB_USERNAME:sa}
-    password: ${DB_PASSWORD:}
+    url: ${BENCHMARK_DB_URL:jdbc:h2:mem:ybc-benchmark;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${BENCHMARK_DB_USERNAME:sa}
+    password: ${BENCHMARK_DB_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: ${BENCHMARK_JPA_DDL_AUTO:create-drop}
