@@ -137,6 +137,52 @@ class EquipmentReviewControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("사용 개월 수가 누락되면 장비 후기 생성에 실패한다")
+    void createEquipmentReviewThrowsWhenUsageMonthIsMissing() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "강태호", "3001@example.com")
+        );
+
+        mockMvc.perform(post("/reviews")
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "category": "ACCESSORY",
+                                  "brandName": "WILSON",
+                                  "productName": "프로 오버그립",
+                                  "rating": 4,
+                                  "content": "후기입니다."
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("사용 개월 수는 필수입니다."));
+    }
+
+    @Test
+    @DisplayName("평점이 누락되면 장비 후기 생성에 실패한다")
+    void createEquipmentReviewThrowsWhenRatingIsMissing() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "강태호", "3001@example.com")
+        );
+
+        mockMvc.perform(post("/reviews")
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "category": "ACCESSORY",
+                                  "brandName": "WILSON",
+                                  "productName": "프로 오버그립",
+                                  "usageMonth": 1,
+                                  "content": "후기입니다."
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("평점은 필수입니다."));
+    }
+
+    @Test
     @DisplayName("인증되지 않은 사용자는 장비 후기를 생성할 수 없다")
     void createEquipmentReviewRequiresAuthentication() throws Exception {
         mockMvc.perform(post("/reviews")

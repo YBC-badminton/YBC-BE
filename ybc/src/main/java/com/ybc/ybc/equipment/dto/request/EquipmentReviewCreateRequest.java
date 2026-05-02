@@ -18,12 +18,12 @@ public record EquipmentReviewCreateRequest(
 
         @NotNull(message = "사용 개월 수는 필수입니다.")
         @Min(value = 1, message = "사용 개월 수는 1 이상이어야 합니다.")
-        int usageMonth,
+        Integer usageMonth,
 
         @NotNull(message = "평점은 필수입니다.")
         @Min(value = 1, message = "평점은 1 이상이어야 합니다.")
         @Max(value = 5, message = "평점은 5 이하여야 합니다.")
-        int rating,
+        Integer rating,
 
         @NotBlank(message = "후기 내용은 필수입니다.")
         String content
