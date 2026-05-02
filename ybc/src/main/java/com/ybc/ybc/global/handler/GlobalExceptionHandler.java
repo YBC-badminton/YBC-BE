@@ -4,6 +4,8 @@ import com.ybc.ybc.global.exception.ExceptionResponseFactory;
 import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.global.exception.dto.ExceptionResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -12,6 +14,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+import java.util.Optional;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -30,6 +34,19 @@ public class GlobalExceptionHandler {
         if (fieldError != null) {
             errorMessage = fieldError.getDefaultMessage();
         }
+
+        ExceptionResponse response = ExceptionResponseFactory.badRequest(errorMessage, request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ExceptionResponse> handleConstraintViolationException(ConstraintViolationException e,
+                                                                                HttpServletRequest request) {
+        String errorMessage = Optional.ofNullable(e.getConstraintViolations())
+                .flatMap(violations -> violations.stream()
+                        .findFirst()
+                        .map(ConstraintViolation::getMessage))
+                .orElse("유효하지 않은 입력입니다.");
 
         ExceptionResponse response = ExceptionResponseFactory.badRequest(errorMessage, request.getRequestURI());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);

@@ -16,7 +16,7 @@ class EquipmentReviewTest {
     @DisplayName("장비 후기는 평점이 1 이상 5 이하여야 한다")
     void createFailsWhenRatingIsOutOfRange() {
         assertThatThrownBy(() -> EquipmentReview.create(
-                6L,
+                6,
                 "리뷰 내용",
                 12,
                 createMember(),
@@ -30,14 +30,14 @@ class EquipmentReviewTest {
     @DisplayName("유효한 평점이면 장비 후기를 생성한다")
     void createSucceedsWhenRatingIsValid() {
         EquipmentReview review = EquipmentReview.create(
-                5L,
+                5,
                 "리뷰 내용",
                 12,
                 createMember(),
                 createEquipment()
         );
 
-        assertThat(review.getRating()).isEqualTo(5L);
+        assertThat(review.getRating()).isEqualTo(5);
         assertThat(review.getContent()).isEqualTo("리뷰 내용");
         assertThat(review.getUsageMonth()).isEqualTo(12);
     }

@@ -77,7 +77,7 @@ class EquipmentReviewControllerIntegrationTest {
                 "WILSON",
                 "프로 오버그립",
                 1,
-                4L,
+                4,
                 "땀 흡수가 잘 되고 그립감이 좋습니다. 교체하기도 쉽고 가격도 합리적이에요. 다만 흰색이라 금방 더러워지는 게 단점입니다."
         );
 
@@ -102,7 +102,7 @@ class EquipmentReviewControllerIntegrationTest {
         assertThat(review.getEquipment().getBrand().getName()).isEqualTo("WILSON");
         assertThat(review.getEquipment().getName()).isEqualTo("프로 오버그립");
         assertThat(review.getUsageMonth()).isEqualTo(1);
-        assertThat(review.getRating()).isEqualTo(4L);
+        assertThat(review.getRating()).isEqualTo(4);
     }
 
     @Test
@@ -124,7 +124,7 @@ class EquipmentReviewControllerIntegrationTest {
                                 "WILSON",
                                 "프로 오버그립",
                                 1,
-                                4L,
+                                4,
                                 "후기입니다."
                         ))))
                 .andExpect(status().isCreated());
@@ -146,7 +146,7 @@ class EquipmentReviewControllerIntegrationTest {
                                 "WILSON",
                                 "프로 오버그립",
                                 1,
-                                4L,
+                                4,
                                 "후기입니다."
                         ))))
                 .andExpect(status().isUnauthorized())
@@ -172,7 +172,7 @@ class EquipmentReviewControllerIntegrationTest {
         );
         EquipmentReview reviewOne = equipmentReviewRepository.save(
                 EquipmentReview.create(
-                        5L,
+                        5,
                         "헤드헤비 라켓이지만 스윙이 편하고 파워가 좋습니다. 특히 스매싱할 때 위력이 엄청나요. 처음엔 무게감이 느껴졌지만 적응하고 나니 제 실력이 한 단계 올라간 느낌입니다. 중급자 이상에게 강력 추천합니다.",
                         6,
                         memberOne,
@@ -181,7 +181,7 @@ class EquipmentReviewControllerIntegrationTest {
         );
         EquipmentReview reviewTwo = equipmentReviewRepository.save(
                 EquipmentReview.create(
-                        4L,
+                        4,
                         "쿠션감이 좋고 발목 지지력이 탁월합니다. 장시간 경기에도 발이 편하고 미끄럼 방지 기능이 우수해요. 다만 내구성이 조금 아쉽습니다.",
                         12,
                         memberTwo,
@@ -239,13 +239,13 @@ class EquipmentReviewControllerIntegrationTest {
                 Equipment.create("P9200TD", EquipmentCategory.SHOES, victor)
         );
         EquipmentReview olderReview = equipmentReviewRepository.save(
-                EquipmentReview.create(4L, "오래된 라켓 후기", 4, member, racketOne)
+                EquipmentReview.create(4, "오래된 라켓 후기", 4, member, racketOne)
         );
         EquipmentReview newerReview = equipmentReviewRepository.save(
-                EquipmentReview.create(5L, "최신 라켓 후기", 8, member, racketTwo)
+                EquipmentReview.create(5, "최신 라켓 후기", 8, member, racketTwo)
         );
         equipmentReviewRepository.save(
-                EquipmentReview.create(3L, "신발 후기", 12, member, shoes)
+                EquipmentReview.create(3, "신발 후기", 12, member, shoes)
         );
         updateReviewTimestamps(olderReview.getId(), LocalDateTime.of(2026, 3, 10, 10, 0), LocalDateTime.of(2026, 3, 10, 10, 0));
         updateReviewTimestamps(newerReview.getId(), LocalDateTime.of(2026, 3, 20, 10, 0), LocalDateTime.of(2026, 3, 20, 10, 0));
@@ -278,6 +278,34 @@ class EquipmentReviewControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("페이지 번호가 0보다 작으면 장비 후기 목록 조회에 실패한다")
+    void getEquipmentReviewsThrowsWhenPageIsNegative() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "김민수", "3001@example.com")
+        );
+
+        mockMvc.perform(get("/reviews")
+                        .with(authenticatedMember(member))
+                        .param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("페이지 번호는 0 이상이어야 합니다."));
+    }
+
+    @Test
+    @DisplayName("페이지 크기가 1보다 작으면 장비 후기 목록 조회에 실패한다")
+    void getEquipmentReviewsThrowsWhenSizeIsLessThanOne() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "김민수", "3001@example.com")
+        );
+
+        mockMvc.perform(get("/reviews")
+                        .with(authenticatedMember(member))
+                        .param("size", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("페이지 크기는 1 이상이어야 합니다."));
+    }
+
+    @Test
     @DisplayName("인증되지 않은 사용자는 장비 후기 목록을 조회할 수 없다")
     void getEquipmentReviewsRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/reviews"))
@@ -297,7 +325,7 @@ class EquipmentReviewControllerIntegrationTest {
         );
         EquipmentReview review = equipmentReviewRepository.save(
                 EquipmentReview.create(
-                        5L,
+                        5,
                         "헤드헤비 라켓이지만 스윙이 편하고 파워가 좋습니다. 특히 스매싱할 때 위력이 엄청나요. 처음엔 무게감이 느껴졌지만 적응하고 나니 제 실력이 한 단계 올라간 느낌입니다. 중급자 이상에게 강력 추천합니다.",
                         6,
                         author,
@@ -340,7 +368,7 @@ class EquipmentReviewControllerIntegrationTest {
                 Equipment.create("아스트록스 99 프로", EquipmentCategory.RACKET, brand)
         );
         EquipmentReview review = equipmentReviewRepository.save(
-                EquipmentReview.create(5L, "후기입니다.", 6, author, equipment)
+                EquipmentReview.create(5, "후기입니다.", 6, author, equipment)
         );
 
         mockMvc.perform(get("/reviews/{reviewId}", review.getId())
