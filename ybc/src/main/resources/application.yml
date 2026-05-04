@@ -13,12 +13,7 @@ spring:
     show-sql: true
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-      username: ${REDIS_USERNAME:}
-      password: ${REDIS_PASSWORD:}
-      ssl:
-        enabled: ${REDIS_SSL_ENABLED:true}
+      url: ${SPRING_DATA_REDIS_URL:redis://localhost:6379}
   mail:
     host: ${MAIL_HOST}
     port: ${MAIL_PORT}
