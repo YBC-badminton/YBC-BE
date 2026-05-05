@@ -9,7 +9,6 @@ import com.ybc.ybc.applications.dto.response.ApplicantSummaryResponse;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
-import com.ybc.ybc.global.util.PhoneNumberUtils;
 import com.ybc.ybc.members.service.ClubMemberSyncService;
 import com.ybc.ybc.recruitments.repository.RecruitmentRepository;
 import lombok.RequiredArgsConstructor;
@@ -102,7 +101,7 @@ public class ApplicationService {
     private boolean isReapplicant(Application application) {
         return applicationRepository.existsReapplicantHistory(
                 application.getName(),
-                PhoneNumberUtils.normalize(application.getPhone()),
+                application.getPhone(),
                 application.getId(),
                 normalizeTerm(application.getTerm())
         );

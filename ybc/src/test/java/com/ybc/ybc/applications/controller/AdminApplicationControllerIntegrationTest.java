@@ -19,7 +19,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,9 +48,6 @@ class AdminApplicationControllerIntegrationTest {
 
     @Autowired
     private ClubMemberRepository clubMemberRepository;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
 
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
@@ -110,11 +106,7 @@ class AdminApplicationControllerIntegrationTest {
     @Test
     @DisplayName("기수로 지원자 목록을 필터링하고 재지원자 여부를 함께 조회할 수 있다")
     void getApplicantsFiltersByTermAndMarksReapplicant() throws Exception {
-        Application previousApplicant = saveApplication("김철수", "9기", "01012345678", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
-        jdbcTemplate.update("update application set phone = ?, normalized_phone = null where id = ?",
-                "010-1234-5678",
-                previousApplicant.getId());
-        applicationRepository.backfillNormalizedPhone();
+        saveApplication("김철수", "9기", "01012345678", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
         Application reapplicant = saveApplication("김철수", "10기", "01012345678", Status.FIRST_PASS, Gender.MALE, DiscoverySource.INSTAGRAM);
         saveApplication("박민수", "9기", "010-5555-6666", Status.NONE, Gender.MALE, DiscoverySource.EVERYTIME);
 

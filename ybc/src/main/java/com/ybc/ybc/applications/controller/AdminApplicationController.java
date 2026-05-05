@@ -21,7 +21,7 @@ public class AdminApplicationController {
     private final ApplicationService applicationService;
 
     /**
-     * GET /aamin/applications
+     * GET /admin/applications
      * 지원서 리스트 조회
      */
     @GetMapping

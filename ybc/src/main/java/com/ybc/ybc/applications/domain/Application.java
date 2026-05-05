@@ -16,7 +16,7 @@ import java.util.List;
 @Table(
         name = "application",
         indexes = {
-                @Index(name = "idx_application_name_normalized_phone_id", columnList = "name, normalized_phone, id"),
+                @Index(name = "idx_application_name_phone_id", columnList = "name, phone, id"),
                 @Index(name = "idx_application_term_created_at_id", columnList = "term, created_at, id")
         }
 )
@@ -41,9 +41,6 @@ public class Application extends BaseEntity {
 
     @Column(nullable = false)
     private String phone;
-
-    @Column(name = "normalized_phone", length = 30)
-    private String normalizedPhone;
 
     @Column(nullable = false, length = 30)
     private String term;
@@ -125,8 +122,8 @@ public class Application extends BaseEntity {
 
     @PrePersist
     @PreUpdate
-    private void syncNormalizedPhone() {
-        applyPhoneNumber(phone);
+    private void normalizePhone() {
+        this.phone = PhoneNumberUtils.normalize(phone);
     }
 
     public void addInterviewTime(InterviewTime time) {
@@ -142,8 +139,6 @@ public class Application extends BaseEntity {
     }
 
     private void applyPhoneNumber(String phone) {
-        String normalizedPhoneNumber = PhoneNumberUtils.normalize(phone);
-        this.phone = normalizedPhoneNumber;
-        this.normalizedPhone = normalizedPhoneNumber;
+        this.phone = PhoneNumberUtils.normalize(phone);
     }
 }
