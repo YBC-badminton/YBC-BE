@@ -2,6 +2,8 @@ package com.ybc.ybc.vote.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -33,9 +35,17 @@ public class VoteMatch {
     @JoinColumn(name = "match_group_id", nullable = false)
     private VoteMatchGroup matchGroup;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "participant_type", nullable = false, length = 20)
+    private MatchParticipantType participantType;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vote_attendance_id", nullable = false)
+    @JoinColumn(name = "vote_attendance_id")
     private VoteAttendance voteAttendance;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "guest_id")
+    private Guest guest;
 
     @Column(name = "court_number", nullable = false)
     private Integer courtNumber;
@@ -49,13 +59,17 @@ public class VoteMatch {
     @Builder
     public VoteMatch(Vote vote,
                      VoteMatchGroup matchGroup,
+                     MatchParticipantType participantType,
                      VoteAttendance voteAttendance,
+                     Guest guest,
                      Integer courtNumber,
                      Integer matchNumber,
                      Integer teamNumber) {
         this.vote = vote;
         this.matchGroup = matchGroup;
+        this.participantType = participantType;
         this.voteAttendance = voteAttendance;
+        this.guest = guest;
         this.courtNumber = courtNumber;
         this.matchNumber = matchNumber;
         this.teamNumber = teamNumber;

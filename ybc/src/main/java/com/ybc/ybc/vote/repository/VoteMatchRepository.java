@@ -18,8 +18,9 @@ public interface VoteMatchRepository extends JpaRepository<VoteMatch, Long> {
             join fetch vm.matchGroup mg
             join fetch mg.vote
             join fetch vm.vote
-            join fetch vm.voteAttendance va
-            join fetch va.member
+            left join fetch vm.voteAttendance va
+            left join fetch va.member
+            left join fetch vm.guest g
             where mg.id = :matchId
             order by vm.courtNumber asc, vm.matchNumber asc, vm.teamNumber asc, vm.id asc
             """)

@@ -35,6 +35,9 @@ public class ClubMember {
     @Column(name = "application_id", unique = true)
     private Long applicationId;
 
+    @Column(name = "member_id", unique = true)
+    private Long memberId;
+
     @Column(nullable = false, length = 100)
     private String name;
 
@@ -62,6 +65,7 @@ public class ClubMember {
 
     @Builder
     private ClubMember(Long applicationId,
+                       Long memberId,
                        String name,
                        String university,
                        String phone,
@@ -72,6 +76,7 @@ public class ClubMember {
                        Integer court) {
         validateCourt(court);
         this.applicationId = applicationId;
+        this.memberId = memberId;
         this.name = name;
         this.university = university;
         this.phone = phone;
@@ -190,6 +195,13 @@ public class ClubMember {
         if (this.term == null || this.term.isBlank()) {
             this.term = DEFAULT_TERM;
         }
+    }
+
+    public void linkMember(Long memberId) {
+        if (memberId == null || this.memberId != null) {
+            return;
+        }
+        this.memberId = memberId;
     }
 
     public Integer getCourt() {

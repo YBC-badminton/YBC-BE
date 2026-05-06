@@ -21,12 +21,14 @@ import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
 import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
+import com.ybc.ybc.support.TestMailConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
@@ -50,6 +52,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(TestMailConfig.class)
 class AdminVoteControllerIntegrationTest {
     private static final String ADMIN_VOTES_API = "/admin/votes";
     private static final String ADMIN_MATCHES_API = "/admin/matches";
@@ -386,8 +389,8 @@ class AdminVoteControllerIntegrationTest {
                 "courtNumber", 1,
                 "courtMatches", List.of(Map.of(
                         "matchNumber", 1,
-                        "team1", List.of(first.getId(), second.getId()),
-                        "team2", List.of(third.getId(), fourth.getId())
+                        "team1", List.of(memberParticipant(first.getId()), memberParticipant(second.getId())),
+                        "team2", List.of(memberParticipant(third.getId()), memberParticipant(fourth.getId()))
                 ))
         ));
 
@@ -426,6 +429,44 @@ class AdminVoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("인증된 사용자는 게스트를 포함한 대진을 등록할 수 있다")
+    void registerMatchesSupportsGuestParticipants() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "게스트 포함 대진 등록용 정기 운동",
+                LocalDate.now().minusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                20
+        ));
+        VoteAttendance first = addMatchParticipant(vote, "guest-match-1001", "김철수", Gender.MALE);
+        VoteAttendance second = addMatchParticipant(vote, "guest-match-1002", "이영희", Gender.FEMALE);
+        VoteAttendance third = addMatchParticipant(vote, "guest-match-1003", "박민수", Gender.MALE);
+        Guest guest = addGuest(vote, "guest-host-1001", "게스트1");
+        List<Map<String, Object>> requestBody = List.of(Map.of(
+                "courtNumber", 1,
+                "courtMatches", List.of(Map.of(
+                        "matchNumber", 1,
+                        "team1", List.of(memberParticipant(first.getId()), memberParticipant(second.getId())),
+                        "team2", List.of(memberParticipant(third.getId()), guestParticipant(guest.getId()))
+                ))
+        ));
+
+        mockMvc.perform(post(ADMIN_VOTES_API + "/{voteId}/matches", vote.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBody)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[0].name").value("김철수"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[1].name").value("이영희"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[0].name").value("박민수"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].name").value("게스트1"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].gender").value("FEMALE"));
+
+        assertThat(voteMatchRepository.findAll()).hasSize(4);
+    }
+
+    @Test
     @DisplayName("투표 참석자가 아닌 식별자로 대진 등록 시 400을 반환한다")
     void registerMatchesReturnsBadRequestWhenParticipantDoesNotExist() throws Exception {
         Vote vote = voteRepository.save(vote(
@@ -447,8 +488,8 @@ class AdminVoteControllerIntegrationTest {
                                 "courtNumber", 1,
                                 "courtMatches", List.of(Map.of(
                                         "matchNumber", 1,
-                                        "team1", List.of(first.getId(), second.getId()),
-                                        "team2", List.of(third.getId(), 99999L)
+                                        "team1", List.of(memberParticipant(first.getId()), memberParticipant(second.getId())),
+                                        "team2", List.of(memberParticipant(third.getId()), guestParticipant(99999L))
                                 ))
                         )))))
                 .andExpect(status().isBadRequest())
@@ -474,8 +515,8 @@ class AdminVoteControllerIntegrationTest {
                 "courtNumber", 1,
                 "courtMatches", List.of(Map.of(
                         "matchNumber", 1,
-                        "team1", List.of(first.getId(), second.getId()),
-                        "team2", List.of(third.getId(), fourth.getId())
+                        "team1", List.of(memberParticipant(first.getId()), memberParticipant(second.getId())),
+                        "team2", List.of(memberParticipant(third.getId()), memberParticipant(fourth.getId()))
                 ))
         ));
 
@@ -527,13 +568,13 @@ class AdminVoteControllerIntegrationTest {
                 "courtMatches", List.of(
                         Map.of(
                                 "matchNumber", 1,
-                                "team1", List.of(first.getId(), second.getId()),
-                                "team2", List.of(third.getId(), fourth.getId())
+                                "team1", List.of(memberParticipant(first.getId()), memberParticipant(second.getId())),
+                                "team2", List.of(memberParticipant(third.getId()), memberParticipant(fourth.getId()))
                         ),
                         Map.of(
                                 "matchNumber", 2,
-                                "team1", List.of(fifth.getId(), sixth.getId()),
-                                "team2", List.of(seventh.getId(), eighth.getId())
+                                "team1", List.of(memberParticipant(fifth.getId()), memberParticipant(sixth.getId())),
+                                "team2", List.of(memberParticipant(seventh.getId()), memberParticipant(eighth.getId()))
                         )
                 )
         ));
@@ -548,8 +589,8 @@ class AdminVoteControllerIntegrationTest {
                 "courtNumber", 1,
                 "courtMatches", List.of(Map.of(
                         "matchNumber", 1,
-                        "team1", List.of(fifth.getId(), sixth.getId()),
-                        "team2", List.of(seventh.getId(), eighth.getId())
+                        "team1", List.of(memberParticipant(fifth.getId()), memberParticipant(sixth.getId())),
+                        "team2", List.of(memberParticipant(seventh.getId()), memberParticipant(eighth.getId()))
                 ))
         ));
 
@@ -571,6 +612,63 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.matches[0].courtMatches[1].team2[1].name").value("윤서아"));
 
         assertThat(voteMatchRepository.findAll()).hasSize(8);
+    }
+
+    @Test
+    @DisplayName("인증된 사용자는 게스트를 포함해 특정 경기 대진을 수정할 수 있다")
+    void updateMatchSupportsGuestParticipants() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "게스트 포함 대진 수정용 정기 운동",
+                LocalDate.now().minusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                20
+        ));
+        VoteAttendance first = addMatchParticipant(vote, "guest-patch-1001", "김민준", Gender.MALE);
+        VoteAttendance second = addMatchParticipant(vote, "guest-patch-1002", "이서연", Gender.FEMALE);
+        VoteAttendance third = addMatchParticipant(vote, "guest-patch-1003", "박지훈", Gender.MALE);
+        VoteAttendance fourth = addMatchParticipant(vote, "guest-patch-1004", "최하은", Gender.FEMALE);
+        VoteAttendance fifth = addMatchParticipant(vote, "guest-patch-1005", "정도윤", Gender.MALE);
+        VoteAttendance sixth = addMatchParticipant(vote, "guest-patch-1006", "강지우", Gender.FEMALE);
+        VoteAttendance seventh = addMatchParticipant(vote, "guest-patch-1007", "조현우", Gender.MALE);
+        Guest guest = addGuest(vote, "guest-patch-host-1001", "게스트1");
+        List<Map<String, Object>> originalRequest = List.of(Map.of(
+                "courtNumber", 1,
+                "courtMatches", List.of(Map.of(
+                        "matchNumber", 1,
+                        "team1", List.of(memberParticipant(first.getId()), memberParticipant(second.getId())),
+                        "team2", List.of(memberParticipant(third.getId()), memberParticipant(fourth.getId()))
+                ))
+        ));
+        mockMvc.perform(post(ADMIN_VOTES_API + "/{voteId}/matches", vote.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(originalRequest)))
+                .andExpect(status().isOk());
+
+        Long matchId = voteMatchGroupRepository.findAll().get(0).getId();
+        List<Map<String, Object>> updateRequest = List.of(Map.of(
+                "courtNumber", 1,
+                "courtMatches", List.of(Map.of(
+                        "matchNumber", 1,
+                        "team1", List.of(memberParticipant(fifth.getId()), memberParticipant(sixth.getId())),
+                        "team2", List.of(memberParticipant(seventh.getId()), guestParticipant(guest.getId()))
+                ))
+        ));
+
+        mockMvc.perform(patch(ADMIN_MATCHES_API + "/{matchId}", matchId)
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[0].name").value("정도윤"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[1].name").value("강지우"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[0].name").value("조현우"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].name").value("게스트1"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].gender").value("FEMALE"));
+
+        assertThat(voteMatchRepository.findAll()).hasSize(4);
     }
 
     @Test
@@ -839,11 +937,11 @@ class AdminVoteControllerIntegrationTest {
         return attendance;
     }
 
-    private void addGuest(Vote vote, String socialId, String guestName) {
+    private Guest addGuest(Vote vote, String socialId, String guestName) {
         Member member = memberRepository.save(
                 Member.createSocialMember(SocialProvider.KAKAO, socialId, "member-" + socialId, socialId + "@example.com")
         );
-        guestRepository.save(
+        return guestRepository.saveAndFlush(
                 Guest.builder()
                         .vote(vote)
                         .member(member)
@@ -851,6 +949,21 @@ class AdminVoteControllerIntegrationTest {
                         .gender(Gender.FEMALE)
                         .level("A")
                         .build()
+        );
+    }
+
+    private Map<String, Object> memberParticipant(Long participantId) {
+        return participant("MEMBER", participantId);
+    }
+
+    private Map<String, Object> guestParticipant(Long participantId) {
+        return participant("GUEST", participantId);
+    }
+
+    private Map<String, Object> participant(String participantType, Long participantId) {
+        return Map.of(
+                "participantType", participantType,
+                "participantId", participantId
         );
     }
 
