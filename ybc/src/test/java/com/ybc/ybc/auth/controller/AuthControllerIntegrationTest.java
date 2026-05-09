@@ -23,6 +23,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Duration;
 import java.util.Map;
@@ -113,6 +114,27 @@ class AuthControllerIntegrationTest {
         assertThat(savedMember.get().getNickname()).isEqualTo("양배추");
         assertThat(savedMember.get().getEmail()).isEqualTo("cabbage@example.com");
         assertThat(refreshTokenStore).containsEntry("auth:refresh:" + memberId, refreshToken);
+    }
+
+    @Test
+    void kakaoCallbackRedirectsToFrontendWithTokensInQueryString() throws Exception {
+        when(kakaoApiClient.fetchUserProfile("auth-code"))
+                .thenReturn(new KakaoUserProfile("123456789", "양배추", "cabbage@example.com"));
+
+        String location = mockMvc.perform(get("/api/v1/auth/kakao/callback")
+                        .param("code", "auth-code"))
+                .andExpect(status().isFound())
+                .andReturn()
+                .getResponse()
+                .getHeader("Location");
+
+        assertThat(location).startsWith("https://ybc-fe.vercel.app/auth/kakao/callback");
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("accessToken"))
+                .isNotBlank();
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("refreshToken"))
+                .isNotBlank();
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("firstLogin"))
+                .isEqualTo("true");
     }
 
     @Test

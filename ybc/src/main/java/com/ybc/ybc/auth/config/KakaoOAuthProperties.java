@@ -10,6 +10,7 @@ public record KakaoOAuthProperties(
         @NotBlank String clientId,
         String clientSecret,
         @NotBlank String redirectUri,
+        @NotBlank String frontendRedirectUri,
         @NotBlank String authorizationBaseUrl,
         @NotBlank String tokenUrl,
         @NotBlank String userInfoUrl,
