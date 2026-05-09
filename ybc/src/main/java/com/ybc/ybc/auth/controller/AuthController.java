@@ -1,5 +1,6 @@
 package com.ybc.ybc.auth.controller;
 
+import com.ybc.ybc.auth.config.KakaoOAuthProperties;
 import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.auth.dto.AuthTokenResponse;
 import com.ybc.ybc.auth.dto.KakaoLoginRequest;
@@ -14,6 +15,7 @@ import com.ybc.ybc.auth.service.JwtTokenService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -23,6 +25,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
 
 @Validated
 @RestController
@@ -32,6 +37,7 @@ public class AuthController {
     private final AuthFacade authFacade;
     private final KakaoAuthService kakaoAuthService;
     private final JwtTokenService jwtTokenService;
+    private final KakaoOAuthProperties kakaoOAuthProperties;
 
     /**
      * GET /api/v1/auth/kakao/login-url
@@ -53,11 +59,22 @@ public class AuthController {
 
     /**
      * GET /api/v1/auth/kakao/callback
-     * 카카오 콜백에서 전달된 인가 코드로 로그인 절차 마무리
+     * 카카오 콜백에서 전달된 인가 코드로 로그인 절차를 마무리하고 프론트엔드로 리다이렉트
      */
     @GetMapping("/kakao/callback")
-    public KakaoLoginResponse kakaoCallback(@RequestParam @NotBlank(message = "인가 코드가 필요합니다.") String code) {
-        return authFacade.loginWithKakao(code);
+    public ResponseEntity<Void> kakaoCallback(@RequestParam @NotBlank(message = "인가 코드가 필요합니다.") String code) {
+        KakaoLoginResponse loginResponse = authFacade.loginWithKakao(code);
+        URI redirectUri = UriComponentsBuilder.fromUriString(kakaoOAuthProperties.frontendRedirectUri())
+                .queryParam("accessToken", loginResponse.tokens().accessToken())
+                .queryParam("refreshToken", loginResponse.tokens().refreshToken())
+                .queryParam("firstLogin", loginResponse.firstLogin())
+                .build()
+                .encode()
+                .toUri();
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(redirectUri)
+                .build();
     }
 
     /**
