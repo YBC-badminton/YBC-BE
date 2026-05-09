@@ -67,7 +67,7 @@ class ClubMemberSyncServiceTest {
         verify(clubMemberRepository, never()).save(any());
         assertThat(clubMember.getName()).isEqualTo("홍길동");
         assertThat(clubMember.getUniversity()).isEqualTo("한국대학교");
-        assertThat(clubMember.getPhone()).isEqualTo("010-1234-5678");
+        assertThat(clubMember.getPhone()).isEqualTo("01012345678");
         assertThat(clubMember.getAge()).isEqualTo(expectedBirthYear(24));
     }
 
@@ -117,6 +117,7 @@ class ClubMemberSyncServiceTest {
                 .gender(Gender.MALE)
                 .age(age)
                 .phone("010-1234-5678")
+                .term("10기")
                 .university("한국대학교")
                 .major("컴퓨터공학과")
                 .introduction("성실하게 활동할 자신 있습니다.")
