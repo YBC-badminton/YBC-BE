@@ -1,5 +1,6 @@
 package com.ybc.ybc.members.dto.response;
 
+import com.ybc.ybc.global.util.PhoneNumberUtils;
 import com.ybc.ybc.members.domain.ClubMember;
 
 public record ClubMemberResponse(
@@ -16,7 +17,7 @@ public record ClubMemberResponse(
                 clubMember.getId(),
                 clubMember.getName(),
                 clubMember.getUniversity(),
-                clubMember.getPhone(),
+                PhoneNumberUtils.format(clubMember.getPhone()),
                 clubMember.getAge(),
                 clubMember.getTerm(),
                 clubMember.getCourt()

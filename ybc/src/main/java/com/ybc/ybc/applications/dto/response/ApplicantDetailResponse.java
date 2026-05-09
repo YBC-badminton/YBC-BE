@@ -2,6 +2,7 @@ package com.ybc.ybc.applications.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.ybc.ybc.applications.domain.Application;
+import com.ybc.ybc.global.util.PhoneNumberUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -9,6 +10,8 @@ import java.util.List;
 public record ApplicantDetailResponse(
         Long applicationId,
         String name,
+        String term,
+        boolean isReapplicant,
         String address,
         String gender,
         int age,
@@ -28,14 +31,16 @@ public record ApplicantDetailResponse(
         String status,
         String email
 ) {
-    public static ApplicantDetailResponse from(Application application) {
+    public static ApplicantDetailResponse from(Application application, boolean isReapplicant) {
         return new ApplicantDetailResponse(
                 application.getId(),
                 application.getName(),
+                application.getTerm(),
+                isReapplicant,
                 application.getAddress(),
                 application.getGender().getDisplayName(),
                 application.getAge(),
-                application.getPhone(),
+                PhoneNumberUtils.format(application.getPhone()),
                 application.getUniversity(),
                 application.getMajor(),
                 application.getIntroduction(),

@@ -226,6 +226,7 @@ class AdminInterviewControllerIntegrationTest {
                 .gender(Gender.MALE)
                 .age(24)
                 .phone("010-1234-5678")
+                .term("10기")
                 .university("한국대학교")
                 .major("컴퓨터공학과")
                 .introduction("성실하게 활동할 자신 있습니다...")
