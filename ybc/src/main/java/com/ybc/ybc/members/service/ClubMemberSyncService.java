@@ -64,7 +64,9 @@ public class ClubMemberSyncService {
                                 application.getName(),
                                 application.getUniversity(),
                                 application.getPhone(),
-                                birthYear
+                                birthYear,
+                                application.getEmail(),
+                                application.getGender()
                         ),
                         () -> clubMemberRepository.save(
                                 ClubMember.createFromApplication(
@@ -72,7 +74,9 @@ public class ClubMemberSyncService {
                                         application.getName(),
                                         application.getUniversity(),
                                         application.getPhone(),
-                                        birthYear
+                                        birthYear,
+                                        application.getEmail(),
+                                        application.getGender()
                                 )
                         )
                 );

@@ -1,10 +1,15 @@
 package com.ybc.ybc.vote.controller;
 
 import com.ybc.ybc.vote.dto.request.AdminVoteCreateRequest;
+import com.ybc.ybc.vote.dto.request.AdminMatchCourtRequest;
+import com.ybc.ybc.vote.dto.response.AdminCompletedVoteResponse;
+import com.ybc.ybc.vote.dto.response.AdminMatchParticipantListResponse;
+import com.ybc.ybc.vote.dto.response.AdminMatchRegistrationResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListItemResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteQueueResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteReservationResponse;
+import com.ybc.ybc.vote.service.AdminMatchService;
 import com.ybc.ybc.vote.service.AdminVoteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,11 +24,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/admin/votes")
 public class AdminVoteController {
     private final AdminVoteService adminVoteService;
+    private final AdminMatchService adminMatchService;
 
     /**
      * POST /admin/votes
@@ -58,9 +66,18 @@ public class AdminVoteController {
      * GET /admin/votes
      * 투표 현황 리스트 조회
      */
-    @GetMapping
+    @GetMapping(params = "!status")
     public AdminVoteListResponse getVoteManagement() {
         return adminVoteService.getVoteManagement();
+    }
+
+    /**
+     * GET /admin/votes?status=completed
+     * 투표 완료된 운동 리스트 조회
+     */
+    @GetMapping(params = "status=completed")
+    public List<AdminCompletedVoteResponse> getCompletedVotes() {
+        return adminVoteService.getCompletedVotes();
     }
 
     /**
@@ -71,5 +88,24 @@ public class AdminVoteController {
     public ResponseEntity<Void> deleteVote(@PathVariable Long voteId) {
         adminVoteService.deleteVote(voteId);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * GET /admin/votes/{voteId}/matches
+     * 대진 등록용 참석 인원 조회
+     */
+    @GetMapping("/{voteId}/matches")
+    public AdminMatchParticipantListResponse getMatchParticipants(@PathVariable Long voteId) {
+        return adminMatchService.getParticipants(voteId);
+    }
+
+    /**
+     * POST /admin/votes/{voteId}/matches
+     * 대진 등록
+     */
+    @PostMapping("/{voteId}/matches")
+    public AdminMatchRegistrationResponse registerMatches(@PathVariable Long voteId,
+                                                          @Valid @RequestBody List<@Valid AdminMatchCourtRequest> request) {
+        return adminMatchService.registerMatches(voteId, request);
     }
 }

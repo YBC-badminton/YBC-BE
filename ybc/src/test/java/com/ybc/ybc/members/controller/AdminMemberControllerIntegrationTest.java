@@ -113,11 +113,15 @@ class AdminMemberControllerIntegrationTest {
                                 "age", "02",
                                 "university", "한국대학교",
                                 "term", "10기",
-                                "court", 2
+                                "court", 2,
+                                "email", "hong@example.com",
+                                "gender", "MALE"
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.memberId").value(member.getId()))
                 .andExpect(jsonPath("$.phone").value("010-0000-0000"))
+                .andExpect(jsonPath("$.email").value("hong@example.com"))
+                .andExpect(jsonPath("$.gender").value("MALE"))
                 .andExpect(jsonPath("$.age").value("02"))
                 .andExpect(jsonPath("$.term").value("10기"))
                 .andExpect(jsonPath("$.court").value(2));
@@ -140,7 +144,9 @@ class AdminMemberControllerIntegrationTest {
                                 "age", "02",
                                 "university", "한국대학교",
                                 "term", "10기",
-                                "court", 2
+                                "court", 2,
+                                "email", "hong@example.com",
+                                "gender", "MALE"
                         ))))
                 .andExpect(status().isMethodNotAllowed());
     }
@@ -171,11 +177,15 @@ class AdminMemberControllerIntegrationTest {
                                 "phone", "010-1234-5678",
                                 "age", "03",
                                 "term", "2기",
-                                "court", 1
+                                "court", 1,
+                                "email", "hong@example.com",
+                                "gender", "MALE"
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.memberId").isNumber())
                 .andExpect(jsonPath("$.name").value("홍길동"))
+                .andExpect(jsonPath("$.email").value("hong@example.com"))
+                .andExpect(jsonPath("$.gender").value("MALE"))
                 .andExpect(jsonPath("$.age").value("03"))
                 .andExpect(jsonPath("$.court").value(1));
 
@@ -216,7 +226,9 @@ class AdminMemberControllerIntegrationTest {
                                 "phone", "010-1234-5678",
                                 "age", "03",
                                 "term", "2기",
-                                "court", 5
+                                "court", 5,
+                                "email", "hong@example.com",
+                                "gender", "MALE"
                         ))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("ILLEGAL_ARGUMENT"))
@@ -234,7 +246,9 @@ class AdminMemberControllerIntegrationTest {
                                 "university", "한국대학교",
                                 "phone", "010-1234-5678",
                                 "age", "03",
-                                "term", "2기"
+                                "term", "2기",
+                                "email", "hong@example.com",
+                                "gender", "MALE"
                         ))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("ILLEGAL_ARGUMENT"))

@@ -4,6 +4,7 @@ import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.dto.request.AdminVoteCreateRequest;
+import com.ybc.ybc.vote.dto.response.AdminCompletedVoteResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListItemResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteQueueResponse;
@@ -11,6 +12,8 @@ import com.ybc.ybc.vote.dto.response.AdminVoteReservationResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteStatus;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
+import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
+import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import com.ybc.ybc.vote.repository.projection.VoteAttendanceCountProjection;
 import com.ybc.ybc.vote.repository.projection.VoteGuestCountProjection;
@@ -52,11 +55,17 @@ class AdminVoteServiceTest {
     @Mock
     private GuestRepository guestRepository;
 
+    @Mock
+    private VoteMatchRepository voteMatchRepository;
+
+    @Mock
+    private VoteMatchGroupRepository voteMatchGroupRepository;
+
     private AdminVoteService adminVoteService;
 
     @BeforeEach
     void setUp() {
-        adminVoteService = new AdminVoteService(voteRepository, voteAttendanceRepository, guestRepository, FIXED_CLOCK);
+        adminVoteService = new AdminVoteService(voteRepository, voteAttendanceRepository, guestRepository, voteMatchRepository, voteMatchGroupRepository, FIXED_CLOCK);
     }
 
     @Test
@@ -162,8 +171,10 @@ class AdminVoteServiceTest {
 
         adminVoteService.deleteVote(1L);
 
-        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(voteRepository, guestRepository, voteAttendanceRepository);
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(voteRepository, voteMatchRepository, voteMatchGroupRepository, guestRepository, voteAttendanceRepository);
         inOrder.verify(voteRepository).findById(1L);
+        inOrder.verify(voteMatchRepository).deleteAllByVote_Id(1L);
+        inOrder.verify(voteMatchGroupRepository).deleteAllByVote_Id(1L);
         inOrder.verify(guestRepository).deleteAllByVote_Id(1L);
         inOrder.verify(voteAttendanceRepository).deleteAllByVote_Id(1L);
         inOrder.verify(voteRepository).delete(vote);
@@ -241,6 +252,41 @@ class AdminVoteServiceTest {
         assertThat(response.data().get(1).attendance().currentAttendees()).isEqualTo(12L);
         assertThat(response.data().get(1).attendance().currentGuests()).isEqualTo(2L);
         assertThat(response.data().get(1).attendance().totalParticipants()).isEqualTo(14L);
+    }
+
+    @Test
+    @DisplayName("투표 완료된 운동 리스트 조회 시 완료된 투표만 참석 집계와 함께 반환한다")
+    void getCompletedVotesReturnsCompletedVotesWithAttendance() {
+        Vote completedVote = vote(1L, "지난 정기 운동",
+                LocalDate.of(2026, 4, 8),
+                LocalDateTime.of(2026, 4, 8, 9, 0),
+                LocalDateTime.of(2026, 4, 8, 12, 0),
+                ActivityType.REGULAR,
+                20);
+        Vote inProgressVote = vote(2L, "오늘 번개 운동",
+                LocalDate.of(2026, 4, 10),
+                LocalDateTime.of(2026, 4, 10, 11, 0),
+                LocalDateTime.of(2026, 4, 10, 20, 0),
+                ActivityType.FLASH,
+                20);
+
+        when(voteRepository.findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime.of(2026, 4, 10, 12, 0)))
+                .thenReturn(List.of());
+        when(voteRepository.findAll(any(Sort.class))).thenReturn(List.of(inProgressVote, completedVote));
+        when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(1L)))
+                .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 12L)));
+        when(guestRepository.countGuestsByVoteIds(List.of(1L)))
+                .thenReturn(List.of(new VoteGuestCountProjection(1L, 2L)));
+
+        List<AdminCompletedVoteResponse> response = adminVoteService.getCompletedVotes();
+
+        assertThat(response).hasSize(1);
+        assertThat(response.get(0).voteId()).isEqualTo(1L);
+        assertThat(response.get(0).title()).isEqualTo("지난 정기 운동");
+        assertThat(response.get(0).activityDay()).isEqualTo("수요일");
+        assertThat(response.get(0).attendance().currentAttendees()).isEqualTo(12L);
+        assertThat(response.get(0).attendance().currentGuests()).isEqualTo(2L);
+        assertThat(response.get(0).attendance().totalParticipants()).isEqualTo(14L);
     }
 
     @Test
