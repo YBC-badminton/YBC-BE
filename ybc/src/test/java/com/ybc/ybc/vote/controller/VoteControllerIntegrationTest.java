@@ -8,6 +8,7 @@ import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.dto.MemberSummary;
 import com.ybc.ybc.auth.repository.MemberRepository;
+import com.ybc.ybc.support.TestMailConfig;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
@@ -17,11 +18,13 @@ import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
+import com.ybc.ybc.support.TestMailConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
@@ -43,6 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(TestMailConfig.class)
 class VoteControllerIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
@@ -172,6 +176,54 @@ class VoteControllerIntegrationTest {
                         .with(authenticatedMember(member)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.attendanceStatus").value(true));
+    }
+
+    @Test
+    @DisplayName("특정 투표에서 참석 상태가 true인 회원 목록과 총원을 조회한다")
+    void getVoteAttendees() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        addAttendance(vote, true, "3001");
+        addAttendance(vote, true, "3002");
+        addAttendance(vote, false, "3003");
+
+        mockMvc.perform(get("/votes/{voteId}/attendees", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalAttendeeCount").value(2))
+                .andExpect(jsonPath("$.attendees.length()").value(2))
+                .andExpect(jsonPath("$.attendees[0].nickname").value("member-3001"))
+                .andExpect(jsonPath("$.attendees[0].memberId").isNumber())
+                .andExpect(jsonPath("$.attendees[1].nickname").value("member-3002"))
+                .andExpect(jsonPath("$.attendees[1].memberId").isNumber());
+    }
+
+    @Test
+    @DisplayName("특정 투표에서 참석 상태가 false인 회원 목록과 총원을 조회한다")
+    void getVoteAbsentees() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        addAttendance(vote, false, "3001");
+        addAttendance(vote, false, "3002");
+        addAttendance(vote, true, "3003");
+
+        mockMvc.perform(get("/votes/{voteId}/absentees", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalAttendeeCount").value(2))
+                .andExpect(jsonPath("$.attendees.length()").value(2))
+                .andExpect(jsonPath("$.attendees[0].nickname").value("member-3001"))
+                .andExpect(jsonPath("$.attendees[0].memberId").isNumber())
+                .andExpect(jsonPath("$.attendees[1].nickname").value("member-3002"))
+                .andExpect(jsonPath("$.attendees[1].memberId").isNumber());
     }
 
     @Test
@@ -438,6 +490,22 @@ class VoteControllerIntegrationTest {
     @DisplayName("인증되지 않은 사용자는 투표 참석 여부를 조회할 수 없다")
     void getVoteAttendanceRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/votes/{voteId}/attendance", 1L))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 참석 회원 목록을 조회할 수 없다")
+    void getVoteAttendeesRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/votes/{voteId}/attendees", 1L))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 불참 회원 목록을 조회할 수 없다")
+    void getVoteAbsenteesRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/votes/{voteId}/absentees", 1L))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
     }

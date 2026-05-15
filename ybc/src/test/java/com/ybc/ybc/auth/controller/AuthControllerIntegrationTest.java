@@ -3,11 +3,13 @@ package com.ybc.ybc.auth.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.ybc.ybc.support.TestMailConfig;
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.dto.KakaoUserProfile;
 import com.ybc.ybc.auth.repository.MemberRepository;
 import com.ybc.ybc.auth.service.KakaoApiClient;
+import com.ybc.ybc.support.TestMailConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -22,6 +24,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Duration;
 import java.util.Map;
@@ -35,13 +38,15 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(AuthControllerIntegrationTest.MockConfig.class)
+@Import({AuthControllerIntegrationTest.MockConfig.class, TestMailConfig.class})
 class AuthControllerIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
@@ -113,6 +118,27 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
+    void kakaoCallbackRedirectsToFrontendWithTokensInQueryString() throws Exception {
+        when(kakaoApiClient.fetchUserProfile("auth-code"))
+                .thenReturn(new KakaoUserProfile("123456789", "양배추", "cabbage@example.com"));
+
+        String location = mockMvc.perform(get("/api/v1/auth/kakao/callback")
+                        .param("code", "auth-code"))
+                .andExpect(status().isFound())
+                .andReturn()
+                .getResponse()
+                .getHeader("Location");
+
+        assertThat(location).startsWith("https://ybc-fe.vercel.app/auth/kakao/callback");
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("accessToken"))
+                .isNotBlank();
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("refreshToken"))
+                .isNotBlank();
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("firstLogin"))
+                .isEqualTo("true");
+    }
+
+    @Test
     void getCurrentMemberReturnsMemberInfoWhenAccessTokenIsValid() throws Exception {
         LoginContext loginContext = login("auth-code", new KakaoUserProfile("123456789", "양배추", "cabbage@example.com"));
 
@@ -148,6 +174,28 @@ class AuthControllerIntegrationTest {
         assertThat(reissuedAccessToken).isNotEqualTo(loginContext.accessToken());
         assertThat(reissuedRefreshToken).isNotEqualTo(loginContext.refreshToken());
         assertThat(refreshTokenStore).containsEntry("auth:refresh:" + loginContext.memberId(), reissuedRefreshToken);
+    }
+
+    @Test
+    void preflightRequestAllowsConfiguredFrontendOrigin() throws Exception {
+        mockMvc.perform(options("/api/v1/auth/kakao/login")
+                        .header("Origin", "http://localhost:3000")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "content-type"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+    }
+
+    @Test
+    void preflightRequestAllowsDeployedFrontendOrigin() throws Exception {
+        mockMvc.perform(options("/api/v1/auth/kakao/login")
+                        .header("Origin", "https://ybckk.vercel.app")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "content-type"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://ybckk.vercel.app"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
     }
 
     @Test

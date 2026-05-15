@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${SUPABASE_DB_URL}
+    username: ${SUPABASE_DB_USERNAME}
+    password: ${SUPABASE_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${SUPABASE_DB_MAX_POOL_SIZE:10}
+      minimum-idle: ${SUPABASE_DB_MIN_IDLE:2}
+      data-source-properties:
+        sslmode: require
+        prepareThreshold: 0
+        reWriteBatchedInserts: true
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          lob:
+            non_contextual_creation: true

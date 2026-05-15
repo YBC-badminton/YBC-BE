@@ -10,12 +10,14 @@ import com.ybc.ybc.applications.domain.Status;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
 import com.ybc.ybc.members.domain.ClubMember;
 import com.ybc.ybc.members.repository.ClubMemberRepository;
+import com.ybc.ybc.support.TestMailConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
@@ -36,6 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(TestMailConfig.class)
 class AdminMemberControllerIntegrationTest {
     private static final String ADMIN_MEMBERS_API = "/admin/members";
 
@@ -264,6 +267,7 @@ class AdminMemberControllerIntegrationTest {
                 .gender(Gender.MALE)
                 .age(age)
                 .phone("010-1234-5678")
+                .term("10기")
                 .university("한국대학교")
                 .major("컴퓨터공학과")
                 .introduction("성실하게 활동할 자신 있습니다.")

@@ -6,6 +6,7 @@ import com.ybc.ybc.global.exception.dto.ExceptionResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -17,10 +18,16 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import java.util.Optional;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
     @ExceptionHandler(YbcException.class)
     public ResponseEntity<ExceptionResponse> handleYbcException(YbcException e, HttpServletRequest request) {
+        log.warn("Handled YbcException. method={}, uri={}, code={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                e.getExceptionCodeName(),
+                e);
         ExceptionResponse response = ExceptionResponseFactory.from(e, request.getRequestURI());
         return ResponseEntity.status(e.getHttpStatusCode())
                 .body(response);
@@ -65,6 +72,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ExceptionResponse> handleRuntimeException(RuntimeException runtimeException,
                                                                     HttpServletRequest request) {
+        log.error("Unhandled runtime exception. method={}, uri={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                runtimeException);
         ExceptionResponse response = ExceptionResponseFactory.internalServerError(request.getRequestURI());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(response);

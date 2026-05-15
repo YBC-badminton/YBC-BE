@@ -13,6 +13,7 @@ class KakaoLoginUrlProviderTest {
                 "test-client-id",
                 "",
                 "http://localhost:8080/api/v1/auth/kakao/callback",
+                "https://ybc-fe.vercel.app/auth/kakao/callback",
                 "https://kauth.kakao.com/oauth/authorize",
                 "https://kauth.kakao.com/oauth/token",
                 "https://kapi.kakao.com/v2/user/me",
