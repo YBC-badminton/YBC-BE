@@ -43,13 +43,14 @@ public record ApplicationRequest(
         String email
 ) {
 
-    public Application toApplication() {
+    public Application toApplication(String term) {
         Application app = Application.builder()
                 .name(name)
                 .address(address)
                 .gender(gender)
                 .age(age)
                 .phone(phone)
+                .term(term)
                 .university(university)
                 .major(major)
                 .introduction(introduction)

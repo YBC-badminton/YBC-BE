@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.ybc.ybc.applications.domain.Application;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
 import com.ybc.ybc.applications.service.ApplicationSubmissionMailService;
+import com.ybc.ybc.recruitments.domain.Recruitment;
+import com.ybc.ybc.recruitments.repository.RecruitmentRepository;
 import com.ybc.ybc.support.TestMailConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +21,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +47,9 @@ class ApplicationControllerIntegrationTest {
     private ApplicationRepository applicationRepository;
 
     @Autowired
+    private RecruitmentRepository recruitmentRepository;
+
+    @Autowired
     private ApplicationSubmissionMailService applicationSubmissionMailService;
 
     private final ObjectMapper objectMapper = JsonMapper.builder()
@@ -52,12 +59,14 @@ class ApplicationControllerIntegrationTest {
     @BeforeEach
     void setUp() {
         applicationRepository.deleteAll();
+        recruitmentRepository.deleteAll();
     }
 
     @Test
     @DisplayName("비로그인 사용자도 지원서를 제출하면 201 응답과 함께 저장된다")
     // 비로그인 사용자가 지원서를 제출하면 201 응답과 함께 실제로 저장되어야 한다.
     void createApplicationCreatesApplicationWithoutAuthentication() throws Exception {
+        saveActiveRecruitment("12기");
         Map<String, Object> request = validRequest();
 
         performCreateApplication(request)
@@ -71,7 +80,8 @@ class ApplicationControllerIntegrationTest {
         assertThat(application.getAddress()).isEqualTo(request.get("address"));
         assertThat(application.getGender().name()).isEqualTo(request.get("gender"));
         assertThat(application.getAge()).isEqualTo(request.get("age"));
-        assertThat(application.getPhone()).isEqualTo(request.get("phone"));
+        assertThat(application.getPhone()).isEqualTo("01012345678");
+        assertThat(application.getTerm()).isEqualTo("12기");
         assertThat(application.getUniversity()).isEqualTo(request.get("university"));
         assertThat(application.getMajor()).isEqualTo(request.get("major"));
         assertThat(application.getIntroduction()).isEqualTo(request.get("introduction"));
@@ -89,6 +99,7 @@ class ApplicationControllerIntegrationTest {
         ArgumentCaptor<Application> applicationCaptor = ArgumentCaptor.forClass(Application.class);
         verify(applicationSubmissionMailService).sendApplicationSubmittedMail(applicationCaptor.capture());
         assertThat(applicationCaptor.getValue().getEmail()).isEqualTo(request.get("email"));
+        assertThat(applicationCaptor.getValue().getTerm()).isEqualTo("12기");
     }
 
     @Test
@@ -109,6 +120,24 @@ class ApplicationControllerIntegrationTest {
         return mockMvc.perform(post(APPLICATIONS_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)));
+    }
+
+    private void saveActiveRecruitment(String term) {
+        LocalDateTime now = LocalDateTime.now();
+        recruitmentRepository.saveAndFlush(Recruitment.builder()
+                .term(term)
+                .startAt(now.minusDays(1))
+                .endAt(now.plusDays(1))
+                .firstResultDate(LocalDate.now().plusDays(2))
+                .finalResultDate(LocalDate.now().plusDays(5))
+                .interviewDate(LocalDate.now().plusDays(6))
+                .interviewLocation("이화여대 체육관")
+                .interviewFirstTime("18:00")
+                .interviewSecondTime("19:00")
+                .otDate(LocalDate.now().plusDays(10))
+                .membershipFee(30000)
+                .activityPeriod(6)
+                .build());
     }
 
     private Map<String, Object> validRequest() {

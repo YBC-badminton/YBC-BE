@@ -1,7 +1,7 @@
 spring:
   datasource:
     driver-class-name: org.h2.Driver
-    url: jdbc:h2:mem:ybc;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:ybc;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
     password:
   jpa:
@@ -21,6 +21,7 @@ app:
       client-id: test-client-id
       client-secret:
       redirect-uri: http://localhost:8080/api/v1/auth/kakao/callback
+      frontend-redirect-uri: https://ybc-fe.vercel.app/auth/kakao/callback
       authorization-base-url: https://kauth.kakao.com/oauth/authorize
       token-url: https://kauth.kakao.com/oauth/token
       user-info-url: https://kapi.kakao.com/v2/user/me

@@ -1,25 +1,19 @@
 spring:
   application:
     name: ybc
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+  profiles:
+    default: local
   jpa:
-    database-platform: org.hibernate.dialect.MySQL8Dialect
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
-        format_sql: true
     hibernate:
       ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
     generate-ddl: true
     show-sql: true
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: 6379
+      url: ${SPRING_DATA_REDIS_URL:redis://localhost:6379}
   mail:
     host: ${MAIL_HOST}
     port: ${MAIL_PORT}
@@ -38,6 +32,7 @@ app:
       client-id: ${KAKAO_CLIENT_ID}
       client-secret: ${KAKAO_CLIENT_SECRET}
       redirect-uri: ${KAKAO_REDIRECT_URI}
+      frontend-redirect-uri: ${KAKAO_FRONTEND_REDIRECT_URI}
       authorization-base-url: ${KAKAO_AUTHORIZATION_BASE_URL}
       token-url: ${KAKAO_TOKEN_URL}
       user-info-url: ${KAKAO_USER_INFO_URL}

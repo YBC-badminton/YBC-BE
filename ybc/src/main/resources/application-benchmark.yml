@@ -1,9 +1,9 @@
 spring:
   datasource:
     driver-class-name: ${BENCHMARK_DB_DRIVER:org.h2.Driver}
-    url: ${BENCHMARK_DB_URL:jdbc:h2:mem:ybc-benchmark;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
-    username: ${DB_USERNAME:sa}
-    password: ${DB_PASSWORD:}
+    url: ${BENCHMARK_DB_URL:jdbc:h2:mem:ybc-benchmark;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${BENCHMARK_DB_USERNAME:sa}
+    password: ${BENCHMARK_DB_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: ${BENCHMARK_JPA_DDL_AUTO:create-drop}
@@ -21,6 +21,7 @@ app:
       client-id: ${BENCHMARK_KAKAO_CLIENT_ID:benchmark-client-id}
       client-secret: ${BENCHMARK_KAKAO_CLIENT_SECRET:}
       redirect-uri: ${BENCHMARK_KAKAO_REDIRECT_URI:http://localhost:8080/api/v1/auth/kakao/callback}
+      frontend-redirect-uri: ${BENCHMARK_KAKAO_FRONTEND_REDIRECT_URI}
       authorization-base-url: ${BENCHMARK_KAKAO_AUTHORIZATION_BASE_URL:https://kauth.kakao.com/oauth/authorize}
       token-url: ${BENCHMARK_KAKAO_TOKEN_URL:https://kauth.kakao.com/oauth/token}
       user-info-url: ${BENCHMARK_KAKAO_USER_INFO_URL:https://kapi.kakao.com/v2/user/me}
