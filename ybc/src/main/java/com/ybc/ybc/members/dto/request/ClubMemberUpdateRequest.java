@@ -1,5 +1,7 @@
 package com.ybc.ybc.members.dto.request;
 
+import com.ybc.ybc.applications.domain.Gender;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -19,6 +21,18 @@ public record ClubMemberUpdateRequest(
         @NotNull(message = "코트 번호를 입력해 주세요.")
         @Min(value = 1, message = "코트 번호를 입력해 주세요.")
         @Max(value = 4, message = "코트 번호는 4 이하여야 합니다.")
-        Integer court
+        Integer court,
+        @NotBlank(message = "이메일을 입력해 주세요.")
+        @Email(message = "이메일 형식이 올바르지 않습니다.")
+        String email,
+        @NotNull(message = "성별을 입력해 주세요.")
+        Gender gender
 ) {
+    public ClubMemberUpdateRequest(String name,
+                                   String age,
+                                   String university,
+                                   String term,
+                                   Integer court) {
+        this(name, age, university, term, court, null, null);
+    }
 }

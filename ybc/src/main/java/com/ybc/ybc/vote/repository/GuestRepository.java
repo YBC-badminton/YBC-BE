@@ -6,12 +6,21 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface GuestRepository extends JpaRepository<Guest, Long> {
     long countByVote_Id(Long voteId);
 
     List<Guest> findAllByVote_IdOrderByIdAsc(Long voteId);
+
+    @Query("""
+            select g
+            from Guest g
+            join fetch g.vote
+            where g.id in :ids
+            """)
+    List<Guest> findAllWithVoteByIdIn(@Param("ids") Collection<Long> ids);
 
     void deleteAllByVote_Id(Long voteId);
 

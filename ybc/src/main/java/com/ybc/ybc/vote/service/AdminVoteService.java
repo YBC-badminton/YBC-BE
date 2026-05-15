@@ -5,6 +5,7 @@ import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.dto.request.AdminVoteCreateRequest;
+import com.ybc.ybc.vote.dto.response.AdminCompletedVoteResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListItemResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteListSummaryResponse;
@@ -14,6 +15,8 @@ import com.ybc.ybc.vote.dto.response.AdminVoteReservationResponse;
 import com.ybc.ybc.vote.dto.response.AdminVoteStatus;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
+import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
+import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import com.ybc.ybc.vote.repository.projection.VoteAttendanceCountProjection;
 import com.ybc.ybc.vote.repository.projection.VoteGuestCountProjection;
@@ -40,6 +43,8 @@ public class AdminVoteService {
     private final VoteRepository voteRepository;
     private final VoteAttendanceRepository voteAttendanceRepository;
     private final GuestRepository guestRepository;
+    private final VoteMatchRepository voteMatchRepository;
+    private final VoteMatchGroupRepository voteMatchGroupRepository;
     private final Clock clock;
 
     // 투표 예약 생성
@@ -134,10 +139,37 @@ public class AdminVoteService {
         );
     }
 
+    // 투표 완료된 운동 리스트 조회
+    @Transactional
+    public List<AdminCompletedVoteResponse> getCompletedVotes() {
+        reconcileAdditionalVotes();
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        List<Vote> completedVotes = voteRepository.findAll(
+                        Sort.by(
+                                Sort.Order.desc("activityDate"),
+                                Sort.Order.desc("id")
+                        )
+                ).stream()
+                .filter(vote -> AdminVoteStatus.from(vote.getVoteStartAt(), vote.getVoteEndAt(), now) == AdminVoteStatus.COMPLETED)
+                .toList();
+        VoteCountBundle voteCountBundle = buildVoteCountBundle(completedVotes);
+
+        return completedVotes.stream()
+                .map(vote -> AdminCompletedVoteResponse.from(
+                        vote,
+                        voteCountBundle.attendeeCounts().getOrDefault(vote.getId(), 0L),
+                        voteCountBundle.guestCounts().getOrDefault(vote.getId(), 0L)
+                ))
+                .toList();
+    }
+
     // 투표 삭제
     @Transactional
     public void deleteVote(Long voteId) {
         Vote vote = getVote(voteId);
+        voteMatchRepository.deleteAllByVote_Id(voteId);
+        voteMatchGroupRepository.deleteAllByVote_Id(voteId);
         guestRepository.deleteAllByVote_Id(voteId);
         voteAttendanceRepository.deleteAllByVote_Id(voteId);
         voteRepository.delete(vote);
