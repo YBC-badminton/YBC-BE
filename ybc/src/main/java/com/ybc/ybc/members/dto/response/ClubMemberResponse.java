@@ -20,10 +20,9 @@ public record ClubMemberResponse(
                 clubMember.getId(),
                 clubMember.getName(),
                 clubMember.getUniversity(),
-                clubMember.getPhone(),
+                PhoneNumberUtils.format(clubMember.getPhone()),
                 clubMember.getEmail(),
                 clubMember.getGender(),
-                PhoneNumberUtils.format(clubMember.getPhone()),
                 clubMember.getAge(),
                 clubMember.getTerm(),
                 clubMember.getCourt()
