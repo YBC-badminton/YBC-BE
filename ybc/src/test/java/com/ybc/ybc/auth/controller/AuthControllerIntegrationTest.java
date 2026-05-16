@@ -3,7 +3,6 @@ package com.ybc.ybc.auth.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.ybc.ybc.support.TestMailConfig;
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.dto.KakaoUserProfile;
@@ -26,7 +25,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,6 +49,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Import({AuthControllerIntegrationTest.MockConfig.class, TestMailConfig.class})
 class AuthControllerIntegrationTest {
+    private static final String LOCAL_FRONTEND_CALLBACK = "http://localhost:3000/auth/kakao/callback";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -118,6 +121,33 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
+    void getKakaoLoginUrlIncludesRequestedFrontendRedirectUriInState() throws Exception {
+        String responseBody = mockMvc.perform(get("/api/v1/auth/kakao/login-url")
+                        .param("frontendRedirectUri", LOCAL_FRONTEND_CALLBACK))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.provider").value("KAKAO"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode json = objectMapper.readTree(responseBody);
+        String loginUrl = json.get("loginUrl").asText();
+        String state = UriComponentsBuilder.fromUriString(loginUrl).build().getQueryParams().getFirst("state");
+
+        assertThat(state).isNotBlank();
+        assertThat(new String(Base64.getUrlDecoder().decode(state), StandardCharsets.UTF_8))
+                .isEqualTo(LOCAL_FRONTEND_CALLBACK);
+    }
+
+    @Test
+    void getKakaoLoginUrlRejectsUnknownFrontendRedirectUri() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/kakao/login-url")
+                        .param("frontendRedirectUri", "https://evil.example.com/auth/kakao/callback"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_FRONTEND_REDIRECT_URI"));
+    }
+
+    @Test
     void kakaoCallbackRedirectsToFrontendWithTokensInQueryString() throws Exception {
         when(kakaoApiClient.fetchUserProfile("auth-code"))
                 .thenReturn(new KakaoUserProfile("123456789", "양배추", "cabbage@example.com"));
@@ -130,6 +160,30 @@ class AuthControllerIntegrationTest {
                 .getHeader("Location");
 
         assertThat(location).startsWith("https://ybc-fe.vercel.app/auth/kakao/callback");
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("accessToken"))
+                .isNotBlank();
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("refreshToken"))
+                .isNotBlank();
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("firstLogin"))
+                .isEqualTo("true");
+    }
+
+    @Test
+    void kakaoCallbackRedirectsToRequestedFrontendWithTokensInQueryStringWhenStateProvided() throws Exception {
+        when(kakaoApiClient.fetchUserProfile("auth-code"))
+                .thenReturn(new KakaoUserProfile("123456789", "양배추", "cabbage@example.com"));
+
+        String state = fetchKakaoLoginState(LOCAL_FRONTEND_CALLBACK);
+
+        String location = mockMvc.perform(get("/api/v1/auth/kakao/callback")
+                        .param("code", "auth-code")
+                        .param("state", state))
+                .andExpect(status().isFound())
+                .andReturn()
+                .getResponse()
+                .getHeader("Location");
+
+        assertThat(location).startsWith(LOCAL_FRONTEND_CALLBACK);
         assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("accessToken"))
                 .isNotBlank();
         assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("refreshToken"))
@@ -213,6 +267,19 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(Map.of("refreshToken", loginContext.refreshToken()))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("REFRESH_TOKEN_NOT_FOUND"));
+    }
+
+    private String fetchKakaoLoginState(String frontendRedirectUri) throws Exception {
+        String responseBody = mockMvc.perform(get("/api/v1/auth/kakao/login-url")
+                        .param("frontendRedirectUri", frontendRedirectUri))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode json = objectMapper.readTree(responseBody);
+        String loginUrl = json.get("loginUrl").asText();
+        return UriComponentsBuilder.fromUriString(loginUrl).build().getQueryParams().getFirst("state");
     }
 
     private LoginContext login(String code, KakaoUserProfile kakaoUserProfile) throws Exception {

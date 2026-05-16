@@ -18,11 +18,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class KakaoAuthService {
     private final KakaoApiClient kakaoApiClient;
     private final KakaoLoginUrlProvider kakaoLoginUrlProvider;
+    private final KakaoFrontendRedirectService kakaoFrontendRedirectService;
     private final MemberRepository memberRepository;
 
     // 카카오 로그인 인가 URL 생성
-    public String getKakaoLoginUrl() {
-        return kakaoLoginUrlProvider.createLoginUrl();
+    public String getKakaoLoginUrl(String frontendRedirectUri) {
+        String state = kakaoFrontendRedirectService.createState(frontendRedirectUri);
+        return kakaoLoginUrlProvider.createLoginUrl(state);
+    }
+
+    public String resolveFrontendRedirectUri(String state) {
+        return kakaoFrontendRedirectService.resolveFromState(state);
     }
 
     // 인가 코드로 카카오 회원을 조회하고 우리 서비스 회원으로 저장

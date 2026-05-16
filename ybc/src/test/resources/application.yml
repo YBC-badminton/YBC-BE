@@ -22,6 +22,12 @@ app:
       client-secret:
       redirect-uri: http://localhost:8080/api/v1/auth/kakao/callback
       frontend-redirect-uri: https://ybc-fe.vercel.app/auth/kakao/callback
+      allowed-frontend-redirect-uris:
+        - https://ybc-fe.vercel.app/auth/kakao/callback
+        - http://localhost:3000/auth/kakao/callback
+        - http://127.0.0.1:3000/auth/kakao/callback
+        - http://localhost:5173/auth/kakao/callback
+        - http://127.0.0.1:5173/auth/kakao/callback
       authorization-base-url: https://kauth.kakao.com/oauth/authorize
       token-url: https://kauth.kakao.com/oauth/token
       user-info-url: https://kapi.kakao.com/v2/user/me

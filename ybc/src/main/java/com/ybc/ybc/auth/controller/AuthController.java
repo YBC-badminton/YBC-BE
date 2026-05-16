@@ -1,6 +1,5 @@
 package com.ybc.ybc.auth.controller;
 
-import com.ybc.ybc.auth.config.KakaoOAuthProperties;
 import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.auth.dto.AuthTokenResponse;
 import com.ybc.ybc.auth.dto.KakaoLoginRequest;
@@ -37,15 +36,14 @@ public class AuthController {
     private final AuthFacade authFacade;
     private final KakaoAuthService kakaoAuthService;
     private final JwtTokenService jwtTokenService;
-    private final KakaoOAuthProperties kakaoOAuthProperties;
 
     /**
      * GET /api/v1/auth/kakao/login-url
      * 카카오 로그인 페이지로 이동할 수 있는 인가 URL을 반환
      */
     @GetMapping("/kakao/login-url")
-    public KakaoLoginUrlResponse getKakaoLoginUrl() {
-        return new KakaoLoginUrlResponse("KAKAO", kakaoAuthService.getKakaoLoginUrl());
+    public KakaoLoginUrlResponse getKakaoLoginUrl(@RequestParam(required = false) String frontendRedirectUri) {
+        return new KakaoLoginUrlResponse("KAKAO", kakaoAuthService.getKakaoLoginUrl(frontendRedirectUri));
     }
 
     /**
@@ -62,9 +60,10 @@ public class AuthController {
      * 카카오 콜백에서 전달된 인가 코드로 로그인 절차를 마무리하고 프론트엔드로 리다이렉트
      */
     @GetMapping("/kakao/callback")
-    public ResponseEntity<Void> kakaoCallback(@RequestParam @NotBlank(message = "인가 코드가 필요합니다.") String code) {
+    public ResponseEntity<Void> kakaoCallback(@RequestParam @NotBlank(message = "인가 코드가 필요합니다.") String code,
+                                              @RequestParam(required = false) String state) {
         KakaoLoginResponse loginResponse = authFacade.loginWithKakao(code);
-        URI redirectUri = UriComponentsBuilder.fromUriString(kakaoOAuthProperties.frontendRedirectUri())
+        URI redirectUri = UriComponentsBuilder.fromUriString(kakaoAuthService.resolveFrontendRedirectUri(state))
                 .queryParam("accessToken", loginResponse.tokens().accessToken())
                 .queryParam("refreshToken", loginResponse.tokens().refreshToken())
                 .queryParam("firstLogin", loginResponse.firstLogin())
