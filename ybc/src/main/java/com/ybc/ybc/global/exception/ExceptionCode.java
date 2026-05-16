@@ -26,8 +26,12 @@ public enum ExceptionCode {
     INVALID_INTERVIEW_STATUS(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_INTERVIEW_STATUS, "면접 상태값이 올바르지 않습니다."),
     RECRUITMENT_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.RECRUITMENT_NOT_FOUND, "존재하지 않는 모집 기수입니다."),
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.MEMBER_NOT_FOUND, "존재하지 않는 부원입니다."),
+    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.REVIEW_NOT_FOUND, "존재하지 않는 장비 후기입니다."),
     INVALID_RECRUITMENT_SCHEDULE(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_RECRUITMENT_SCHEDULE, "모집 일정 순서가 올바르지 않습니다."),
-    INVALID_MEMBER_COURT(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MEMBER_COURT, "코트 번호는 1부터 4까지만 가능합니다.");
+    INVALID_MEMBER_COURT(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MEMBER_COURT, "코트 번호는 1부터 4까지만 가능합니다."),
+    INVALID_EQUIPMENT_REVIEW_RATING(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_EQUIPMENT_REVIEW_RATING, "장비 후기 평점은 1점부터 5점까지만 가능합니다."),
+    INVALID_EQUIPMENT_USAGE_MONTH(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_EQUIPMENT_USAGE_MONTH, "장비 사용 기간은 1개월 이상이어야 합니다."),
+    INVALID_REVIEW_SORT(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_REVIEW_SORT, "후기 정렬 조건은 asc 또는 desc만 가능합니다.");
 
     private final HttpStatus httpStatus;
     private final ClientExceptionCode clientExceptionCode;
