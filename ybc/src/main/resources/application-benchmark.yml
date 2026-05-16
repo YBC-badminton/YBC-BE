@@ -22,6 +22,7 @@ app:
       client-secret: ${BENCHMARK_KAKAO_CLIENT_SECRET:}
       redirect-uri: ${BENCHMARK_KAKAO_REDIRECT_URI:http://localhost:8080/api/v1/auth/kakao/callback}
       frontend-redirect-uri: ${BENCHMARK_KAKAO_FRONTEND_REDIRECT_URI}
+      allowed-frontend-redirect-uris: ${BENCHMARK_KAKAO_ALLOWED_FRONTEND_REDIRECT_URIS:https://ybc-fe.vercel.app/auth/kakao/callback, http://localhost:3000/auth/kakao/callback,http://127.0.0.1:3000/auth/kakao/callback,http://localhost:5173/auth/kakao/callback,http://127.0.0.1:5173/auth/kakao/callback}
       authorization-base-url: ${BENCHMARK_KAKAO_AUTHORIZATION_BASE_URL:https://kauth.kakao.com/oauth/authorize}
       token-url: ${BENCHMARK_KAKAO_TOKEN_URL:https://kauth.kakao.com/oauth/token}
       user-info-url: ${BENCHMARK_KAKAO_USER_INFO_URL:https://kapi.kakao.com/v2/user/me}

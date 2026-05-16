@@ -12,12 +12,16 @@ public class KakaoLoginUrlProvider {
     private final KakaoOAuthProperties kakaoOAuthProperties;
 
     // 설정값을 바탕으로 카카오 로그인 인가 URL 만듦
-    public String createLoginUrl() {
+    public String createLoginUrl(String state) {
         UriComponentsBuilder uriComponentsBuilder = UriComponentsBuilder
                 .fromUriString(kakaoOAuthProperties.authorizationBaseUrl())
                 .queryParam("client_id", kakaoOAuthProperties.clientId())
                 .queryParam("redirect_uri", kakaoOAuthProperties.redirectUri())
                 .queryParam("response_type", "code");
+
+        if (StringUtils.hasText(state)) {
+            uriComponentsBuilder.queryParam("state", state);
+        }
 
         if (StringUtils.hasText(kakaoOAuthProperties.scope())) {
             uriComponentsBuilder.queryParam("scope", kakaoOAuthProperties.scope());

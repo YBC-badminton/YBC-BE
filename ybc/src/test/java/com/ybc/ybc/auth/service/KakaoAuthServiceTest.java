@@ -27,6 +27,9 @@ class KakaoAuthServiceTest {
     private KakaoLoginUrlProvider kakaoLoginUrlProvider;
 
     @Mock
+    private KakaoFrontendRedirectService kakaoFrontendRedirectService;
+
+    @Mock
     private MemberRepository memberRepository;
 
     @InjectMocks
@@ -84,5 +87,17 @@ class KakaoAuthServiceTest {
         assertThat(existingMember.getNickname()).isEqualTo("새닉네임");
         assertThat(existingMember.getEmail()).isEqualTo("new@example.com");
         assertThat(result.member().id()).isEqualTo(7L);
+    }
+
+    @Test
+    void getKakaoLoginUrlIncludesResolvedState() {
+        when(kakaoFrontendRedirectService.createState("http://localhost:3000/auth/kakao/callback"))
+                .thenReturn("encoded-state");
+        when(kakaoLoginUrlProvider.createLoginUrl("encoded-state"))
+                .thenReturn("https://kauth.kakao.com/oauth/authorize?state=encoded-state");
+
+        String loginUrl = kakaoAuthService.getKakaoLoginUrl("http://localhost:3000/auth/kakao/callback");
+
+        assertThat(loginUrl).isEqualTo("https://kauth.kakao.com/oauth/authorize?state=encoded-state");
     }
 }
