@@ -105,6 +105,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.tokens.refreshToken").isNotEmpty())
                 .andExpect(jsonPath("$.member.provider").value("KAKAO"))
                 .andExpect(jsonPath("$.member.socialId").value("123456789"))
+                .andExpect(jsonPath("$.member.isAdmin").value(false))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -117,7 +118,30 @@ class AuthControllerIntegrationTest {
         assertThat(savedMember).isPresent();
         assertThat(savedMember.get().getNickname()).isEqualTo("양배추");
         assertThat(savedMember.get().getEmail()).isEqualTo("cabbage@example.com");
+        assertThat(savedMember.get().isAdmin()).isFalse();
         assertThat(refreshTokenStore).containsEntry("auth:refresh:" + memberId, refreshToken);
+    }
+
+    @Test
+    void loginWithKakaoReturnsAdminFlagForExistingAdminMember() throws Exception {
+        Member existingMember = memberRepository.save(Member.createSocialMember(
+                SocialProvider.KAKAO,
+                "123456789",
+                "기존운영진",
+                "staff@example.com",
+                true
+        ));
+
+        when(kakaoApiClient.fetchUserProfile("auth-code"))
+                .thenReturn(new KakaoUserProfile("123456789", "운영진닉네임", "staff@example.com"));
+
+        mockMvc.perform(post("/api/v1/auth/kakao/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("code", "auth-code"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstLogin").value(false))
+                .andExpect(jsonPath("$.member.id").value(existingMember.getId()))
+                .andExpect(jsonPath("$.member.isAdmin").value(true));
     }
 
     @Test
@@ -166,6 +190,8 @@ class AuthControllerIntegrationTest {
                 .isNotBlank();
         assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("firstLogin"))
                 .isEqualTo("true");
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("isAdmin"))
+                .isEqualTo("false");
     }
 
     @Test
@@ -190,6 +216,8 @@ class AuthControllerIntegrationTest {
                 .isNotBlank();
         assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("firstLogin"))
                 .isEqualTo("true");
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("isAdmin"))
+                .isEqualTo("false");
     }
 
     @Test
@@ -203,7 +231,8 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.provider").value("KAKAO"))
                 .andExpect(jsonPath("$.socialId").value("123456789"))
                 .andExpect(jsonPath("$.nickname").value("양배추"))
-                .andExpect(jsonPath("$.email").value("cabbage@example.com"));
+                .andExpect(jsonPath("$.email").value("cabbage@example.com"))
+                .andExpect(jsonPath("$.isAdmin").value(false));
     }
 
     @Test

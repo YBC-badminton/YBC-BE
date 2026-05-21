@@ -5,7 +5,8 @@ public record MemberResponse(
         String provider,
         String socialId,
         String email,
-        String nickname
+        String nickname,
+        boolean isAdmin
 ) {
     public static MemberResponse from(MemberSummary memberSummary) {
         return new MemberResponse(
@@ -13,7 +14,8 @@ public record MemberResponse(
                 memberSummary.provider(),
                 memberSummary.socialId(),
                 memberSummary.email(),
-                memberSummary.nickname()
+                memberSummary.nickname(),
+                memberSummary.isAdmin()
         );
     }
 }

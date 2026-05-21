@@ -67,6 +67,7 @@ public class AuthController {
                 .queryParam("accessToken", loginResponse.tokens().accessToken())
                 .queryParam("refreshToken", loginResponse.tokens().refreshToken())
                 .queryParam("firstLogin", loginResponse.firstLogin())
+                .queryParam("isAdmin", loginResponse.member().isAdmin())
                 .build()
                 .encode()
                 .toUri();

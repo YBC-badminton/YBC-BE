@@ -58,6 +58,7 @@ class KakaoAuthServiceTest {
         assertThat(result.member().id()).isEqualTo(1L);
         assertThat(result.member().provider()).isEqualTo("KAKAO");
         assertThat(result.member().nickname()).isEqualTo("양배추");
+        assertThat(result.member().isAdmin()).isFalse();
     }
 
     @Test
@@ -66,7 +67,8 @@ class KakaoAuthServiceTest {
                 SocialProvider.KAKAO,
                 "123456789",
                 "기존닉네임",
-                "old@example.com"
+                "old@example.com",
+                true
         );
         ReflectionTestUtils.setField(existingMember, "id", 7L);
 
@@ -87,6 +89,7 @@ class KakaoAuthServiceTest {
         assertThat(existingMember.getNickname()).isEqualTo("새닉네임");
         assertThat(existingMember.getEmail()).isEqualTo("new@example.com");
         assertThat(result.member().id()).isEqualTo(7L);
+        assertThat(result.member().isAdmin()).isTrue();
     }
 
     @Test

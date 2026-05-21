@@ -7,7 +7,8 @@ public record MemberSummary(
         String provider,
         String socialId,
         String email,
-        String nickname
+        String nickname,
+        boolean isAdmin
 ) {
     public static MemberSummary from(Member member) {
         return new MemberSummary(
@@ -15,7 +16,8 @@ public record MemberSummary(
                 member.getSocialProvider().name(),
                 member.getSocialId(),
                 member.getEmail(),
-                member.getNickname()
+                member.getNickname(),
+                member.isAdmin()
         );
     }
 }

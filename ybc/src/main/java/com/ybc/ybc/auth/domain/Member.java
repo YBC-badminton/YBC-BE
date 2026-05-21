@@ -45,24 +45,37 @@ public class Member extends BaseEntity {
     @Column(length = 255)
     private String email;
 
+    @Column(name = "is_admin", nullable = false, columnDefinition = "boolean default false")
+    private boolean admin;
+
     @Column(name = "last_login_at", nullable = false)
     private LocalDateTime lastLoginAt;
 
     private Member(SocialProvider socialProvider,
                    String socialId,
                    String nickname,
-                   String email) {
+                   String email,
+                   boolean admin) {
         this.socialProvider = socialProvider;
         this.socialId = socialId;
         this.nickname = nickname;
         this.email = email;
+        this.admin = admin;
     }
 
     public static Member createSocialMember(SocialProvider socialProvider,
                                             String socialId,
                                             String nickname,
                                             String email) {
-        return new Member(socialProvider, socialId, nickname, email);
+        return createSocialMember(socialProvider, socialId, nickname, email, false);
+    }
+
+    public static Member createSocialMember(SocialProvider socialProvider,
+                                            String socialId,
+                                            String nickname,
+                                            String email,
+                                            boolean admin) {
+        return new Member(socialProvider, socialId, nickname, email, admin);
     }
 
     public void updateProfile(String nickname, String email) {

@@ -77,7 +77,8 @@ class JwtTokenServiceTest {
                 "KAKAO",
                 "123456789",
                 "ybc@example.com",
-                "양배추"
+                "양배추",
+                false
         );
 
         AuthTokenResponse tokenResponse = jwtTokenService.issueTokens(memberSummary);
@@ -130,7 +131,8 @@ class JwtTokenServiceTest {
                 "KAKAO",
                 "123456789",
                 "ybc@example.com",
-                "양배추"
+                "양배추",
+                false
         );
 
         AuthTokenResponse tokenResponse = jwtTokenService.issueTokens(memberSummary);
