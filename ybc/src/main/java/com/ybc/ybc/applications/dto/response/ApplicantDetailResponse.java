@@ -6,6 +6,7 @@ import com.ybc.ybc.global.util.PhoneNumberUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 public record ApplicantDetailResponse(
         Long applicationId,
@@ -38,7 +39,7 @@ public record ApplicantDetailResponse(
                 application.getTerm(),
                 isReapplicant,
                 application.getAddress(),
-                application.getGender().getDisplayName(),
+                application.getGender() != null ? application.getGender().getDisplayName() : null,
                 application.getAge(),
                 PhoneNumberUtils.format(application.getPhone()),
                 application.getUniversity(),
@@ -48,9 +49,10 @@ public record ApplicantDetailResponse(
                 application.getEquipment(),
                 application.getInterviewTimes()
                         .stream()
+                        .filter(Objects::nonNull)
                         .map(interviewTime -> interviewTime.getDisplayName())
                         .toList(),
-                application.getDiscoverySource().getDisplayName(),
+                application.getDiscoverySource() != null ? application.getDiscoverySource().getDisplayName() : null,
                 application.getDiscoveryEtc(),
                 application.isWantsStaff(),
                 application.getFinalComment(),

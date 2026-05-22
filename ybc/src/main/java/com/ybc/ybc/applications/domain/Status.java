@@ -3,6 +3,7 @@ package com.ybc.ybc.applications.domain;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 public enum Status {
@@ -32,6 +33,19 @@ public enum Status {
         } catch (RuntimeException exception) {
             throw new YbcException(ExceptionCode.INVALID_APPLICATION_STATUS);
         }
+    }
+
+    public static Status fromDatabaseValue(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        String normalizedValue = value.trim();
+        return Arrays.stream(values())
+                .filter(status -> status.name().equalsIgnoreCase(normalizedValue)
+                        || status.displayName.equals(normalizedValue))
+                .findFirst()
+                .orElse(null);
     }
 
     public static Status fromInterviewStatus(String value) {

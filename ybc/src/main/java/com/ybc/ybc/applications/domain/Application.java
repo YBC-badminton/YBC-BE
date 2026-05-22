@@ -33,7 +33,7 @@ public class Application extends BaseEntity {
     private String address;
 
     @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = GenderConverter.class)
     private Gender gender;
 
     @Column(nullable = false)
@@ -60,12 +60,12 @@ public class Application extends BaseEntity {
     private String equipment;
 
     @ElementCollection
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = InterviewTimeConverter.class)
     @CollectionTable(name = "application_interview_times", joinColumns = @JoinColumn(name = "application_id"))
     private List<InterviewTime> interviewTimes = new ArrayList<>();
 
     @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = DiscoverySourceConverter.class)
     private DiscoverySource discoverySource;
 
     private String discoveryEtc;
@@ -76,7 +76,7 @@ public class Application extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String finalComment;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = StatusConverter.class)
     private Status status;
 
     @Column(nullable = false)
