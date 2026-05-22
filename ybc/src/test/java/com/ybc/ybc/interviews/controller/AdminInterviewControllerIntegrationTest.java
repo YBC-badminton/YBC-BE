@@ -66,6 +66,20 @@ class AdminInterviewControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("면접 대상 지원자가 없어도 빈 목록을 반환한다")
+    void getInterviewManagementReturnsEmptyDashboardWhenNoInterviewTargets() throws Exception {
+        mockMvc.perform(get(ADMIN_INTERVIEWS_API)
+                        .with(authorizedUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary.totalInterviewees").value(0))
+                .andExpect(jsonPath("$.summary.passedCount").value(0))
+                .andExpect(jsonPath("$.summary.failedCount").value(0))
+                .andExpect(jsonPath("$.summary.holdCount").value(0))
+                .andExpect(jsonPath("$.interviewList").isArray())
+                .andExpect(jsonPath("$.interviewList").isEmpty());
+    }
+
+    @Test
     @DisplayName("인증된 사용자는 면접 관리 리스트를 조회할 수 있다")
     void getInterviewManagementReturnsInterviewDashboardWhenAuthenticated() throws Exception {
         Application firstPassApplication = saveApplication("김철수", Status.FIRST_PASS, List.of(InterviewTime.FIRST_SESSION, InterviewTime.SECOND_SESSION));

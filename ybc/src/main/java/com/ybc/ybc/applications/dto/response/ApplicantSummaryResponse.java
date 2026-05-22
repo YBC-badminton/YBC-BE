@@ -26,7 +26,7 @@ public record ApplicantSummaryResponse(
                 application.getName(),
                 application.getTerm(),
                 isReapplicant,
-                application.getGender().getDisplayName(),
+                application.getGender() != null ? application.getGender().getDisplayName() : null,
                 application.getAge(),
                 application.getUniversity(),
                 application.getMajor(),

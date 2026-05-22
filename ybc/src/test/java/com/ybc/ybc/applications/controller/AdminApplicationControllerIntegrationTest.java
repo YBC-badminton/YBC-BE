@@ -60,6 +60,17 @@ class AdminApplicationControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("지원자가 없어도 빈 목록을 반환한다")
+    void getApplicantsReturnsEmptyListWhenNoApplications() throws Exception {
+        mockMvc.perform(get(ADMIN_APPLICATIONS_API)
+                        .with(authorizedUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(0))
+                .andExpect(jsonPath("$.applicants").isArray())
+                .andExpect(jsonPath("$.applicants").isEmpty());
+    }
+
+    @Test
     @DisplayName("인증된 사용자는 지원자 목록을 조회할 수 있다")
     void getApplicantsReturnsApplicantListWhenAuthenticated() throws Exception {
         Application firstApplication = saveApplication("김철수", "10기", "010-1234-5678", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
