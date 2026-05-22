@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Year;
 import java.util.List;
@@ -24,6 +27,7 @@ public class ClubMemberSyncService {
 
     private final ApplicationRepository applicationRepository;
     private final ClubMemberRepository clubMemberRepository;
+    private final PlatformTransactionManager transactionManager;
 
     @Transactional
     public void syncByApplicationStatusChange(Application application,
@@ -42,6 +46,20 @@ public class ClubMemberSyncService {
 
     @Transactional
     public void reconcileFinalPassMembers() {
+        reconcileFinalPassMembersInternal();
+    }
+
+    public void reconcileFinalPassMembersSafely() {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        try {
+            transactionTemplate.executeWithoutResult(status -> reconcileFinalPassMembersInternal());
+        } catch (RuntimeException exception) {
+            log.error("Failed to reconcile final-pass club members.", exception);
+        }
+    }
+
+    private void reconcileFinalPassMembersInternal() {
         List<Application> finalPassApplications = applicationRepository.findAllByStatusIn(
                 FINAL_PASS_STATUS,
                 Sort.by(Sort.Order.asc("id"))
@@ -56,14 +74,6 @@ public class ClubMemberSyncService {
         clubMemberRepository.findAllByApplicationIdIsNotNull().stream()
                 .filter(clubMember -> !finalPassApplicationIds.contains(clubMember.getApplicationId()))
                 .forEach(clubMemberRepository::delete);
-    }
-
-    public void reconcileFinalPassMembersSafely() {
-        try {
-            reconcileFinalPassMembers();
-        } catch (RuntimeException exception) {
-            log.error("Failed to reconcile final-pass club members.", exception);
-        }
     }
 
     private void upsertClubMember(Application application) {

@@ -9,6 +9,7 @@ import com.ybc.ybc.members.domain.ClubMember;
 import com.ybc.ybc.members.repository.ClubMemberRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -16,6 +17,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.time.Year;
 import java.util.List;
@@ -27,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ClubMemberSyncServiceTest {
@@ -36,8 +42,18 @@ class ClubMemberSyncServiceTest {
     @Mock
     private ClubMemberRepository clubMemberRepository;
 
+    @Mock
+    private PlatformTransactionManager transactionManager;
+
     @InjectMocks
     private ClubMemberSyncService clubMemberSyncService;
+
+    @BeforeEach
+    void setUp() {
+        TransactionStatus transactionStatus = new SimpleTransactionStatus();
+        lenient().when(transactionManager.getTransaction(any(TransactionDefinition.class)))
+                .thenReturn(transactionStatus);
+    }
 
     @Test
     @DisplayName("지원서가 최종 합격으로 변경되면 부원을 자동 생성한다")
