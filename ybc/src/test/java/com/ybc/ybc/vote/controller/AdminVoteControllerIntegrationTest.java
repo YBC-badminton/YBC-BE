@@ -430,6 +430,61 @@ class AdminVoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("추가참여 투표로 대진을 등록해도 원본 투표 대진에 통합한다")
+    void registerMatchesMergesAdditionalVoteParticipantsIntoBaseMatch() throws Exception {
+        Vote baseVote = voteRepository.save(vote(
+                "추가참여 포함 정기 운동",
+                LocalDate.now().minusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                20
+        ));
+        Vote additionalVote = voteRepository.saveAndFlush(
+                Vote.createAdditionalVote(
+                        baseVote,
+                        LocalDateTime.now().minusHours(12),
+                        LocalDateTime.now().minusHours(2),
+                        5
+                )
+        );
+        VoteAttendance first = addMatchParticipant(baseVote, "merged-match-1001", "김철수", Gender.MALE);
+        VoteAttendance second = addMatchParticipant(baseVote, "merged-match-1002", "이영희", Gender.FEMALE);
+        VoteAttendance third = addMatchParticipant(additionalVote, "merged-match-1003", "박민수", Gender.MALE);
+        Guest guest = addGuest(additionalVote, "merged-host-1001", "게스트1");
+
+        mockMvc.perform(get(ADMIN_VOTES_API + "/{voteId}/matches", additionalVote.getId())
+                        .with(authorizedUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voteId").value(baseVote.getId()))
+                .andExpect(jsonPath("$.totalCount").value(4));
+
+        List<Map<String, Object>> requestBody = List.of(Map.of(
+                "courtNumber", 1,
+                "courtMatches", List.of(Map.of(
+                        "matchNumber", 1,
+                        "team1", List.of(memberParticipant(first.getId()), memberParticipant(second.getId())),
+                        "team2", List.of(memberParticipant(third.getId()), guestParticipant(guest.getId()))
+                ))
+        ));
+
+        mockMvc.perform(post(ADMIN_VOTES_API + "/{voteId}/matches", additionalVote.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBody)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voteId").value(baseVote.getId()))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[0].name").value("김철수"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[1].name").value("이영희"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[0].name").value("박민수"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].name").value("게스트1"));
+
+        assertThat(voteMatchRepository.findAll()).hasSize(4);
+        assertThat(voteMatchGroupRepository.findAll()).hasSize(1);
+        assertThat(voteMatchGroupRepository.findAll().get(0).getVote().getId()).isEqualTo(baseVote.getId());
+    }
+
+    @Test
     @DisplayName("인증된 사용자는 게스트를 포함한 대진을 등록할 수 있다")
     void registerMatchesSupportsGuestParticipants() throws Exception {
         Vote vote = voteRepository.save(vote(
@@ -981,6 +1036,7 @@ class AdminVoteControllerIntegrationTest {
                 .gender(gender)
                 .age(24)
                 .phone("010-1234-5678")
+                .term("2기")
                 .university("한국대학교")
                 .major("컴퓨터공학과")
                 .introduction("성실하게 활동할 자신 있습니다.")

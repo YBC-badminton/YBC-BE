@@ -91,6 +91,28 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
 
     List<Vote> findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime now);
 
+    List<Vote> findAllByOriginalVote_IdOrderByIdAsc(Long originalVoteId);
+
+    List<Vote> findAllByActivityTypeAndActivityDateAndActivityTimeAndLocationAndVoteStartAtAndTitleAndOriginalVoteIsNullOrderByIdAsc(
+            com.ybc.ybc.vote.domain.ActivityType activityType,
+            LocalDate activityDate,
+            String activityTime,
+            String location,
+            LocalDateTime voteStartAt,
+            String title
+    );
+
+    java.util.Optional<Vote> findFirstByTitleAndActivityTypeAndActivityDateAndActivityTimeAndLocationAndVoteEndAtAndOriginalVoteIsNullOrderByIdAsc(
+            String title,
+            com.ybc.ybc.vote.domain.ActivityType activityType,
+            LocalDate activityDate,
+            String activityTime,
+            String location,
+            LocalDateTime voteEndAt
+    );
+
+    boolean existsByOriginalVote_Id(Long originalVoteId);
+
     boolean existsByTitleAndActivityTypeAndActivityDateAndVoteStartAtAndVoteEndAt(
             String title,
             com.ybc.ybc.vote.domain.ActivityType activityType,

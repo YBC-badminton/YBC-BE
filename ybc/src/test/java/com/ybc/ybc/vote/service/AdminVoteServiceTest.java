@@ -173,8 +173,8 @@ class AdminVoteServiceTest {
 
         org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(voteRepository, voteMatchRepository, voteMatchGroupRepository, guestRepository, voteAttendanceRepository);
         inOrder.verify(voteRepository).findById(1L);
-        inOrder.verify(voteMatchRepository).deleteAllByVote_Id(1L);
-        inOrder.verify(voteMatchGroupRepository).deleteAllByVote_Id(1L);
+        inOrder.verify(voteMatchRepository).deleteAllByVote_IdIn(java.util.Set.of(1L));
+        inOrder.verify(voteMatchGroupRepository).deleteAllByVote_IdIn(java.util.Set.of(1L));
         inOrder.verify(guestRepository).deleteAllByVote_Id(1L);
         inOrder.verify(voteAttendanceRepository).deleteAllByVote_Id(1L);
         inOrder.verify(voteRepository).delete(vote);

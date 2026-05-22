@@ -36,6 +36,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -319,6 +321,40 @@ class VoteServiceTest {
         assertThatThrownBy(() -> voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true)))
                 .isInstanceOf(YbcException.class)
                 .hasMessage("해당 모임의 정원이 모두 찼습니다.");
+    }
+
+    @Test
+    @DisplayName("같은 운동의 추가 투표에 이미 참석한 회원은 다시 참석할 수 없다")
+    void saveVoteAttendanceThrowsWhenMemberAlreadyJoinedRelatedVote() {
+        Vote baseVote = savedVote(1L, "목요 정기 운동");
+        Vote additionalVote = Vote.createAdditionalVote(
+                baseVote,
+                LocalDateTime.now().minusMinutes(30),
+                LocalDateTime.now().plusHours(1),
+                5
+        );
+        ReflectionTestUtils.setField(additionalVote, "id", 2L);
+
+        Member member = savedMember(2L, "2001");
+
+        when(voteRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(additionalVote));
+        when(memberService.getMemberById(2L)).thenReturn(member);
+        when(voteAttendanceRepository.findByVote_IdAndMember_Id(2L, 2L)).thenReturn(Optional.empty());
+        when(voteRepository.findAllByOriginalVote_IdOrderByIdAsc(1L)).thenReturn(List.of(additionalVote));
+        when(voteRepository.findAllByActivityTypeAndActivityDateAndActivityTimeAndLocationAndVoteStartAtAndTitleAndOriginalVoteIsNullOrderByIdAsc(
+                ActivityType.REGULAR,
+                baseVote.getActivityDate(),
+                baseVote.getActivityTime(),
+                baseVote.getLocation(),
+                baseVote.getVoteEndAt(),
+                baseVote.getTitle() + Vote.ADDITIONAL_PARTICIPATION_SUFFIX
+        )).thenReturn(List.of());
+        when(voteAttendanceRepository.existsByVote_IdInAndMember_IdAndAttendanceStatusTrue(anyCollection(), eq(2L)))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> voteService.saveVoteAttendance(2L, 2L, new VoteAttendanceRequest(true)))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("같은 운동에는 한 번만 참여할 수 있습니다.");
     }
 
     @Test

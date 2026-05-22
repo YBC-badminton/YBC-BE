@@ -5,6 +5,7 @@ import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.members.domain.ClubMember;
 import com.ybc.ybc.members.repository.ClubMemberRepository;
 import com.ybc.ybc.members.service.ClubMemberSyncService;
+import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.MatchParticipantType;
 import com.ybc.ybc.vote.domain.Vote;
@@ -71,9 +72,10 @@ public class AdminMatchService {
 
         clubMemberSyncService.reconcileFinalPassMembers();
         VoteMatchGroup matchGroup = getMatchGroup(matchId);
-        Long voteId = matchGroup.getVote().getId();
+        Vote baseVote = resolveBaseVote(matchGroup.getVote());
+        Set<Long> relatedVoteIds = getRelatedVoteIds(baseVote);
         validateRequestedGames(request);
-        Map<ParticipantKey, MatchParticipantSource> participantMap = getParticipantMap(voteId, request);
+        Map<ParticipantKey, MatchParticipantSource> participantMap = getParticipantMap(relatedVoteIds, request);
 
         getRequestedGameKeys(request).forEach(gameKey ->
                 voteMatchRepository.deleteAllByMatchGroup_IdAndCourtNumberAndMatchNumber(
@@ -93,10 +95,13 @@ public class AdminMatchService {
     @Transactional
     public AdminMatchParticipantListResponse getParticipants(Long voteId) {
         clubMemberSyncService.reconcileFinalPassMembers();
-        Vote vote = voteRepository.findById(voteId)
-                .orElseThrow(() -> new YbcException(ExceptionCode.VOTE_NOT_FOUND));
-        List<VoteAttendance> attendances = voteAttendanceRepository.findAllActiveWithMemberByVoteId(vote.getId());
-        List<Guest> guests = guestRepository.findAllByVote_IdOrderByIdAsc(vote.getId());
+        Vote requestedVote = getVote(voteId);
+        Vote baseVote = resolveBaseVote(requestedVote);
+        Set<Long> relatedVoteIds = getRelatedVoteIds(baseVote);
+        List<VoteAttendance> attendances = deduplicateAttendances(
+                voteAttendanceRepository.findAllActiveWithMemberByVoteIds(relatedVoteIds)
+        );
+        List<Guest> guests = guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(relatedVoteIds);
         Map<Long, ClubMember> clubMembersByMemberId = getClubMembersByMemberId(attendances);
 
         List<AdminMatchParticipantResponse> participants = new ArrayList<>();
@@ -116,7 +121,7 @@ public class AdminMatchService {
                 guest.getGender()
         )));
 
-        return new AdminMatchParticipantListResponse(vote.getId(), participants.size(), participants);
+        return new AdminMatchParticipantListResponse(baseVote.getId(), participants.size(), participants);
     }
 
     @Transactional
@@ -126,16 +131,23 @@ public class AdminMatchService {
         }
 
         clubMemberSyncService.reconcileFinalPassMembers();
-        Vote vote = voteRepository.findById(voteId)
-                .orElseThrow(() -> new YbcException(ExceptionCode.VOTE_NOT_FOUND));
+        Vote requestedVote = getVote(voteId);
+        Vote baseVote = resolveBaseVote(requestedVote);
+        Set<Long> relatedVoteIds = getRelatedVoteIds(baseVote);
         validateRequestedGames(request);
-        Map<ParticipantKey, MatchParticipantSource> participantMap = getParticipantMap(voteId, request);
+        Map<ParticipantKey, MatchParticipantSource> participantMap = getParticipantMap(relatedVoteIds, request);
 
-        voteMatchRepository.deleteAllByVote_Id(voteId);
-        VoteMatchGroup matchGroup = voteMatchGroupRepository.findByVote_Id(voteId)
-                .orElseGet(() -> voteMatchGroupRepository.saveAndFlush(VoteMatchGroup.create(vote)));
+        voteMatchRepository.deleteAllByVote_IdIn(relatedVoteIds);
+        Set<Long> additionalVoteIds = relatedVoteIds.stream()
+                .filter(relatedVoteId -> !relatedVoteId.equals(baseVote.getId()))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (!additionalVoteIds.isEmpty()) {
+            voteMatchGroupRepository.deleteAllByVote_IdIn(additionalVoteIds);
+        }
+        VoteMatchGroup matchGroup = voteMatchGroupRepository.findByVote_Id(baseVote.getId())
+                .orElseGet(() -> voteMatchGroupRepository.saveAndFlush(VoteMatchGroup.create(baseVote)));
         voteMatchRepository.saveAllAndFlush(
-                toMatchEntities(vote, matchGroup, request, participantMap)
+                toMatchEntities(baseVote, matchGroup, request, participantMap)
         );
 
         return toMatchResponse(matchGroup);
@@ -146,7 +158,12 @@ public class AdminMatchService {
                 .orElseThrow(() -> new YbcException(ExceptionCode.MATCH_NOT_FOUND));
     }
 
-    private Map<ParticipantKey, MatchParticipantSource> getParticipantMap(Long voteId, List<AdminMatchCourtRequest> request) {
+    private Vote getVote(Long voteId) {
+        return voteRepository.findById(voteId)
+                .orElseThrow(() -> new YbcException(ExceptionCode.VOTE_NOT_FOUND));
+    }
+
+    private Map<ParticipantKey, MatchParticipantSource> getParticipantMap(Set<Long> relatedVoteIds, List<AdminMatchCourtRequest> request) {
         Set<ParticipantKey> participantKeys = request.stream()
                 .flatMap(court -> court.courtMatches().stream())
                 .flatMap(match -> Stream.concat(match.team1().stream(), match.team2().stream()))
@@ -158,8 +175,8 @@ public class AdminMatchService {
 
         Set<Long> attendanceIds = filterParticipantIds(participantKeys, MatchParticipantType.MEMBER);
         Set<Long> guestIds = filterParticipantIds(participantKeys, MatchParticipantType.GUEST);
-        Map<Long, VoteAttendance> attendanceMap = getAttendanceMap(voteId, attendanceIds);
-        Map<Long, Guest> guestMap = getGuestMap(voteId, guestIds);
+        Map<Long, VoteAttendance> attendanceMap = getAttendanceMap(relatedVoteIds, attendanceIds);
+        Map<Long, Guest> guestMap = getGuestMap(relatedVoteIds, guestIds);
 
         Map<ParticipantKey, MatchParticipantSource> participantMap = new LinkedHashMap<>();
         participantKeys.forEach(participantKey -> {
@@ -179,7 +196,7 @@ public class AdminMatchService {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    private Map<Long, VoteAttendance> getAttendanceMap(Long voteId, Collection<Long> attendanceIds) {
+    private Map<Long, VoteAttendance> getAttendanceMap(Set<Long> relatedVoteIds, Collection<Long> attendanceIds) {
         if (attendanceIds.isEmpty()) {
             return Map.of();
         }
@@ -193,7 +210,7 @@ public class AdminMatchService {
 
         boolean hasInvalidParticipant = attendanceMap.values().stream()
                 .anyMatch(attendance -> !attendance.isAttendanceStatus()
-                        || !attendance.getVote().getId().equals(voteId));
+                        || !relatedVoteIds.contains(attendance.getVote().getId()));
         if (hasInvalidParticipant) {
             throw new YbcException(ExceptionCode.MATCH_PARTICIPANT_NOT_FOUND);
         }
@@ -201,7 +218,7 @@ public class AdminMatchService {
         return attendanceMap;
     }
 
-    private Map<Long, Guest> getGuestMap(Long voteId, Collection<Long> guestIds) {
+    private Map<Long, Guest> getGuestMap(Set<Long> relatedVoteIds, Collection<Long> guestIds) {
         if (guestIds.isEmpty()) {
             return Map.of();
         }
@@ -213,7 +230,7 @@ public class AdminMatchService {
         }
 
         boolean hasInvalidParticipant = guestMap.values().stream()
-                .anyMatch(guest -> !guest.getVote().getId().equals(voteId));
+                .anyMatch(guest -> !relatedVoteIds.contains(guest.getVote().getId()));
         if (hasInvalidParticipant) {
             throw new YbcException(ExceptionCode.MATCH_PARTICIPANT_NOT_FOUND);
         }
@@ -431,6 +448,73 @@ public class AdminMatchService {
             return null;
         }
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private Vote resolveBaseVote(Vote vote) {
+        if (vote.getOriginalVote() != null) {
+            return vote.getOriginalVote();
+        }
+        if (!vote.isAdditionalParticipationVote()) {
+            return vote;
+        }
+
+        return voteRepository.findFirstByTitleAndActivityTypeAndActivityDateAndActivityTimeAndLocationAndVoteEndAtAndOriginalVoteIsNullOrderByIdAsc(
+                        vote.getBaseVoteTitle(),
+                        ActivityType.REGULAR,
+                        vote.getActivityDate(),
+                        vote.getActivityTime(),
+                        vote.getLocation(),
+                        vote.getVoteStartAt()
+                )
+                .map(baseVote -> {
+                    vote.linkOriginalVote(baseVote);
+                    return baseVote;
+                })
+                .orElse(vote);
+    }
+
+    private Set<Long> getRelatedVoteIds(Vote vote) {
+        return getRelatedVotes(vote).stream()
+                .map(Vote::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private List<Vote> getRelatedVotes(Vote vote) {
+        Vote baseVote = resolveBaseVote(vote);
+        List<Vote> relatedVotes = new ArrayList<>();
+        relatedVotes.add(baseVote);
+        relatedVotes.addAll(voteRepository.findAllByOriginalVote_IdOrderByIdAsc(baseVote.getId()));
+
+        voteRepository.findAllByActivityTypeAndActivityDateAndActivityTimeAndLocationAndVoteStartAtAndTitleAndOriginalVoteIsNullOrderByIdAsc(
+                        ActivityType.REGULAR,
+                        baseVote.getActivityDate(),
+                        baseVote.getActivityTime(),
+                        baseVote.getLocation(),
+                        baseVote.getVoteEndAt(),
+                        baseVote.getTitle() + Vote.ADDITIONAL_PARTICIPATION_SUFFIX
+                ).stream()
+                .filter(legacyAdditionalVote -> !legacyAdditionalVote.getId().equals(baseVote.getId()))
+                .forEach(legacyAdditionalVote -> {
+                    legacyAdditionalVote.linkOriginalVote(baseVote);
+                    relatedVotes.add(legacyAdditionalVote);
+                });
+
+        return relatedVotes.stream()
+                .collect(Collectors.toMap(
+                        Vote::getId,
+                        voteItem -> voteItem,
+                        (first, ignored) -> first,
+                        LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .toList();
+    }
+
+    private List<VoteAttendance> deduplicateAttendances(List<VoteAttendance> attendances) {
+        Map<Long, VoteAttendance> uniqueAttendancesByMemberId = new LinkedHashMap<>();
+        attendances.forEach(attendance -> uniqueAttendancesByMemberId.putIfAbsent(attendance.getMember().getId(), attendance));
+        return uniqueAttendancesByMemberId.values().stream().toList();
     }
 
     private void validateGame(AdminMatchGameRequest game) {

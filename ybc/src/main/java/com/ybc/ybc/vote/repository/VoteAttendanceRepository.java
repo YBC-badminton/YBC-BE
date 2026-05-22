@@ -21,6 +21,8 @@ public interface VoteAttendanceRepository extends JpaRepository<VoteAttendance, 
 
     Optional<VoteAttendance> findByVote_IdAndMember_Id(Long voteId, Long memberId);
 
+    boolean existsByVote_IdInAndMember_IdAndAttendanceStatusTrue(Collection<Long> voteIds, Long memberId);
+
     List<VoteAttendance> findAllByVote_IdAndAttendanceStatusTrueOrderByIdAsc(Long voteId);
 
     List<VoteAttendance> findAllByVote_IdAndAttendanceStatusFalseOrderByIdAsc(Long voteId);
@@ -36,6 +38,17 @@ public interface VoteAttendanceRepository extends JpaRepository<VoteAttendance, 
             order by va.id
             """)
     List<VoteAttendance> findAllActiveWithMemberByVoteId(@Param("voteId") Long voteId);
+
+    @Query("""
+            select va
+            from VoteAttendance va
+            join fetch va.member
+            join fetch va.vote
+            where va.vote.id in :voteIds
+              and va.attendanceStatus = true
+            order by va.vote.id, va.id
+            """)
+    List<VoteAttendance> findAllActiveWithMemberByVoteIds(@Param("voteIds") Collection<Long> voteIds);
 
     @Query("""
             select va

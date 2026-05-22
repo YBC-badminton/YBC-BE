@@ -271,6 +271,43 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("같은 운동의 원본 투표에 이미 참석했다면 추가 투표에는 다시 참석할 수 없다")
+    void saveVoteAttendanceThrowsWhenMemberAlreadyJoinedRelatedVote() throws Exception {
+        Vote baseVote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(2),
+                LocalDateTime.now().plusHours(1),
+                20
+        ));
+        Vote additionalVote = voteRepository.saveAndFlush(
+                Vote.createAdditionalVote(
+                        baseVote,
+                        LocalDateTime.now().minusMinutes(30),
+                        LocalDateTime.now().plusHours(2),
+                        5
+                )
+        );
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+        voteAttendanceRepository.save(
+                VoteAttendance.builder()
+                        .vote(baseVote)
+                        .member(member)
+                        .attendanceStatus(true)
+                        .build()
+        );
+
+        mockMvc.perform(put("/votes/{voteId}/attendance", additionalVote.getId())
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteAttendanceRequest(true))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("DUPLICATE_VOTE_ATTENDANCE"));
+    }
+
+    @Test
     @DisplayName("게스트 참여 정보를 생성한다")
     void createGuest() throws Exception {
         Vote vote = voteRepository.save(vote(

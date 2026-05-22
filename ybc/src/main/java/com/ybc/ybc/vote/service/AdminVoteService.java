@@ -28,9 +28,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -168,11 +171,22 @@ public class AdminVoteService {
     @Transactional
     public void deleteVote(Long voteId) {
         Vote vote = getVote(voteId);
-        voteMatchRepository.deleteAllByVote_Id(voteId);
-        voteMatchGroupRepository.deleteAllByVote_Id(voteId);
-        guestRepository.deleteAllByVote_Id(voteId);
-        voteAttendanceRepository.deleteAllByVote_Id(voteId);
-        voteRepository.delete(vote);
+        Vote baseVote = resolveBaseVote(vote);
+        List<Vote> relatedVotes = getRelatedVotes(baseVote);
+        Set<Long> relatedVoteIds = getVoteIds(relatedVotes);
+
+        voteMatchRepository.deleteAllByVote_IdIn(relatedVoteIds);
+        voteMatchGroupRepository.deleteAllByVote_IdIn(relatedVoteIds);
+
+        if (vote.getId().equals(baseVote.getId())) {
+            relatedVotes.stream()
+                    .filter(relatedVote -> !relatedVote.getId().equals(baseVote.getId()))
+                    .forEach(this::deleteVoteContents);
+            deleteVoteContents(baseVote);
+            return;
+        }
+
+        deleteVoteContents(vote);
     }
 
     // 추가참여 투표 자동 생성 규칙
@@ -216,7 +230,8 @@ public class AdminVoteService {
             return null;
         }
 
-        if (voteRepository.existsByTitleAndActivityTypeAndActivityDateAndVoteStartAtAndVoteEndAt(
+        if (voteRepository.existsByOriginalVote_Id(vote.getId())
+                || voteRepository.existsByTitleAndActivityTypeAndActivityDateAndVoteStartAtAndVoteEndAt(
                 vote.getTitle() + Vote.ADDITIONAL_PARTICIPATION_SUFFIX,
                 ActivityType.REGULAR,
                 vote.getActivityDate(),
@@ -277,6 +292,73 @@ public class AdminVoteService {
     private Vote getVote(Long voteId) {
         return voteRepository.findById(voteId)
                 .orElseThrow(() -> new YbcException(ExceptionCode.VOTE_NOT_FOUND));
+    }
+
+    private Vote resolveBaseVote(Vote vote) {
+        if (vote.getOriginalVote() != null) {
+            return vote.getOriginalVote();
+        }
+        if (!vote.isAdditionalParticipationVote()) {
+            return vote;
+        }
+
+        return voteRepository.findFirstByTitleAndActivityTypeAndActivityDateAndActivityTimeAndLocationAndVoteEndAtAndOriginalVoteIsNullOrderByIdAsc(
+                        vote.getBaseVoteTitle(),
+                        ActivityType.REGULAR,
+                        vote.getActivityDate(),
+                        vote.getActivityTime(),
+                        vote.getLocation(),
+                        vote.getVoteStartAt()
+                )
+                .map(baseVote -> {
+                    vote.linkOriginalVote(baseVote);
+                    return baseVote;
+                })
+                .orElse(vote);
+    }
+
+    private List<Vote> getRelatedVotes(Vote vote) {
+        Vote baseVote = resolveBaseVote(vote);
+        List<Vote> relatedVotes = new ArrayList<>();
+        relatedVotes.add(baseVote);
+        relatedVotes.addAll(voteRepository.findAllByOriginalVote_IdOrderByIdAsc(baseVote.getId()));
+
+        voteRepository.findAllByActivityTypeAndActivityDateAndActivityTimeAndLocationAndVoteStartAtAndTitleAndOriginalVoteIsNullOrderByIdAsc(
+                        ActivityType.REGULAR,
+                        baseVote.getActivityDate(),
+                        baseVote.getActivityTime(),
+                        baseVote.getLocation(),
+                        baseVote.getVoteEndAt(),
+                        baseVote.getTitle() + Vote.ADDITIONAL_PARTICIPATION_SUFFIX
+                ).stream()
+                .filter(legacyAdditionalVote -> !legacyAdditionalVote.getId().equals(baseVote.getId()))
+                .forEach(legacyAdditionalVote -> {
+                    legacyAdditionalVote.linkOriginalVote(baseVote);
+                    relatedVotes.add(legacyAdditionalVote);
+                });
+
+        return relatedVotes.stream()
+                .collect(Collectors.toMap(
+                        Vote::getId,
+                        voteItem -> voteItem,
+                        (first, ignored) -> first,
+                        java.util.LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .toList();
+    }
+
+    private Set<Long> getVoteIds(List<Vote> votes) {
+        return votes.stream()
+                .map(Vote::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private void deleteVoteContents(Vote vote) {
+        guestRepository.deleteAllByVote_Id(vote.getId());
+        voteAttendanceRepository.deleteAllByVote_Id(vote.getId());
+        voteRepository.delete(vote);
     }
 
     private int resolveAdditionalCapacity(Vote vote) {
