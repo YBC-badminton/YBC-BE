@@ -4,6 +4,7 @@ import com.ybc.ybc.applications.domain.Application;
 import com.ybc.ybc.interviews.domain.Interview;
 
 import java.util.List;
+import java.util.Objects;
 
 public record InterviewManagementItemResponse(
         Long applicationId,
@@ -18,6 +19,7 @@ public record InterviewManagementItemResponse(
                 application.getId(),
                 application.getName(),
                 application.getInterviewTimes().stream()
+                        .filter(Objects::nonNull)
                         .map(Enum::name)
                         .toList(),
                 interview != null && interview.getScheduledAt() != null

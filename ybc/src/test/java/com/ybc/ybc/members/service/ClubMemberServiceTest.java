@@ -48,7 +48,7 @@ class ClubMemberServiceTest {
 
         ClubMemberListResponse response = clubMemberService.getMembers();
 
-        verify(clubMemberSyncService).reconcileFinalPassMembers();
+        verify(clubMemberSyncService).reconcileFinalPassMembersSafely();
         assertThat(response.summary().totalMembers()).isEqualTo(3);
         assertThat(response.summary().court1()).isEqualTo(1);
         assertThat(response.summary().court2()).isEqualTo(1);

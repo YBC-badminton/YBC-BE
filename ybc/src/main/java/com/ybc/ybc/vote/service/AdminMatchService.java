@@ -26,6 +26,7 @@ import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
 import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminMatchService {
@@ -70,7 +72,7 @@ public class AdminMatchService {
             throw new YbcException(ExceptionCode.INVALID_MATCH_REQUEST);
         }
 
-        clubMemberSyncService.reconcileFinalPassMembers();
+        clubMemberSyncService.reconcileFinalPassMembersSafely();
         VoteMatchGroup matchGroup = getMatchGroup(matchId);
         Vote baseVote = resolveBaseVote(matchGroup.getVote());
         Set<Long> relatedVoteIds = getRelatedVoteIds(baseVote);
@@ -94,7 +96,7 @@ public class AdminMatchService {
 
     @Transactional
     public AdminMatchParticipantListResponse getParticipants(Long voteId) {
-        clubMemberSyncService.reconcileFinalPassMembers();
+        clubMemberSyncService.reconcileFinalPassMembersSafely();
         Vote requestedVote = getVote(voteId);
         Vote baseVote = resolveBaseVote(requestedVote);
         Set<Long> relatedVoteIds = getRelatedVoteIds(baseVote);
@@ -102,7 +104,7 @@ public class AdminMatchService {
                 voteAttendanceRepository.findAllActiveWithMemberByVoteIds(relatedVoteIds)
         );
         List<Guest> guests = guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(relatedVoteIds);
-        Map<Long, ClubMember> clubMembersByMemberId = getClubMembersByMemberId(attendances);
+        Map<Long, ClubMember> clubMembersByMemberId = getClubMembersByMemberIdSafely(attendances);
 
         List<AdminMatchParticipantResponse> participants = new ArrayList<>();
         attendances.forEach(attendance -> {
@@ -130,7 +132,7 @@ public class AdminMatchService {
             throw new YbcException(ExceptionCode.INVALID_MATCH_REQUEST);
         }
 
-        clubMemberSyncService.reconcileFinalPassMembers();
+        clubMemberSyncService.reconcileFinalPassMembersSafely();
         Vote requestedVote = getVote(voteId);
         Vote baseVote = resolveBaseVote(requestedVote);
         Set<Long> relatedVoteIds = getRelatedVoteIds(baseVote);
@@ -298,7 +300,7 @@ public class AdminMatchService {
 
     private AdminMatchRegistrationResponse toMatchResponse(VoteMatchGroup matchGroup) {
         List<VoteMatch> matches = voteMatchRepository.findAllWithParticipantsByMatchGroupId(matchGroup.getId());
-        Map<Long, ClubMember> clubMembersByMemberId = getClubMembersByMemberId(
+        Map<Long, ClubMember> clubMembersByMemberId = getClubMembersByMemberIdSafely(
                 matches.stream()
                         .map(VoteMatch::getVoteAttendance)
                         .filter(Objects::nonNull)
@@ -368,11 +370,23 @@ public class AdminMatchService {
 
     private AdminMatchParticipantProfileResponse toMemberProfile(VoteAttendance attendance,
                                                                  Map<Long, ClubMember> clubMembersByMemberId) {
+        if (attendance.getMember() == null) {
+            return new AdminMatchParticipantProfileResponse("알 수 없음", null);
+        }
         ClubMember clubMember = clubMembersByMemberId.get(attendance.getMember().getId());
         if (clubMember != null) {
             return new AdminMatchParticipantProfileResponse(clubMember.getName(), clubMember.getGender());
         }
         return new AdminMatchParticipantProfileResponse(attendance.getMember().getNickname(), null);
+    }
+
+    private Map<Long, ClubMember> getClubMembersByMemberIdSafely(Iterable<VoteAttendance> attendances) {
+        try {
+            return getClubMembersByMemberId(attendances);
+        } catch (RuntimeException exception) {
+            log.error("Failed to resolve club member profiles for match participants.", exception);
+            return Map.of();
+        }
     }
 
     private Map<Long, ClubMember> getClubMembersByMemberId(Iterable<VoteAttendance> attendances) {

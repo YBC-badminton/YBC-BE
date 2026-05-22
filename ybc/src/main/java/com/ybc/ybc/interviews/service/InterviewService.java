@@ -12,6 +12,7 @@ import com.ybc.ybc.interviews.dto.response.InterviewManagementResponse;
 import com.ybc.ybc.interviews.dto.response.InterviewSummaryResponse;
 import com.ybc.ybc.interviews.repository.InterviewRepository;
 import com.ybc.ybc.members.service.ClubMemberSyncService;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -89,12 +91,7 @@ public class InterviewService {
             );
         }
 
-        Map<Long, Interview> interviewByApplicationId = interviewRepository.findAllByApplication_IdIn(
-                        applications.stream()
-                                .map(Application::getId)
-                                .toList()
-                ).stream()
-                .collect(Collectors.toMap(Interview::getApplicationId, Function.identity()));
+        Map<Long, Interview> interviewByApplicationId = getInterviewByApplicationId(applications);
 
         List<InterviewManagementItemResponse> interviewList = applications.stream()
                 .map(application -> InterviewManagementItemResponse.from(
@@ -116,5 +113,22 @@ public class InterviewService {
                 applications.stream().filter(application -> application.getStatusOrDefault() == Status.FAIL).count(),
                 applications.stream().filter(application -> application.getStatusOrDefault() == Status.HOLD).count()
         );
+    }
+
+    private Map<Long, Interview> getInterviewByApplicationId(List<Application> applications) {
+        List<Long> applicationIds = applications.stream()
+                .map(Application::getId)
+                .toList();
+        try {
+            return interviewRepository.findAllByApplication_IdIn(applicationIds).stream()
+                    .collect(Collectors.toMap(
+                            Interview::getApplicationId,
+                            Function.identity(),
+                            (first, ignored) -> first
+                    ));
+        } catch (RuntimeException exception) {
+            log.error("Failed to load interview details. applicationIds={}", applicationIds, exception);
+            return Map.of();
+        }
     }
 }

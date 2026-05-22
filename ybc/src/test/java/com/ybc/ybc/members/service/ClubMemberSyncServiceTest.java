@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -112,6 +113,16 @@ class ClubMemberSyncServiceTest {
 
         verify(clubMemberRepository).save(any(ClubMember.class));
         verify(clubMemberRepository).delete(staleClubMember);
+    }
+
+    @Test
+    @DisplayName("최종 합격자 보정 중 예외가 발생해도 안전 보정은 예외를 전파하지 않는다")
+    void reconcileFinalPassMembersSafelyDoesNotThrow() {
+        when(applicationRepository.findAllByStatusIn(any(), any(Sort.class)))
+                .thenThrow(new RuntimeException("database error"));
+
+        assertThatCode(() -> clubMemberSyncService.reconcileFinalPassMembersSafely())
+                .doesNotThrowAnyException();
     }
 
     private Application savedApplication(Long id, String name, int age) {
