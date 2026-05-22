@@ -75,6 +75,25 @@ class InterviewServiceTest {
     }
 
     @Test
+    @DisplayName("면접 상세 정보 조회가 실패해도 면접 관리 리스트는 기본 정보로 반환한다")
+    void getInterviewManagementReturnsDashboardWhenInterviewLookupFails() {
+        Application firstPassApplication = savedApplication(1L, "김철수", Status.FIRST_PASS, InterviewTime.FIRST_SESSION, null);
+
+        when(applicationRepository.findAllByStatusIn(any(), any(Sort.class)))
+                .thenReturn(List.of(firstPassApplication));
+        when(interviewRepository.findAllByApplication_IdIn(List.of(1L)))
+                .thenThrow(new RuntimeException("broken interview rows"));
+
+        InterviewManagementResponse response = interviewService.getInterviewManagement();
+
+        assertThat(response.summary().totalInterviewees()).isEqualTo(1);
+        assertThat(response.interviewList()).hasSize(1);
+        assertThat(response.interviewList().get(0).availableSessions()).containsExactly("FIRST_SESSION");
+        assertThat(response.interviewList().get(0).scheduledAt()).isNull();
+        assertThat(response.interviewList().get(0).memo()).isNull();
+    }
+
+    @Test
     @DisplayName("면접 관리 수정 시 면접 정보와 상태를 갱신하고 대시보드를 반환한다")
     void updateInterviewUpdatesExistingInterviewAndReturnsDashboard() {
         Application firstPassApplication = savedApplication(1L, "김철수", Status.FIRST_PASS, InterviewTime.FIRST_SESSION, InterviewTime.SECOND_SESSION);

@@ -25,7 +25,7 @@ public class ClubMemberService {
     private final ClubMemberSyncService clubMemberSyncService;
 
     public ClubMemberListResponse getMembers() {
-        clubMemberSyncService.reconcileFinalPassMembers();
+        clubMemberSyncService.reconcileFinalPassMembersSafely();
         List<ClubMember> members = clubMemberRepository.findAll(Sort.by(Sort.Order.asc("id")));
         return new ClubMemberListResponse(
                 summarize(members),

@@ -5,6 +5,7 @@ import com.ybc.ybc.applications.domain.Status;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
 import com.ybc.ybc.members.domain.ClubMember;
 import com.ybc.ybc.members.repository.ClubMemberRepository;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import java.time.Year;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -54,6 +56,14 @@ public class ClubMemberSyncService {
         clubMemberRepository.findAllByApplicationIdIsNotNull().stream()
                 .filter(clubMember -> !finalPassApplicationIds.contains(clubMember.getApplicationId()))
                 .forEach(clubMemberRepository::delete);
+    }
+
+    public void reconcileFinalPassMembersSafely() {
+        try {
+            reconcileFinalPassMembers();
+        } catch (RuntimeException exception) {
+            log.error("Failed to reconcile final-pass club members.", exception);
+        }
     }
 
     private void upsertClubMember(Application application) {
