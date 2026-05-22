@@ -3,9 +3,13 @@ package com.ybc.ybc.vote.domain;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.Builder;
@@ -19,7 +23,10 @@ import static lombok.AccessLevel.PROTECTED;
 
 @Entity
 @Getter
-@Table(name = "vote")
+@Table(
+        name = "vote",
+        indexes = @Index(name = "idx_vote_original_vote_id", columnList = "original_vote_id")
+)
 @NoArgsConstructor(access = PROTECTED)
 public class Vote {
     public static final String ADDITIONAL_PARTICIPATION_SUFFIX = "-추가참여";
@@ -58,6 +65,10 @@ public class Vote {
     @Column(nullable = false)
     private int capacity;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "original_vote_id")
+    private Vote originalVote;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -70,7 +81,8 @@ public class Vote {
                 String memo,
                 LocalDateTime voteStartAt,
                 LocalDateTime voteEndAt,
-                int capacity) {
+                int capacity,
+                Vote originalVote) {
         this.activityType = activityType;
         this.title = title;
         this.activityDate = activityDate;
@@ -80,22 +92,25 @@ public class Vote {
         this.voteStartAt = voteStartAt;
         this.voteEndAt = voteEndAt;
         this.capacity = capacity;
+        this.originalVote = originalVote;
     }
 
     public static Vote createAdditionalVote(Vote originalVote,
                                             LocalDateTime voteStartAt,
                                             LocalDateTime voteEndAt,
                                             int capacity) {
+        Vote baseVote = originalVote.getBaseVote();
         return Vote.builder()
                 .activityType(ActivityType.REGULAR)
-                .title(originalVote.getTitle() + ADDITIONAL_PARTICIPATION_SUFFIX)
-                .activityDate(originalVote.getActivityDate())
-                .activityTime(originalVote.getActivityTime())
-                .location(originalVote.getLocation())
-                .memo(buildAdditionalMemo(originalVote.getMemo()))
+                .title(baseVote.getTitle() + ADDITIONAL_PARTICIPATION_SUFFIX)
+                .activityDate(baseVote.getActivityDate())
+                .activityTime(baseVote.getActivityTime())
+                .location(baseVote.getLocation())
+                .memo(buildAdditionalMemo(baseVote.getMemo()))
                 .voteStartAt(voteStartAt)
                 .voteEndAt(voteEndAt)
                 .capacity(capacity)
+                .originalVote(baseVote)
                 .build();
     }
 
@@ -120,7 +135,22 @@ public class Vote {
     }
 
     public boolean isAdditionalParticipationVote() {
-        return title != null && title.endsWith(ADDITIONAL_PARTICIPATION_SUFFIX);
+        return originalVote != null || hasAdditionalParticipationSuffix();
+    }
+
+    public Vote getBaseVote() {
+        return originalVote == null ? this : originalVote;
+    }
+
+    public void linkOriginalVote(Vote originalVote) {
+        this.originalVote = originalVote == null ? null : originalVote.getBaseVote();
+    }
+
+    public String getBaseVoteTitle() {
+        if (!hasAdditionalParticipationSuffix()) {
+            return title;
+        }
+        return title.substring(0, title.length() - ADDITIONAL_PARTICIPATION_SUFFIX.length());
     }
 
     @PrePersist
@@ -135,5 +165,9 @@ public class Vote {
             return ADDITIONAL_PARTICIPATION_FEE_MESSAGE;
         }
         return originalMemo + System.lineSeparator() + ADDITIONAL_PARTICIPATION_FEE_MESSAGE;
+    }
+
+    private boolean hasAdditionalParticipationSuffix() {
+        return title != null && title.endsWith(ADDITIONAL_PARTICIPATION_SUFFIX);
     }
 }

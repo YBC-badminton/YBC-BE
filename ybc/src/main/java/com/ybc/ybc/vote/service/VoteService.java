@@ -4,6 +4,7 @@ import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.service.MemberService;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
@@ -28,6 +29,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -163,6 +168,7 @@ public class VoteService {
 
     private void updateVoteAttendance(Vote vote, VoteAttendance voteAttendance, boolean attendanceStatus) {
         if (!voteAttendance.isAttendanceStatus() && attendanceStatus) {
+            validateRelatedVoteAttendance(vote, voteAttendance.getMember().getId());
             validateCapacity(vote);
         }
         voteAttendance.updateAttendanceStatus(attendanceStatus);
@@ -170,6 +176,7 @@ public class VoteService {
 
     private void createVoteAttendance(Vote vote, Member member, boolean attendanceStatus) {
         if (attendanceStatus) {
+            validateRelatedVoteAttendance(vote, member.getId());
             validateCapacity(vote);
         }
 
@@ -197,5 +204,77 @@ public class VoteService {
         if (!vote.getVoteEndAt().isAfter(LocalDateTime.now())) {
             throw new YbcException(ExceptionCode.VOTE_CLOSED);
         }
+    }
+
+    private void validateRelatedVoteAttendance(Vote vote, Long memberId) {
+        Set<Long> relatedVoteIds = getRelatedVoteIds(vote);
+        if (relatedVoteIds.size() <= 1) {
+            return;
+        }
+
+        if (voteAttendanceRepository.existsByVote_IdInAndMember_IdAndAttendanceStatusTrue(relatedVoteIds, memberId)) {
+            throw new YbcException(ExceptionCode.DUPLICATE_VOTE_ATTENDANCE);
+        }
+    }
+
+    private Set<Long> getRelatedVoteIds(Vote vote) {
+        return getRelatedVotes(vote).stream()
+                .map(Vote::getId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private List<Vote> getRelatedVotes(Vote vote) {
+        Vote baseVote = resolveBaseVote(vote);
+        List<Vote> relatedVotes = new ArrayList<>();
+        relatedVotes.add(baseVote);
+        relatedVotes.addAll(voteRepository.findAllByOriginalVote_IdOrderByIdAsc(baseVote.getId()));
+
+        voteRepository.findAllByActivityTypeAndActivityDateAndActivityTimeAndLocationAndVoteStartAtAndTitleAndOriginalVoteIsNullOrderByIdAsc(
+                        ActivityType.REGULAR,
+                        baseVote.getActivityDate(),
+                        baseVote.getActivityTime(),
+                        baseVote.getLocation(),
+                        baseVote.getVoteEndAt(),
+                        baseVote.getTitle() + Vote.ADDITIONAL_PARTICIPATION_SUFFIX
+                ).stream()
+                .filter(legacyAdditionalVote -> !legacyAdditionalVote.getId().equals(baseVote.getId()))
+                .forEach(legacyAdditionalVote -> {
+                    legacyAdditionalVote.linkOriginalVote(baseVote);
+                    relatedVotes.add(legacyAdditionalVote);
+                });
+
+        return relatedVotes.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        Vote::getId,
+                        voteItem -> voteItem,
+                        (first, ignored) -> first,
+                        java.util.LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .toList();
+    }
+
+    private Vote resolveBaseVote(Vote vote) {
+        if (vote.getOriginalVote() != null) {
+            return vote.getOriginalVote();
+        }
+        if (!vote.isAdditionalParticipationVote()) {
+            return vote;
+        }
+
+        return voteRepository.findFirstByTitleAndActivityTypeAndActivityDateAndActivityTimeAndLocationAndVoteEndAtAndOriginalVoteIsNullOrderByIdAsc(
+                        vote.getBaseVoteTitle(),
+                        ActivityType.REGULAR,
+                        vote.getActivityDate(),
+                        vote.getActivityTime(),
+                        vote.getLocation(),
+                        vote.getVoteStartAt()
+                )
+                .map(baseVote -> {
+                    vote.linkOriginalVote(baseVote);
+                    return baseVote;
+                })
+                .orElse(vote);
     }
 }
