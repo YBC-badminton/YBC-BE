@@ -33,6 +33,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -337,6 +338,7 @@ class AdminVoteControllerIntegrationTest {
     }
 
     @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @DisplayName("기존 자동 생성 부원에 이메일과 성별이 비어 있어도 참석 인원 조회 시 보정한다")
     void getMatchParticipantsReconcilesFinalPassMemberProfile() throws Exception {
         Vote vote = voteRepository.save(vote(

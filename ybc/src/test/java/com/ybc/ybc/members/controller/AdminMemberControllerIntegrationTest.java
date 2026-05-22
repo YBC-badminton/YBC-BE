@@ -21,6 +21,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
@@ -85,6 +86,7 @@ class AdminMemberControllerIntegrationTest {
     }
 
     @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @DisplayName("최종 합격 지원자가 누락되어 있어도 부원 명단 조회 시 자동 보정된다")
     void getMembersReconcilesMissingFinalPassMember() throws Exception {
         Application application = saveApplication("김철수", Status.FINAL_PASS, 24);
