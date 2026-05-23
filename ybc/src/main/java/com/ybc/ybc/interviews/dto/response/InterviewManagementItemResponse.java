@@ -18,15 +18,23 @@ public record InterviewManagementItemResponse(
         return new InterviewManagementItemResponse(
                 application.getId(),
                 application.getName(),
-                application.getInterviewTimes().stream()
-                        .filter(Objects::nonNull)
-                        .map(Enum::name)
-                        .toList(),
+                toAvailableSessions(application),
                 interview != null && interview.getScheduledAt() != null
                         ? interview.getScheduledAt().name()
                         : null,
                 application.getStatusOrDefault().name(),
                 interview != null ? interview.getMemo() : null
         );
+    }
+
+    private static List<String> toAvailableSessions(Application application) {
+        try {
+            return application.getInterviewTimes().stream()
+                    .filter(Objects::nonNull)
+                    .map(Enum::name)
+                    .toList();
+        } catch (RuntimeException exception) {
+            return List.of();
+        }
     }
 }

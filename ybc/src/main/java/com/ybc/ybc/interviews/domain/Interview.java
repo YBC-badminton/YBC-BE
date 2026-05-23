@@ -2,10 +2,10 @@ package com.ybc.ybc.interviews.domain;
 
 import com.ybc.ybc.applications.domain.Application;
 import com.ybc.ybc.applications.domain.InterviewTime;
+import com.ybc.ybc.applications.domain.InterviewTimeConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -38,7 +38,7 @@ public class Interview {
     @JoinColumn(name = "application_id", nullable = false, unique = true)
     private Application application;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = InterviewTimeConverter.class)
     @Column(name = "scheduled_at")
     private InterviewTime scheduledAt;
 

@@ -34,6 +34,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -277,6 +278,8 @@ class AdminVoteServiceTest {
                 .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 12L)));
         when(guestRepository.countGuestsByVoteIds(List.of(1L)))
                 .thenReturn(List.of(new VoteGuestCountProjection(1L, 2L)));
+        when(voteMatchGroupRepository.findAllByVote_IdIn(Set.of(1L)))
+                .thenReturn(List.of(com.ybc.ybc.vote.domain.VoteMatchGroup.create(completedVote)));
 
         List<AdminCompletedVoteResponse> response = adminVoteService.getCompletedVotes();
 
@@ -287,6 +290,7 @@ class AdminVoteServiceTest {
         assertThat(response.get(0).attendance().currentAttendees()).isEqualTo(12L);
         assertThat(response.get(0).attendance().currentGuests()).isEqualTo(2L);
         assertThat(response.get(0).attendance().totalParticipants()).isEqualTo(14L);
+        assertThat(response.get(0).matchRegistered()).isTrue();
     }
 
     @Test
