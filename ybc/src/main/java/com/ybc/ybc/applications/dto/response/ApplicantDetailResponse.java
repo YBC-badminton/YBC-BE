@@ -47,11 +47,7 @@ public record ApplicantDetailResponse(
                 application.getIntroduction(),
                 application.getMotivation(),
                 application.getEquipment(),
-                application.getInterviewTimes()
-                        .stream()
-                        .filter(Objects::nonNull)
-                        .map(interviewTime -> interviewTime.getDisplayName())
-                        .toList(),
+                toInterviewAvailableTimes(application),
                 application.getDiscoverySource() != null ? application.getDiscoverySource().getDisplayName() : null,
                 application.getDiscoveryEtc(),
                 application.isWantsStaff(),
@@ -60,5 +56,17 @@ public record ApplicantDetailResponse(
                 application.getStatusOrDefault().name(),
                 application.getEmail()
         );
+    }
+
+    private static List<String> toInterviewAvailableTimes(Application application) {
+        try {
+            return application.getInterviewTimes()
+                    .stream()
+                    .filter(Objects::nonNull)
+                    .map(interviewTime -> interviewTime.getDisplayName())
+                    .toList();
+        } catch (RuntimeException exception) {
+            return List.of();
+        }
     }
 }

@@ -13,16 +13,21 @@ public record AdminCompletedVoteResponse(
         @JsonFormat(pattern = "yyyy-MM-dd")
         LocalDate activityDate,
         String location,
-        AdminVoteAttendanceResponse attendance
+        AdminVoteAttendanceResponse attendance,
+        boolean matchRegistered
 ) {
-    public static AdminCompletedVoteResponse from(Vote vote, long attendeeCount, long guestCount) {
+    public static AdminCompletedVoteResponse from(Vote vote,
+                                                  long attendeeCount,
+                                                  long guestCount,
+                                                  boolean matchRegistered) {
         return new AdminCompletedVoteResponse(
                 vote.getId(),
                 vote.getTitle(),
                 toKoreanDayOfWeek(vote.getActivityDate().getDayOfWeek()),
                 vote.getActivityDate(),
                 vote.getLocation(),
-                AdminVoteAttendanceResponse.of(attendeeCount, guestCount)
+                AdminVoteAttendanceResponse.of(attendeeCount, guestCount),
+                matchRegistered
         );
     }
 

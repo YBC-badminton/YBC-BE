@@ -157,12 +157,14 @@ public class AdminVoteService {
                 .filter(vote -> AdminVoteStatus.from(vote.getVoteStartAt(), vote.getVoteEndAt(), now) == AdminVoteStatus.COMPLETED)
                 .toList();
         VoteCountBundle voteCountBundle = buildVoteCountBundle(completedVotes);
+        Map<Long, Boolean> matchRegistrationStatus = getMatchRegistrationStatus(completedVotes);
 
         return completedVotes.stream()
                 .map(vote -> AdminCompletedVoteResponse.from(
                         vote,
                         voteCountBundle.attendeeCounts().getOrDefault(vote.getId(), 0L),
-                        voteCountBundle.guestCounts().getOrDefault(vote.getId(), 0L)
+                        voteCountBundle.guestCounts().getOrDefault(vote.getId(), 0L),
+                        matchRegistrationStatus.getOrDefault(vote.getId(), false)
                 ))
                 .toList();
     }
@@ -264,6 +266,28 @@ public class AdminVoteService {
                 .collect(Collectors.toMap(VoteGuestCountProjection::voteId, VoteGuestCountProjection::guestCount));
 
         return new VoteCountBundle(attendeeCounts, guestCounts);
+    }
+
+    private Map<Long, Boolean> getMatchRegistrationStatus(List<Vote> votes) {
+        if (votes.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, Long> baseVoteIdByVoteId = votes.stream()
+                .collect(Collectors.toMap(
+                        Vote::getId,
+                        vote -> resolveBaseVote(vote).getId()
+                ));
+        Set<Long> baseVoteIds = new LinkedHashSet<>(baseVoteIdByVoteId.values());
+        Set<Long> registeredBaseVoteIds = voteMatchGroupRepository.findAllByVote_IdIn(baseVoteIds).stream()
+                .map(matchGroup -> matchGroup.getVote().getId())
+                .collect(Collectors.toSet());
+
+        return baseVoteIdByVoteId.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> registeredBaseVoteIds.contains(entry.getValue())
+                ));
     }
 
     private AdminVoteListItemResponse toManagementItem(Vote vote) {
