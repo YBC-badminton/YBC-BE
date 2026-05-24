@@ -31,6 +31,10 @@ public class RecruitmentService {
         );
     }
 
+    public RecruitmentResponse getRecruitment(Long recruitmentId) {
+        return RecruitmentResponse.from(getRecruitmentById(recruitmentId));
+    }
+
     @Transactional
     public RecruitmentResponse createRecruitment(RecruitmentCreateRequest request) {
         Recruitment recruitment = Recruitment.builder()
