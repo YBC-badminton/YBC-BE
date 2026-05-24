@@ -32,6 +32,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                         v.id,
                         v.title,
                         v.activityType,
+                        v.activityDate,
                         v.location,
                         v.voteStartAt,
                         v.voteEndAt,
@@ -43,7 +44,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                     from Vote v
                     left join VoteAttendance va on va.vote = v
                     where v.voteEndAt > :now
-                    group by v.id, v.title, v.activityType, v.location, v.voteStartAt, v.voteEndAt, v.activityTime, v.capacity
+                    group by v.id, v.title, v.activityType, v.activityDate, v.location, v.voteStartAt, v.voteEndAt, v.activityTime, v.capacity
                     """,
             countQuery = """
                     select count(v)
@@ -65,6 +66,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                         v.id,
                         v.title,
                         v.activityType,
+                        v.activityDate,
                         v.location,
                         v.voteStartAt,
                         v.voteEndAt,
@@ -76,7 +78,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                     from Vote v
                     left join VoteAttendance va on va.vote = v
                     where v.voteEndAt <= :now
-                    group by v.id, v.title, v.activityType, v.location, v.voteStartAt, v.voteEndAt, v.activityTime, v.capacity
+                    group by v.id, v.title, v.activityType, v.activityDate, v.location, v.voteStartAt, v.voteEndAt, v.activityTime, v.capacity
                     """,
             countQuery = """
                     select count(v)

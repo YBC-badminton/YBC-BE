@@ -16,6 +16,8 @@ import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteGuestListResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
+import com.ybc.ybc.vote.dto.response.VoteListResponse;
+import com.ybc.ybc.vote.dto.response.VoteSummaryResponse;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
@@ -26,6 +28,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -58,6 +62,31 @@ class VoteServiceTest {
 
     @InjectMocks
     private VoteService voteService;
+
+    @Test
+    @DisplayName("참여 가능한 투표 목록 조회 시 activityDate를 포함해 반환한다")
+    void getVotesReturnsActivityDate() {
+        VoteSummaryResponse summary = new VoteSummaryResponse(
+                1L,
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDate.of(2026, 4, 10),
+                "이화체육관",
+                LocalDateTime.of(2026, 4, 9, 18, 0),
+                LocalDateTime.of(2026, 4, 9, 23, 0),
+                "19:00",
+                20,
+                3L
+        );
+        when(voteRepository.findJoinableVoteSummaries(any(LocalDateTime.class), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(summary), PageRequest.of(0, 10), 1));
+
+        VoteListResponse response = voteService.getVotes(true, 0, 10);
+
+        assertThat(response.votes()).hasSize(1);
+        assertThat(response.votes().get(0).activityDate()).isEqualTo(LocalDate.of(2026, 4, 10));
+        verify(voteRepository).findJoinableVoteSummaries(any(LocalDateTime.class), any(org.springframework.data.domain.Pageable.class));
+    }
 
     @Test
     @DisplayName("투표 상세 조회 시 투표 정보와 현재 참석 인원 수를 반환한다")
