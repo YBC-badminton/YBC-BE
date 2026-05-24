@@ -8,8 +8,10 @@ import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
+import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
+import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
@@ -42,6 +44,30 @@ public class VoteService {
     private final VoteAttendanceRepository voteAttendanceRepository;
     private final GuestRepository guestRepository;
     private final MemberService memberService;
+
+    /**
+     * 번개 모임 투표를 생성한다.
+     */
+    @Transactional
+    public FlashVoteCreateResponse createFlashVote(FlashVoteCreateRequest request) {
+        validateVotePeriod(request.voteStartAt(), request.voteEndAt());
+
+        Vote savedVote = voteRepository.saveAndFlush(
+                Vote.builder()
+                        .activityType(ActivityType.FLASH)
+                        .title(request.title())
+                        .activityDate(request.activityDate())
+                        .activityTime(request.activityTime())
+                        .location(request.location())
+                        .memo(request.memo())
+                        .voteStartAt(request.voteStartAt())
+                        .voteEndAt(request.voteEndAt())
+                        .capacity(request.capacity())
+                        .build()
+        );
+
+        return FlashVoteCreateResponse.from(savedVote);
+    }
 
     /**
      * 페이지 정보를 구성하고 joinable 조건에 맞는 투표 목록을 조회한 뒤 응답 DTO로 변환한다.
@@ -253,6 +279,12 @@ public class VoteService {
                 .values()
                 .stream()
                 .toList();
+    }
+
+    private void validateVotePeriod(LocalDateTime voteStartAt, LocalDateTime voteEndAt) {
+        if (!voteEndAt.isAfter(voteStartAt)) {
+            throw new YbcException(ExceptionCode.INVALID_VOTE_PERIOD);
+        }
     }
 
     private Vote resolveBaseVote(Vote vote) {

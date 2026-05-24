@@ -13,12 +13,12 @@ import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
+import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
-import com.ybc.ybc.support.TestMailConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,6 +69,38 @@ class VoteControllerIntegrationTest {
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
             .build();
+
+    @Test
+    @DisplayName("인증된 사용자는 번개 모임 투표를 생성할 수 있다")
+    void createFlashVote() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+
+        mockMvc.perform(post("/votes/flash")
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new FlashVoteCreateRequest(
+                                "오늘 번개 운동",
+                                LocalDate.of(2026, 4, 10),
+                                "19:00",
+                                "이화체육관",
+                                "준비 운동 후 게임",
+                                LocalDateTime.of(2026, 4, 9, 18, 0),
+                                LocalDateTime.of(2026, 4, 9, 23, 0),
+                                20
+                        ))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.activityType").value("FLASH"))
+                .andExpect(jsonPath("$.title").value("오늘 번개 운동"))
+                .andExpect(jsonPath("$.location").value("이화체육관"));
+
+        Vote savedVote = voteRepository.findAll().stream()
+                .filter(vote -> vote.getTitle().equals("오늘 번개 운동"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(savedVote.getActivityType()).isEqualTo(ActivityType.FLASH);
+    }
 
     @Test
     @DisplayName("진행 중인 투표 목록과 페이지 정보를 함께 조회한다")
@@ -494,6 +526,25 @@ class VoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.votes[0].name").value("주말 이벤트 운동"))
                 .andExpect(jsonPath("$.votes[0].type").value("EVENT"))
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 번개 모임 투표를 생성할 수 없다")
+    void createFlashVoteRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/votes/flash")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new FlashVoteCreateRequest(
+                                "오늘 번개 운동",
+                                LocalDate.of(2026, 4, 10),
+                                "19:00",
+                                "이화체육관",
+                                "준비 운동 후 게임",
+                                LocalDateTime.of(2026, 4, 9, 18, 0),
+                                LocalDateTime.of(2026, 4, 9, 23, 0),
+                                20
+                        ))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
     }
 
     @Test

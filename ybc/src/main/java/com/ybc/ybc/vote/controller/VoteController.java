@@ -1,8 +1,10 @@
 package com.ybc.ybc.vote.controller;
 
 import com.ybc.ybc.auth.domain.MemberPrincipal;
+import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
+import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
@@ -29,6 +31,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class VoteController {
     private final VoteService voteService;
+
+    /**
+     * 번개 모임 투표를 생성한다.
+     */
+    @PostMapping("/flash")
+    public ResponseEntity<FlashVoteCreateResponse> createFlashVote(@Valid @RequestBody FlashVoteCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(voteService.createFlashVote(request));
+    }
 
     /**
      * joinable 여부와 페이지 조건에 따라 투표 목록 조회를 요청받고 응답으로 반환한다.
