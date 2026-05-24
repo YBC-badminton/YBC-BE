@@ -28,6 +28,11 @@ public class AdminRecruitmentController {
         return ResponseEntity.ok(recruitmentService.getRecruitments());
     }
 
+    @GetMapping("/{recruitmentId}")
+    public ResponseEntity<RecruitmentResponse> getRecruitment(@PathVariable Long recruitmentId) {
+        return ResponseEntity.ok(recruitmentService.getRecruitment(recruitmentId));
+    }
+
     @PostMapping
     public ResponseEntity<RecruitmentResponse> createRecruitment(@Valid @RequestBody RecruitmentCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)

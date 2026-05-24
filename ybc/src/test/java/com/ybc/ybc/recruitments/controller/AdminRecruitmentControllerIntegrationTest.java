@@ -81,6 +81,48 @@ class AdminRecruitmentControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("인증된 사용자는 모집 기수 상세 정보를 조회할 수 있다")
+    void getRecruitmentReturnsRecruitmentDetailWhenAuthenticated() throws Exception {
+        Recruitment recruitment = saveRecruitment("10기");
+
+        mockMvc.perform(get(ADMIN_RECRUITMENTS_API + "/{recruitmentId}", recruitment.getId())
+                        .with(authorizedUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recruitmentId").value(recruitment.getId()))
+                .andExpect(jsonPath("$.term").value("10기"))
+                .andExpect(jsonPath("$.startAt").value("2026-04-01T09:00:00"))
+                .andExpect(jsonPath("$.endAt").value("2026-04-07T18:00:00"))
+                .andExpect(jsonPath("$.firstResultDate").value("2026-04-10"))
+                .andExpect(jsonPath("$.finalResultDate").value("2026-04-17"))
+                .andExpect(jsonPath("$.interviewDate").value("2026-04-12"))
+                .andExpect(jsonPath("$.interviewLocation").value("ECC"))
+                .andExpect(jsonPath("$.interviewFirstTime").value("10:00"))
+                .andExpect(jsonPath("$.interviewSecondTime").value("14:00"))
+                .andExpect(jsonPath("$.otDate").value("2026-04-20"))
+                .andExpect(jsonPath("$.membershipFee").value(30000))
+                .andExpect(jsonPath("$.activityPeriod").value(6));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 모집 기수 상세 조회는 404를 반환한다")
+    void getRecruitmentReturnsNotFoundWhenRecruitmentDoesNotExist() throws Exception {
+        mockMvc.perform(get(ADMIN_RECRUITMENTS_API + "/{recruitmentId}", 999L)
+                        .with(authorizedUser()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("RECRUITMENT_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("인증 정보가 없으면 모집 기수 상세 조회는 401을 반환한다")
+    void getRecruitmentReturnsUnauthorizedWithoutAccessToken() throws Exception {
+        Recruitment recruitment = saveRecruitment("10기");
+
+        mockMvc.perform(get(ADMIN_RECRUITMENTS_API + "/{recruitmentId}", recruitment.getId()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
     @DisplayName("인증된 사용자는 모집 기수를 생성할 수 있다")
     void createRecruitmentReturnsCreatedRecruitmentWhenAuthenticated() throws Exception {
         mockMvc.perform(post(ADMIN_RECRUITMENTS_API)
