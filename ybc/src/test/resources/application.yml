@@ -40,3 +40,5 @@ app:
   vote:
     additional-reservation:
       scheduler-enabled: false
+  mail:
+    stub-enabled: true
