@@ -5,6 +5,7 @@ import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
+import com.ybc.ybc.vote.dto.response.VoteAbsenteeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
@@ -88,7 +89,7 @@ public class VoteController {
      * 특정 투표에서 참석 상태가 false인 회원 목록을 조회하여 반환한다.
      */
     @GetMapping("/{voteId}/absentees")
-    public ResponseEntity<VoteAttendeeListResponse> getVoteAbsentees(@PathVariable Long voteId) {
+    public ResponseEntity<VoteAbsenteeListResponse> getVoteAbsentees(@PathVariable Long voteId) {
         return ResponseEntity.ok(voteService.getVoteAbsentees(voteId));
     }
 
