@@ -11,6 +11,7 @@ import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
+import com.ybc.ybc.vote.dto.response.VoteAbsenteeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
@@ -227,14 +228,14 @@ class VoteServiceTest {
         when(voteAttendanceRepository.findAllByVote_IdAndAttendanceStatusFalseOrderByIdAsc(1L))
                 .thenReturn(List.of(firstAttendance, secondAttendance));
 
-        VoteAttendeeListResponse response = voteService.getVoteAbsentees(1L);
+        VoteAbsenteeListResponse response = voteService.getVoteAbsentees(1L);
 
-        assertThat(response.totalAttendeeCount()).isEqualTo(2L);
-        assertThat(response.attendees()).hasSize(2);
-        assertThat(response.attendees().get(0).memberId()).isEqualTo(2L);
-        assertThat(response.attendees().get(0).nickname()).isEqualTo("member-2001");
-        assertThat(response.attendees().get(1).memberId()).isEqualTo(3L);
-        assertThat(response.attendees().get(1).nickname()).isEqualTo("member-2002");
+        assertThat(response.totalAbsenteeCount()).isEqualTo(2L);
+        assertThat(response.absentees()).hasSize(2);
+        assertThat(response.absentees().get(0).memberId()).isEqualTo(2L);
+        assertThat(response.absentees().get(0).nickname()).isEqualTo("member-2001");
+        assertThat(response.absentees().get(1).memberId()).isEqualTo(3L);
+        assertThat(response.absentees().get(1).nickname()).isEqualTo("member-2002");
     }
 
     @Test
