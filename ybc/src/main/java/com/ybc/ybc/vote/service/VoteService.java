@@ -12,6 +12,7 @@ import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
+import com.ybc.ybc.vote.dto.response.VoteAbsenteeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
@@ -122,9 +123,9 @@ public class VoteService {
     /**
      * 특정 투표에서 참석 상태가 false인 회원 목록과 총 인원 수를 조회하여 반환한다.
      */
-    public VoteAttendeeListResponse getVoteAbsentees(Long voteId) {
+    public VoteAbsenteeListResponse getVoteAbsentees(Long voteId) {
         getVoteEntity(voteId);
-        return VoteAttendeeListResponse.from(
+        return VoteAbsenteeListResponse.from(
                 voteAttendanceRepository.findAllByVote_IdAndAttendanceStatusFalseOrderByIdAsc(voteId)
         );
     }

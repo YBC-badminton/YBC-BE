@@ -250,12 +250,12 @@ class VoteControllerIntegrationTest {
 
         mockMvc.perform(get("/votes/{voteId}/absentees", vote.getId()).with(jwt()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalAttendeeCount").value(2))
-                .andExpect(jsonPath("$.attendees.length()").value(2))
-                .andExpect(jsonPath("$.attendees[0].nickname").value("member-3001"))
-                .andExpect(jsonPath("$.attendees[0].memberId").isNumber())
-                .andExpect(jsonPath("$.attendees[1].nickname").value("member-3002"))
-                .andExpect(jsonPath("$.attendees[1].memberId").isNumber());
+                .andExpect(jsonPath("$.totalAbsenteeCount").value(2))
+                .andExpect(jsonPath("$.absentees.length()").value(2))
+                .andExpect(jsonPath("$.absentees[0].nickname").value("member-3001"))
+                .andExpect(jsonPath("$.absentees[0].memberId").isNumber())
+                .andExpect(jsonPath("$.absentees[1].nickname").value("member-3002"))
+                .andExpect(jsonPath("$.absentees[1].memberId").isNumber());
     }
 
     @Test
