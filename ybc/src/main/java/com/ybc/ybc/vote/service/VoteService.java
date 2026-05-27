@@ -168,6 +168,22 @@ public class VoteService {
     }
 
     /**
+     * 현재 로그인한 회원이 본인이 추가한 게스트만 삭제한다.
+     */
+    @Transactional
+    public void deleteGuest(Long voteId, Long guestId, Long memberId) {
+        getVoteEntity(voteId);
+        Guest guest = guestRepository.findByIdAndVote_Id(guestId, voteId)
+                .orElseThrow(() -> new YbcException(ExceptionCode.GUEST_NOT_FOUND));
+
+        if (!guest.getMember().getId().equals(memberId)) {
+            throw new YbcException(ExceptionCode.GUEST_DELETE_FORBIDDEN);
+        }
+
+        guestRepository.delete(guest);
+    }
+
+    /**
      * 현재 참여 가능한 투표 수와 올해 생성된 투표 수를 집계하여 응답 DTO로 변환한다.
      */
     public VoteHistoryResponse getVoteHistory() {
