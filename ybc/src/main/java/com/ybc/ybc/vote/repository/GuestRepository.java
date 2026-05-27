@@ -8,11 +8,14 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface GuestRepository extends JpaRepository<Guest, Long> {
     long countByVote_Id(Long voteId);
 
     List<Guest> findAllByVote_IdOrderByIdAsc(Long voteId);
+
+    Optional<Guest> findByIdAndVote_Id(Long guestId, Long voteId);
 
     List<Guest> findAllByVote_IdInOrderByVote_IdAscIdAsc(Collection<Long> voteIds);
 

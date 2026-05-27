@@ -37,6 +37,7 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -175,10 +176,12 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalGuestCount").value(2))
                 .andExpect(jsonPath("$.guests.length()").value(2))
+                .andExpect(jsonPath("$.guests[0].inviterId").isNumber())
                 .andExpect(jsonPath("$.guests[0].inviterName").value("member-host1"))
                 .andExpect(jsonPath("$.guests[0].guestName").value("게스트1"))
                 .andExpect(jsonPath("$.guests[0].gender").value("FEMALE"))
                 .andExpect(jsonPath("$.guests[0].level").value("A"))
+                .andExpect(jsonPath("$.guests[1].inviterId").isNumber())
                 .andExpect(jsonPath("$.guests[1].inviterName").value("member-host2"))
                 .andExpect(jsonPath("$.guests[1].guestName").value("게스트2"));
     }
@@ -413,6 +416,88 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("게스트를 추가한 사람은 본인 게스트를 삭제할 수 있다")
+    void deleteGuest() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+        Guest guest = guestRepository.save(
+                Guest.builder()
+                        .vote(vote)
+                        .member(member)
+                        .name("게스트")
+                        .gender(Gender.FEMALE)
+                        .level("A")
+                        .build()
+        );
+
+        mockMvc.perform(delete("/votes/{voteId}/guests/{guestId}", vote.getId(), guest.getId())
+                        .with(authenticatedMember(member)))
+                .andExpect(status().isNoContent());
+
+        assertThat(guestRepository.findById(guest.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("게스트를 추가한 사람만 해당 게스트를 삭제할 수 있다")
+    void deleteGuestThrowsWhenRequesterIsNotInviter() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        Member inviter = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+        Member anotherMember = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3002", "member-3002", "3002@example.com")
+        );
+        Guest guest = guestRepository.save(
+                Guest.builder()
+                        .vote(vote)
+                        .member(inviter)
+                        .name("게스트")
+                        .gender(Gender.FEMALE)
+                        .level("A")
+                        .build()
+        );
+
+        mockMvc.perform(delete("/votes/{voteId}/guests/{guestId}", vote.getId(), guest.getId())
+                        .with(authenticatedMember(anotherMember)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("GUEST_DELETE_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 게스트를 삭제하면 예외가 발생한다")
+    void deleteGuestThrowsWhenGuestIsMissing() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+
+        mockMvc.perform(delete("/votes/{voteId}/guests/{guestId}", vote.getId(), 999L)
+                        .with(authenticatedMember(member)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("GUEST_NOT_FOUND"));
+    }
+
+    @Test
     @DisplayName("현재 로그인한 회원의 기존 투표 참석 여부를 수정한다")
     void updateVoteAttendance() throws Exception {
         Vote vote = voteRepository.save(vote(
@@ -614,6 +699,14 @@ class VoteControllerIntegrationTest {
         mockMvc.perform(post("/votes/{voteId}/guests", 1L)
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new VoteGuestRequest("게스트", Gender.FEMALE, "A"))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 게스트를 삭제할 수 없다")
+    void deleteGuestRequiresAuthentication() throws Exception {
+        mockMvc.perform(delete("/votes/{voteId}/guests/{guestId}", 1L, 1L))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
     }
