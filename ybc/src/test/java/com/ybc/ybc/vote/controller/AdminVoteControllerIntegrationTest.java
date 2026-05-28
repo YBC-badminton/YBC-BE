@@ -1,6 +1,7 @@
 package com.ybc.ybc.vote.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.ybc.ybc.applications.domain.Application;
 import com.ybc.ybc.applications.domain.DiscoverySource;
@@ -33,6 +34,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -432,6 +434,208 @@ class AdminVoteControllerIntegrationTest {
 
         assertThat(voteMatchRepository.findAll()).hasSize(4);
         assertThat(voteMatchGroupRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("인증된 사용자는 코트별 참석자를 바탕으로 랜덤 대진을 생성할 수 있다")
+    void generateMatchesReturnsMixedDoublesWhenBalancedLineupIsPossible() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "랜덤 대진 생성용 정기 운동",
+                LocalDate.now().minusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                20
+        ));
+        VoteAttendance first = addMatchParticipant(vote, "generate-1001", "김민준", Gender.MALE);
+        VoteAttendance second = addMatchParticipant(vote, "generate-1002", "이서연", Gender.FEMALE);
+        VoteAttendance third = addMatchParticipant(vote, "generate-1003", "박지훈", Gender.MALE);
+        VoteAttendance fourth = addMatchParticipant(vote, "generate-1004", "최하은", Gender.FEMALE);
+
+        MvcResult result = mockMvc.perform(post(ADMIN_VOTES_API + "/{voteId}/matches/generate", vote.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "courtCount", 1,
+                                "courtAssignments", List.of(Map.of(
+                                        "courtNumber", 1,
+                                        "participants", List.of(
+                                                memberParticipant(first.getId()),
+                                                memberParticipant(second.getId()),
+                                                memberParticipant(third.getId()),
+                                                memberParticipant(fourth.getId())
+                                        )
+                                ))
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voteId").value(vote.getId()))
+                .andExpect(jsonPath("$.matchId").isNumber())
+                .andExpect(jsonPath("$.matches[0].courtNumber").value(1))
+                .andExpect(jsonPath("$.matches[0].courtMatches.length()").value(2))
+                .andReturn();
+
+        JsonNode response = readBody(result);
+        assertMixedGame(response.at("/matches/0/courtMatches/0"));
+        assertMixedGame(response.at("/matches/0/courtMatches/1"));
+        assertThat(countSavedMatchesFor(first.getId())).isEqualTo(2);
+        assertThat(countSavedMatchesFor(second.getId())).isEqualTo(2);
+        assertThat(countSavedMatchesFor(third.getId())).isEqualTo(2);
+        assertThat(countSavedMatchesFor(fourth.getId())).isEqualTo(2);
+        assertThat(voteMatchRepository.findAll()).hasSize(8);
+    }
+
+    @Test
+    @DisplayName("남녀 인원이 충분하면 랜덤 대진 생성 시 혼복 남복 여복 비율을 함께 맞춘다")
+    void generateMatchesBalancesMixedMensAndWomensDoublesWhenPossible() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "비율 우선 대진 생성용 정기 운동",
+                LocalDate.now().minusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                20
+        ));
+        VoteAttendance first = addMatchParticipant(vote, "generate-ratio-1001", "김민준", Gender.MALE);
+        VoteAttendance second = addMatchParticipant(vote, "generate-ratio-1002", "박지훈", Gender.MALE);
+        VoteAttendance third = addMatchParticipant(vote, "generate-ratio-1003", "정도윤", Gender.MALE);
+        VoteAttendance fourth = addMatchParticipant(vote, "generate-ratio-1004", "조현우", Gender.MALE);
+        VoteAttendance fifth = addMatchParticipant(vote, "generate-ratio-1005", "이서연", Gender.FEMALE);
+        VoteAttendance sixth = addMatchParticipant(vote, "generate-ratio-1006", "최하은", Gender.FEMALE);
+        VoteAttendance seventh = addMatchParticipant(vote, "generate-ratio-1007", "강지우", Gender.FEMALE);
+        VoteAttendance eighth = addMatchParticipant(vote, "generate-ratio-1008", "윤서아", Gender.FEMALE);
+
+        MvcResult result = mockMvc.perform(post(ADMIN_VOTES_API + "/{voteId}/matches/generate", vote.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "courtCount", 1,
+                                "courtAssignments", List.of(Map.of(
+                                        "courtNumber", 1,
+                                        "participants", List.of(
+                                                memberParticipant(first.getId()),
+                                                memberParticipant(second.getId()),
+                                                memberParticipant(third.getId()),
+                                                memberParticipant(fourth.getId()),
+                                                memberParticipant(fifth.getId()),
+                                                memberParticipant(sixth.getId()),
+                                                memberParticipant(seventh.getId()),
+                                                memberParticipant(eighth.getId())
+                                        )
+                                ))
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matches[0].courtMatches.length()").value(4))
+                .andReturn();
+
+        JsonNode response = readBody(result);
+        assertThat(countGameType(response, "MIXED")).isEqualTo(2);
+        assertThat(countGameType(response, "MEN")).isEqualTo(1);
+        assertThat(countGameType(response, "WOMEN")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("인원이 충분하면 랜덤 대진 생성 시 각 참석자는 최소 2게임씩 배정된다")
+    void generateMatchesAssignsAtLeastTwoGamesPerParticipantWhenPossible() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "2게임 보장용 정기 운동",
+                LocalDate.now().minusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                20
+        ));
+        VoteAttendance first = addMatchParticipant(vote, "generate-two-1001", "정도윤", Gender.MALE);
+        VoteAttendance second = addMatchParticipant(vote, "generate-two-1002", "강지우", Gender.FEMALE);
+        VoteAttendance third = addMatchParticipant(vote, "generate-two-1003", "조현우", Gender.MALE);
+        VoteAttendance fourth = addMatchParticipant(vote, "generate-two-1004", "윤서아", Gender.FEMALE);
+        VoteAttendance fifth = addMatchParticipant(vote, "generate-two-1005", "한도현", Gender.MALE);
+        VoteAttendance sixth = addMatchParticipant(vote, "generate-two-1006", "오예린", Gender.FEMALE);
+
+        mockMvc.perform(post(ADMIN_VOTES_API + "/{voteId}/matches/generate", vote.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "courtCount", 1,
+                                "courtAssignments", List.of(Map.of(
+                                        "courtNumber", 1,
+                                        "participants", List.of(
+                                                memberParticipant(first.getId()),
+                                                memberParticipant(second.getId()),
+                                                memberParticipant(third.getId()),
+                                                memberParticipant(fourth.getId()),
+                                                memberParticipant(fifth.getId()),
+                                                memberParticipant(sixth.getId())
+                                        )
+                                ))
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matches[0].courtMatches.length()").value(3));
+
+        assertThat(countSavedMatchesFor(first.getId())).isGreaterThanOrEqualTo(2);
+        assertThat(countSavedMatchesFor(second.getId())).isGreaterThanOrEqualTo(2);
+        assertThat(countSavedMatchesFor(third.getId())).isGreaterThanOrEqualTo(2);
+        assertThat(countSavedMatchesFor(fourth.getId())).isGreaterThanOrEqualTo(2);
+        assertThat(countSavedMatchesFor(fifth.getId())).isGreaterThanOrEqualTo(2);
+        assertThat(countSavedMatchesFor(sixth.getId())).isGreaterThanOrEqualTo(2);
+        assertThat(voteMatchRepository.findAll()).hasSize(12);
+    }
+
+    @Test
+    @DisplayName("수동 배정 코트에 인원이 부족해도 랜덤 대진 생성은 가능한 코트만 허용한다")
+    void generateMatchesAllowsUnderfilledCourtWithoutFailing() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "인원 부족 허용용 정기 운동",
+                LocalDate.now().minusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                20
+        ));
+        VoteAttendance first = addMatchParticipant(vote, "generate-under-1001", "김도윤", Gender.MALE);
+        VoteAttendance second = addMatchParticipant(vote, "generate-under-1002", "한예린", Gender.FEMALE);
+        VoteAttendance third = addMatchParticipant(vote, "generate-under-1003", "문지훈", Gender.MALE);
+        VoteAttendance fourth = addMatchParticipant(vote, "generate-under-1004", "최서윤", Gender.FEMALE);
+        VoteAttendance fifth = addMatchParticipant(vote, "generate-under-1005", "임도현", Gender.MALE);
+        VoteAttendance sixth = addMatchParticipant(vote, "generate-under-1006", "유나연", Gender.FEMALE);
+        VoteAttendance seventh = addMatchParticipant(vote, "generate-under-1007", "배정우", Gender.MALE);
+
+        mockMvc.perform(post(ADMIN_VOTES_API + "/{voteId}/matches/generate", vote.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "courtCount", 2,
+                                "courtAssignments", List.of(
+                                        Map.of(
+                                                "courtNumber", 1,
+                                                "participants", List.of(
+                                                        memberParticipant(first.getId()),
+                                                        memberParticipant(second.getId()),
+                                                        memberParticipant(third.getId())
+                                                )
+                                        ),
+                                        Map.of(
+                                                "courtNumber", 2,
+                                                "participants", List.of(
+                                                        memberParticipant(fourth.getId()),
+                                                        memberParticipant(fifth.getId()),
+                                                        memberParticipant(sixth.getId()),
+                                                        memberParticipant(seventh.getId())
+                                                )
+                                        )
+                                )
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matches.length()").value(1))
+                .andExpect(jsonPath("$.matches[0].courtNumber").value(2))
+                .andExpect(jsonPath("$.matches[0].courtMatches.length()").value(2));
+
+        assertThat(countSavedMatchesFor(first.getId())).isZero();
+        assertThat(countSavedMatchesFor(second.getId())).isZero();
+        assertThat(countSavedMatchesFor(third.getId())).isZero();
+        assertThat(countSavedMatchesFor(fourth.getId())).isEqualTo(2);
+        assertThat(countSavedMatchesFor(fifth.getId())).isEqualTo(2);
+        assertThat(countSavedMatchesFor(sixth.getId())).isEqualTo(2);
+        assertThat(countSavedMatchesFor(seventh.getId())).isEqualTo(2);
     }
 
     @Test
@@ -1026,6 +1230,74 @@ class AdminVoteControllerIntegrationTest {
                 "participantType", participantType,
                 "participantId", participantId
         );
+    }
+
+    private JsonNode readBody(MvcResult result) throws Exception {
+        return objectMapper.readTree(result.getResponse().getContentAsString());
+    }
+
+    private void assertMixedGame(JsonNode gameNode) {
+        assertThat(countGender(gameNode.get("team1"), "MALE")).isEqualTo(1);
+        assertThat(countGender(gameNode.get("team1"), "FEMALE")).isEqualTo(1);
+        assertThat(countGender(gameNode.get("team2"), "MALE")).isEqualTo(1);
+        assertThat(countGender(gameNode.get("team2"), "FEMALE")).isEqualTo(1);
+    }
+
+    private long countGameType(JsonNode response, String expectedType) {
+        long count = 0;
+        for (JsonNode gameNode : response.at("/matches/0/courtMatches")) {
+            if (expectedType.equals(resolveGameType(gameNode))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private String resolveGameType(JsonNode gameNode) {
+        String team1Type = resolveTeamType(gameNode.get("team1"));
+        String team2Type = resolveTeamType(gameNode.get("team2"));
+        if ("MIXED".equals(team1Type) && "MIXED".equals(team2Type)) {
+            return "MIXED";
+        }
+        if ("MEN".equals(team1Type) && "MEN".equals(team2Type)) {
+            return "MEN";
+        }
+        if ("WOMEN".equals(team1Type) && "WOMEN".equals(team2Type)) {
+            return "WOMEN";
+        }
+        return "OTHER";
+    }
+
+    private String resolveTeamType(JsonNode teamNode) {
+        int maleCount = countGender(teamNode, "MALE");
+        int femaleCount = countGender(teamNode, "FEMALE");
+        if (maleCount == 1 && femaleCount == 1) {
+            return "MIXED";
+        }
+        if (maleCount == 2) {
+            return "MEN";
+        }
+        if (femaleCount == 2) {
+            return "WOMEN";
+        }
+        return "OTHER";
+    }
+
+    private int countGender(JsonNode teamNode, String gender) {
+        int count = 0;
+        for (JsonNode participantNode : teamNode) {
+            if (gender.equals(participantNode.get("gender").asText())) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private long countSavedMatchesFor(Long attendanceId) {
+        return voteMatchRepository.findAll().stream()
+                .filter(match -> match.getVoteAttendance() != null)
+                .filter(match -> match.getVoteAttendance().getId().equals(attendanceId))
+                .count();
     }
 
     private ClubMember saveClubMember(String name, String email, Gender gender) {
