@@ -2,6 +2,7 @@ package com.ybc.ybc.vote.controller;
 
 import com.ybc.ybc.vote.dto.request.AdminVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.AdminMatchCourtRequest;
+import com.ybc.ybc.vote.dto.request.AdminMatchGenerateRequest;
 import com.ybc.ybc.vote.dto.response.AdminCompletedVoteResponse;
 import com.ybc.ybc.vote.dto.response.AdminMatchParticipantListResponse;
 import com.ybc.ybc.vote.dto.response.AdminMatchRegistrationResponse;
@@ -107,5 +108,15 @@ public class AdminVoteController {
     public AdminMatchRegistrationResponse registerMatches(@PathVariable Long voteId,
                                                           @Valid @RequestBody List<@Valid AdminMatchCourtRequest> request) {
         return adminMatchService.registerMatches(voteId, request);
+    }
+
+    /**
+     * POST /admin/votes/{voteId}/matches/generate
+     * 랜덤 대진 생성
+     */
+    @PostMapping("/{voteId}/matches/generate")
+    public AdminMatchRegistrationResponse generateMatches(@PathVariable Long voteId,
+                                                          @Valid @RequestBody AdminMatchGenerateRequest request) {
+        return adminMatchService.generateMatches(voteId, request);
     }
 }
