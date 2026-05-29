@@ -56,22 +56,24 @@ class InterviewServiceTest {
         Interview scheduledInterview = savedInterview(11L, finalPassApplication, InterviewTime.SECOND_SESSION, "합격 유력");
 
         when(applicationRepository.findAllByStatusIn(any(), any(Sort.class)))
-                .thenReturn(List.of(firstPassApplication, finalPassApplication, failApplication, holdApplication));
-        when(interviewRepository.findAllByApplication_IdIn(List.of(1L, 2L, 3L, 4L)))
+                .thenReturn(List.of(firstPassApplication, finalPassApplication, holdApplication));
+        when(interviewRepository.findAllByApplication_IdIn(List.of(1L, 2L, 4L)))
                 .thenReturn(List.of(scheduledInterview));
 
         InterviewManagementResponse response = interviewService.getInterviewManagement();
 
-        assertThat(response.summary().totalInterviewees()).isEqualTo(4);
+        assertThat(response.summary().totalInterviewees()).isEqualTo(3);
         assertThat(response.summary().passedCount()).isEqualTo(1);
-        assertThat(response.summary().failedCount()).isEqualTo(1);
+        assertThat(response.summary().failedCount()).isZero();
         assertThat(response.summary().holdCount()).isEqualTo(1);
-        assertThat(response.interviewList()).hasSize(4);
+        assertThat(response.interviewList()).hasSize(3);
         assertThat(response.interviewList().get(0).applicationId()).isEqualTo(1L);
         assertThat(response.interviewList().get(0).availableSessions()).containsExactly("FIRST_SESSION", "SECOND_SESSION");
         assertThat(response.interviewList().get(0).scheduledAt()).isNull();
         assertThat(response.interviewList().get(1).scheduledAt()).isEqualTo("SECOND_SESSION");
         assertThat(response.interviewList().get(1).memo()).isEqualTo("합격 유력");
+        assertThat(response.interviewList().get(2).applicationId()).isEqualTo(4L);
+        assertThat(failApplication.getStatus()).isEqualTo(Status.FAIL);
     }
 
     @Test

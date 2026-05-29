@@ -92,9 +92,9 @@ class AdminInterviewControllerIntegrationTest {
         mockMvc.perform(get(ADMIN_INTERVIEWS_API)
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary.totalInterviewees").value(4))
+                .andExpect(jsonPath("$.summary.totalInterviewees").value(3))
                 .andExpect(jsonPath("$.summary.passedCount").value(1))
-                .andExpect(jsonPath("$.summary.failedCount").value(1))
+                .andExpect(jsonPath("$.summary.failedCount").value(0))
                 .andExpect(jsonPath("$.summary.holdCount").value(1))
                 .andExpect(jsonPath("$.interviewList[0].applicationId").value(firstPassApplication.getId()))
                 .andExpect(jsonPath("$.interviewList[0].availableSessions[0]").value("FIRST_SESSION"))
@@ -103,8 +103,9 @@ class AdminInterviewControllerIntegrationTest {
                 .andExpect(jsonPath("$.interviewList[1].applicationId").value(finalPassApplication.getId()))
                 .andExpect(jsonPath("$.interviewList[1].scheduledAt").value("SECOND_SESSION"))
                 .andExpect(jsonPath("$.interviewList[1].memo").value("레슨 경험 있음"))
-                .andExpect(jsonPath("$.interviewList[2].applicationId").value(failApplication.getId()))
-                .andExpect(jsonPath("$.interviewList[3].applicationId").value(holdApplication.getId()));
+                .andExpect(jsonPath("$.interviewList[2].applicationId").value(holdApplication.getId()));
+
+        assertThat(applicationRepository.findById(failApplication.getId())).isPresent();
     }
 
     @Test

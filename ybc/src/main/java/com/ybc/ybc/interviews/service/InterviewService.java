@@ -28,10 +28,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class InterviewService {
-    private static final List<Status> INTERVIEW_TARGET_STATUSES = List.of(
+    private static final List<Status> INTERVIEW_MANAGEMENT_STATUSES = List.of(
             Status.FIRST_PASS,
             Status.FINAL_PASS,
-            Status.FAIL,
             Status.HOLD
     );
 
@@ -78,7 +77,7 @@ public class InterviewService {
 
     private List<Application> getInterviewTargets() {
         return applicationRepository.findAllByStatusIn(
-                INTERVIEW_TARGET_STATUSES,
+                INTERVIEW_MANAGEMENT_STATUSES,
                 Sort.by(Sort.Order.asc("id"))
         );
     }
