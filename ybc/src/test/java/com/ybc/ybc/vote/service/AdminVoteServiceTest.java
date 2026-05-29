@@ -153,6 +153,7 @@ class AdminVoteServiceTest {
         assertThat(vote.getLocation()).isEqualTo("마포구민체육센터");
         assertThat(vote.getCapacity()).isEqualTo(30);
         assertThat(response.status()).isEqualTo(AdminVoteStatus.IN_PROGRESS);
+        assertThat(response.capacity()).isEqualTo(30);
         assertThat(response.attendance().currentAttendees()).isEqualTo(12L);
         assertThat(response.attendance().currentGuests()).isEqualTo(2L);
         assertThat(response.attendance().totalParticipants()).isEqualTo(14L);
@@ -250,6 +251,9 @@ class AdminVoteServiceTest {
         assertThat(response.summary().upcomingCount()).isEqualTo(1);
         assertThat(response.summary().inProgressCount()).isEqualTo(1);
         assertThat(response.summary().completedCount()).isEqualTo(1);
+        assertThat(response.data().get(0).capacity()).isEqualTo(20);
+        assertThat(response.data().get(1).capacity()).isEqualTo(20);
+        assertThat(response.data().get(2).capacity()).isEqualTo(30);
         assertThat(response.data().get(1).attendance().currentAttendees()).isEqualTo(12L);
         assertThat(response.data().get(1).attendance().currentGuests()).isEqualTo(2L);
         assertThat(response.data().get(1).attendance().totalParticipants()).isEqualTo(14L);
