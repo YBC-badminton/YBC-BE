@@ -21,6 +21,7 @@ public record AdminVoteListItemResponse(
         LocalDateTime voteStartAt,
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
         LocalDateTime voteEndAt,
+        int capacity,
         AdminVoteAttendanceResponse attendance
 ) {
     public static AdminVoteListItemResponse from(Vote vote,
@@ -38,6 +39,7 @@ public record AdminVoteListItemResponse(
                 vote.getMemo(),
                 vote.getVoteStartAt(),
                 vote.getVoteEndAt(),
+                vote.getCapacity(),
                 AdminVoteAttendanceResponse.of(attendeeCount, guestCount)
         );
     }
