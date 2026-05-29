@@ -168,6 +168,7 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.title").value("[장소변경] 3월 4주차 정기 배드민턴 투표"))
                 .andExpect(jsonPath("$.activityTime").value("15:00 ~ 18:00"))
                 .andExpect(jsonPath("$.location").value("마포구민체육센터"))
+                .andExpect(jsonPath("$.capacity").value(20))
                 .andExpect(jsonPath("$.attendance.currentAttendees").value(2))
                 .andExpect(jsonPath("$.attendance.currentGuests").value(1))
                 .andExpect(jsonPath("$.attendance.totalParticipants").value(3));
@@ -249,8 +250,10 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.summary.completedCount").value(1))
                 .andExpect(jsonPath("$.data[0].voteId").value(upcomingVote.getId()))
                 .andExpect(jsonPath("$.data[0].status").value("UPCOMING"))
+                .andExpect(jsonPath("$.data[0].capacity").value(20))
                 .andExpect(jsonPath("$.data[1].voteId").value(inProgressVote.getId()))
                 .andExpect(jsonPath("$.data[1].status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.data[1].capacity").value(20))
                 .andExpect(jsonPath("$.data[1].attendance.currentAttendees").value(2))
                 .andExpect(jsonPath("$.data[1].attendance.currentGuests").value(1))
                 .andExpect(jsonPath("$.data[1].attendance.totalParticipants").value(3));
