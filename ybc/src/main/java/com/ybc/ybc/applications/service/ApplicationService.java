@@ -3,6 +3,7 @@ package com.ybc.ybc.applications.service;
 import com.ybc.ybc.applications.domain.Application;
 import com.ybc.ybc.applications.domain.Status;
 import com.ybc.ybc.applications.dto.request.ApplicationRequest;
+import com.ybc.ybc.applications.dto.response.ApplicationAvailabilityResponse;
 import com.ybc.ybc.applications.dto.response.ApplicantDetailResponse;
 import com.ybc.ybc.applications.dto.response.ApplicantListResponse;
 import com.ybc.ybc.applications.dto.response.ApplicantSummaryResponse;
@@ -10,6 +11,7 @@ import com.ybc.ybc.applications.repository.ApplicationRepository;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.members.service.ClubMemberSyncService;
+import com.ybc.ybc.recruitments.domain.Recruitment;
 import com.ybc.ybc.recruitments.repository.RecruitmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -21,6 +23,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -44,6 +47,13 @@ public class ApplicationService {
         Application application = request.toApplication(getCurrentRecruitmentTerm());
         applicationRepository.save(application);
         applicationSubmissionMailService.sendApplicationSubmittedMail(application);
+    }
+
+    public ApplicationAvailabilityResponse getApplicationAvailability() {
+        LocalDateTime now = LocalDateTime.now(clock);
+        return findCurrentRecruitment(now)
+                .map(ApplicationAvailabilityResponse::from)
+                .orElseGet(ApplicationAvailabilityResponse::closed);
     }
 
     public ApplicantListResponse getApplicants(String term) {
@@ -109,9 +119,13 @@ public class ApplicationService {
 
     private String getCurrentRecruitmentTerm() {
         LocalDateTime now = LocalDateTime.now(clock);
-        return recruitmentRepository.findFirstByStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByStartAtDesc(now, now)
-                .map(recruitment -> recruitment.getTerm())
+        return findCurrentRecruitment(now)
+                .map(Recruitment::getTerm)
                 .orElseThrow(() -> new YbcException(ExceptionCode.RECRUITMENT_NOT_FOUND));
+    }
+
+    private Optional<Recruitment> findCurrentRecruitment(LocalDateTime now) {
+        return recruitmentRepository.findFirstByStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByStartAtDesc(now, now);
     }
 
     private String normalizeTerm(String term) {

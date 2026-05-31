@@ -96,7 +96,9 @@ public class SecurityConfig {
         return new OrRequestMatcher(
                 request -> HttpMethod.OPTIONS.matches(request.getMethod()),
                 request -> HttpMethod.POST.matches(request.getMethod())
-                        && request.getRequestURI().startsWith("/applications")
+                        && request.getRequestURI().startsWith("/applications"),
+                request -> HttpMethod.GET.matches(request.getMethod())
+                        && "/applications/availability".equals(request.getRequestURI())
         );
     }
 
