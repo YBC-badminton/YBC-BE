@@ -1305,7 +1305,7 @@ class AdminVoteControllerIntegrationTest {
 
     private ClubMember saveClubMember(String name, String email, Gender gender) {
         return clubMemberRepository.saveAndFlush(
-                ClubMember.create(name, "한국대학교", "010-0000-0000", "03", "2기", 1, email, gender)
+                ClubMember.create(name, "한국대학교", "010-0000-0000", "03", "2기", email, gender)
         );
     }
 

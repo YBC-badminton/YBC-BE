@@ -1,8 +1,6 @@
 package com.ybc.ybc.members.domain;
 
 import com.ybc.ybc.applications.domain.Gender;
-import com.ybc.ybc.global.exception.ExceptionCode;
-import com.ybc.ybc.global.exception.YbcException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -23,9 +21,6 @@ import java.util.Locale;
 @Table(name = "club_member")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ClubMember {
-    private static final int MIN_COURT = 1;
-    private static final int MAX_COURT = 4;
-    private static final int UNASSIGNED_COURT = 0;
     private static final String DEFAULT_TERM = "미정";
 
     @Id
@@ -60,9 +55,6 @@ public class ClubMember {
     @Column(nullable = false, length = 30)
     private String term;
 
-    @Column
-    private Integer court;
-
     @Builder
     private ClubMember(Long applicationId,
                        Long memberId,
@@ -72,9 +64,7 @@ public class ClubMember {
                        String email,
                        Gender gender,
                        String age,
-                       String term,
-                       Integer court) {
-        validateCourt(court);
+                       String term) {
         this.applicationId = applicationId;
         this.memberId = memberId;
         this.name = name;
@@ -84,7 +74,14 @@ public class ClubMember {
         this.gender = gender;
         this.age = age;
         this.term = term;
-        this.court = court;
+    }
+
+    public static ClubMember create(String name,
+                                    String university,
+                                    String phone,
+                                    String age,
+                                    String term) {
+        return create(name, university, phone, age, term, null, null);
     }
 
     public static ClubMember create(String name,
@@ -92,16 +89,6 @@ public class ClubMember {
                                     String phone,
                                     String age,
                                     String term,
-                                    Integer court) {
-        return create(name, university, phone, age, term, court, null, null);
-    }
-
-    public static ClubMember create(String name,
-                                    String university,
-                                    String phone,
-                                    String age,
-                                    String term,
-                                    Integer court,
                                     String email,
                                     Gender gender) {
         return ClubMember.builder()
@@ -112,7 +99,6 @@ public class ClubMember {
                 .gender(gender)
                 .age(age)
                 .term(term)
-                .court(court)
                 .build();
     }
 
@@ -140,31 +126,26 @@ public class ClubMember {
                 .gender(gender)
                 .age(age)
                 .term(DEFAULT_TERM)
-                .court(UNASSIGNED_COURT)
                 .build();
     }
 
     public void update(String name,
                        String age,
                        String university,
-                       String term,
-                       Integer court) {
-        update(name, age, university, term, court, null, null);
+                       String term) {
+        update(name, age, university, term, null, null);
     }
 
     public void update(String name,
                        String age,
                        String university,
                        String term,
-                       Integer court,
                        String email,
                        Gender gender) {
-        validateCourt(court);
         this.name = name;
         this.age = age;
         this.university = university;
         this.term = term;
-        this.court = court;
         if (email != null) {
             this.email = normalizeEmail(email);
         }
@@ -202,18 +183,6 @@ public class ClubMember {
             return;
         }
         this.memberId = memberId;
-    }
-
-    public Integer getCourt() {
-        return court != null && court == UNASSIGNED_COURT
-                ? null
-                : court;
-    }
-
-    private void validateCourt(Integer court) {
-        if (court != null && court != UNASSIGNED_COURT && (court < MIN_COURT || court > MAX_COURT)) {
-            throw new YbcException(ExceptionCode.INVALID_MEMBER_COURT);
-        }
     }
 
     private String normalizeEmail(String email) {

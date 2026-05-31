@@ -71,7 +71,6 @@ class ClubMemberSyncServiceTest {
         assertThat(memberCaptor.getValue().getEmail()).isEqualTo("email@example.com");
         assertThat(memberCaptor.getValue().getGender()).isEqualTo(Gender.MALE);
         assertThat(memberCaptor.getValue().getTerm()).isEqualTo("미정");
-        assertThat(memberCaptor.getValue().getCourt()).isNull();
     }
 
     @Test
