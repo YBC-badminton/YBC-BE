@@ -12,8 +12,7 @@ public record ClubMemberResponse(
         String email,
         Gender gender,
         String age,
-        String term,
-        Integer court
+        String term
 ) {
     public static ClubMemberResponse from(ClubMember clubMember) {
         return new ClubMemberResponse(
@@ -24,8 +23,7 @@ public record ClubMemberResponse(
                 clubMember.getEmail(),
                 clubMember.getGender(),
                 clubMember.getAge(),
-                clubMember.getTerm(),
-                clubMember.getCourt()
+                clubMember.getTerm()
         );
     }
 }
