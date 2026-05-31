@@ -29,6 +29,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -100,6 +101,30 @@ class ApplicationControllerIntegrationTest {
         verify(applicationSubmissionMailService).sendApplicationSubmittedMail(applicationCaptor.capture());
         assertThat(applicationCaptor.getValue().getEmail()).isEqualTo(request.get("email"));
         assertThat(applicationCaptor.getValue().getTerm()).isEqualTo("12기");
+    }
+
+    @Test
+    @DisplayName("비로그인 사용자도 현재 지원 가능 여부를 조회할 수 있다")
+    void getApplicationAvailabilityReturnsRecruitingStatusWithoutAuthentication() throws Exception {
+        saveActiveRecruitment("12기");
+
+        mockMvc.perform(get(APPLICATIONS_API + "/availability"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recruiting").value(true))
+                .andExpect(jsonPath("$.term").value("12기"))
+                .andExpect(jsonPath("$.startAt").exists())
+                .andExpect(jsonPath("$.endAt").exists());
+    }
+
+    @Test
+    @DisplayName("모집중인 기수가 없으면 현재 지원 가능 여부는 false를 반환한다")
+    void getApplicationAvailabilityReturnsFalseWhenRecruitmentMissing() throws Exception {
+        mockMvc.perform(get(APPLICATIONS_API + "/availability"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recruiting").value(false))
+                .andExpect(jsonPath("$.term").isEmpty())
+                .andExpect(jsonPath("$.startAt").isEmpty())
+                .andExpect(jsonPath("$.endAt").isEmpty());
     }
 
     @Test
