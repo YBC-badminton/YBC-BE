@@ -2,6 +2,7 @@ package com.ybc.ybc.applications.service;
 
 import com.ybc.ybc.applications.domain.Application;
 import com.ybc.ybc.applications.dto.request.ApplicationRequest;
+import com.ybc.ybc.applications.dto.response.ApplicationAvailabilityResponse;
 import com.ybc.ybc.applications.dto.response.ApplicantDetailResponse;
 import com.ybc.ybc.applications.dto.response.ApplicantListResponse;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
@@ -128,6 +129,37 @@ class ApplicationServiceTest {
         assertThatThrownBy(() -> applicationService.createApplication(request))
                 .isInstanceOf(YbcException.class)
                 .hasMessage("존재하지 않는 모집 기수입니다.");
+    }
+
+    @Test
+    @DisplayName("현재 모집중인 기수가 있으면 지원 가능 여부 응답에 모집 정보를 담아 반환한다")
+    void getApplicationAvailabilityReturnsActiveRecruitment() {
+        mockCurrentRecruitment("12기");
+
+        ApplicationAvailabilityResponse response = applicationService.getApplicationAvailability();
+
+        assertThat(response.recruiting()).isTrue();
+        assertThat(response.term()).isEqualTo("12기");
+        assertThat(response.startAt()).isEqualTo(LocalDateTime.of(2026, 3, 24, 9, 0));
+        assertThat(response.endAt()).isEqualTo(LocalDateTime.of(2026, 3, 26, 18, 0));
+    }
+
+    @Test
+    @DisplayName("현재 모집중인 기수가 없으면 지원 가능 여부 응답에 false를 반환한다")
+    void getApplicationAvailabilityReturnsClosedWhenRecruitmentMissing() {
+        when(clock.instant()).thenReturn(FIXED_INSTANT);
+        when(clock.getZone()).thenReturn(KOREA);
+        when(recruitmentRepository.findFirstByStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByStartAtDesc(
+                LocalDateTime.now(clock),
+                LocalDateTime.now(clock)
+        )).thenReturn(Optional.empty());
+
+        ApplicationAvailabilityResponse response = applicationService.getApplicationAvailability();
+
+        assertThat(response.recruiting()).isFalse();
+        assertThat(response.term()).isNull();
+        assertThat(response.startAt()).isNull();
+        assertThat(response.endAt()).isNull();
     }
 
     @Test
