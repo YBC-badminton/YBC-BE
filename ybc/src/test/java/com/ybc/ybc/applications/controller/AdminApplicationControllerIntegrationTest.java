@@ -167,7 +167,6 @@ class AdminApplicationControllerIntegrationTest {
         assertThat(clubMember.getPhone()).isEqualTo("01012345678");
         assertThat(clubMember.getAge()).isEqualTo(expectedBirthYear(24));
         assertThat(clubMember.getTerm()).isEqualTo("미정");
-        assertThat(clubMember.getCourt()).isNull();
     }
 
     @Test

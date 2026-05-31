@@ -157,7 +157,6 @@ class AdminInterviewControllerIntegrationTest {
 
         ClubMember clubMember = clubMemberRepository.findByApplicationId(application.getId()).orElseThrow();
         assertThat(clubMember.getAge()).isEqualTo(expectedBirthYear(24));
-        assertThat(clubMember.getCourt()).isNull();
         assertThat(clubMember.getTerm()).isEqualTo("미정");
     }
 

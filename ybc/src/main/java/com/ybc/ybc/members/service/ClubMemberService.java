@@ -42,7 +42,6 @@ public class ClubMemberService {
                 request.phone(),
                 request.age(),
                 request.term(),
-                request.court(),
                 request.email(),
                 request.gender()
         );
@@ -58,7 +57,6 @@ public class ClubMemberService {
                 request.age(),
                 request.university(),
                 request.term(),
-                request.court(),
                 request.email(),
                 request.gender()
         );
@@ -88,18 +86,6 @@ public class ClubMemberService {
     }
 
     private ClubMemberSummaryResponse summarize(List<ClubMember> members) {
-        return new ClubMemberSummaryResponse(
-                members.size(),
-                countByCourt(members, 1),
-                countByCourt(members, 2),
-                countByCourt(members, 3),
-                countByCourt(members, 4)
-        );
-    }
-
-    private long countByCourt(List<ClubMember> members, int court) {
-        return members.stream()
-                .filter(member -> member.getCourt() != null && member.getCourt() == court)
-                .count();
+        return new ClubMemberSummaryResponse(members.size());
     }
 }
