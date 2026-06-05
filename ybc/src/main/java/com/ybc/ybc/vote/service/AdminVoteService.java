@@ -150,11 +150,12 @@ public class AdminVoteService {
         LocalDateTime now = LocalDateTime.now(clock);
         List<Vote> completedVotes = voteRepository.findAll(
                         Sort.by(
-                                Sort.Order.desc("activityDate"),
-                                Sort.Order.desc("id")
+                        Sort.Order.desc("activityDate"),
+                        Sort.Order.desc("id")
                         )
                 ).stream()
                 .filter(vote -> AdminVoteStatus.from(vote.getVoteStartAt(), vote.getVoteEndAt(), now) == AdminVoteStatus.COMPLETED)
+                .filter(this::isMatchVisibleActivity)
                 .toList();
         VoteCountBundle voteCountBundle = buildVoteCountBundle(completedVotes);
         Map<Long, Boolean> matchRegistrationStatus = getMatchRegistrationStatus(completedVotes);
@@ -167,6 +168,12 @@ public class AdminVoteService {
                         matchRegistrationStatus.getOrDefault(vote.getId(), false)
                 ))
                 .toList();
+    }
+
+    private boolean isMatchVisibleActivity(Vote vote) {
+        DayOfWeek dayOfWeek = vote.getActivityDate().getDayOfWeek();
+        return (vote.getActivityType() == ActivityType.REGULAR || vote.getActivityType() == ActivityType.EVENT)
+                && dayOfWeek != DayOfWeek.TUESDAY;
     }
 
     // 투표 삭제

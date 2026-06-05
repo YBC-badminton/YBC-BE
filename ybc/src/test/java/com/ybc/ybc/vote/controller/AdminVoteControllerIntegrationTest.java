@@ -260,8 +260,8 @@ class AdminVoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("인증된 사용자는 투표 완료된 운동 리스트를 조회할 수 있다")
-    void getCompletedVotesReturnsCompletedVotesWhenAuthenticated() throws Exception {
+    @DisplayName("인증된 사용자는 투표 완료된 운동 리스트 조회 시 REGULAR, EVENT만 보고 화요일 운동은 제외한다")
+    void getCompletedVotesReturnsOnlyVisibleActivitiesWhenAuthenticated() throws Exception {
         Vote latestCompletedVote = voteRepository.save(vote(
                 "3월 4주차 정기 배드민턴 투표",
                 LocalDate.of(2026, 3, 28),
@@ -271,11 +271,27 @@ class AdminVoteControllerIntegrationTest {
                 20
         ));
         Vote secondCompletedVote = voteRepository.save(vote(
+                "목요일 이벤트 운동",
+                LocalDate.of(2026, 3, 26),
+                ActivityType.EVENT,
+                LocalDateTime.of(2026, 3, 23, 9, 0),
+                LocalDateTime.of(2026, 3, 25, 18, 0),
+                20
+        ));
+        voteRepository.save(vote(
                 "평일 야간 번개 운동",
                 LocalDate.of(2026, 3, 25),
                 ActivityType.FLASH,
                 LocalDateTime.of(2026, 3, 23, 9, 0),
                 LocalDateTime.of(2026, 3, 24, 18, 0),
+                20
+        ));
+        voteRepository.save(vote(
+                "화요일 이벤트 운동",
+                LocalDate.of(2026, 3, 24),
+                ActivityType.EVENT,
+                LocalDateTime.of(2026, 3, 22, 9, 0),
+                LocalDateTime.of(2026, 3, 23, 18, 0),
                 20
         ));
         voteRepository.save(vote(
@@ -310,7 +326,8 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].attendance.totalParticipants").value(4))
                 .andExpect(jsonPath("$[0].matchRegistered").value(true))
                 .andExpect(jsonPath("$[1].voteId").value(secondCompletedVote.getId()))
-                .andExpect(jsonPath("$[1].activityDay").value("수요일"))
+                .andExpect(jsonPath("$[1].title").value("목요일 이벤트 운동"))
+                .andExpect(jsonPath("$[1].activityDay").value("목요일"))
                 .andExpect(jsonPath("$[1].attendance.totalParticipants").value(1))
                 .andExpect(jsonPath("$[1].matchRegistered").value(false));
     }
