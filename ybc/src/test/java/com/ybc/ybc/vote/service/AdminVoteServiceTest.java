@@ -260,15 +260,27 @@ class AdminVoteServiceTest {
     }
 
     @Test
-    @DisplayName("투표 완료된 운동 리스트 조회 시 완료된 투표만 참석 집계와 함께 반환한다")
-    void getCompletedVotesReturnsCompletedVotesWithAttendance() {
-        Vote completedVote = vote(1L, "지난 정기 운동",
+    @DisplayName("투표 완료된 운동 리스트 조회 시 REGULAR, EVENT만 반환하고 화요일 운동은 제외한다")
+    void getCompletedVotesReturnsOnlyVisibleActivities() {
+        Vote includedRegularVote = vote(1L, "지난 정기 운동",
                 LocalDate.of(2026, 4, 8),
                 LocalDateTime.of(2026, 4, 8, 9, 0),
                 LocalDateTime.of(2026, 4, 8, 12, 0),
                 ActivityType.REGULAR,
                 20);
-        Vote inProgressVote = vote(2L, "오늘 번개 운동",
+        Vote excludedFlashVote = vote(2L, "지난 번개 운동",
+                LocalDate.of(2026, 4, 9),
+                LocalDateTime.of(2026, 4, 9, 9, 0),
+                LocalDateTime.of(2026, 4, 9, 12, 0),
+                ActivityType.FLASH,
+                20);
+        Vote excludedTuesdayEventVote = vote(3L, "화요일 이벤트 운동",
+                LocalDate.of(2026, 4, 7),
+                LocalDateTime.of(2026, 4, 7, 9, 0),
+                LocalDateTime.of(2026, 4, 7, 12, 0),
+                ActivityType.EVENT,
+                20);
+        Vote inProgressVote = vote(4L, "오늘 번개 운동",
                 LocalDate.of(2026, 4, 10),
                 LocalDateTime.of(2026, 4, 10, 11, 0),
                 LocalDateTime.of(2026, 4, 10, 20, 0),
@@ -277,13 +289,18 @@ class AdminVoteServiceTest {
 
         when(voteRepository.findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime.of(2026, 4, 10, 12, 0)))
                 .thenReturn(List.of());
-        when(voteRepository.findAll(any(Sort.class))).thenReturn(List.of(inProgressVote, completedVote));
+        when(voteRepository.findAll(any(Sort.class))).thenReturn(List.of(
+                inProgressVote,
+                includedRegularVote,
+                excludedFlashVote,
+                excludedTuesdayEventVote
+        ));
         when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(1L)))
                 .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 12L)));
         when(guestRepository.countGuestsByVoteIds(List.of(1L)))
                 .thenReturn(List.of(new VoteGuestCountProjection(1L, 2L)));
         when(voteMatchGroupRepository.findAllByVote_IdIn(Set.of(1L)))
-                .thenReturn(List.of(com.ybc.ybc.vote.domain.VoteMatchGroup.create(completedVote)));
+                .thenReturn(List.of(com.ybc.ybc.vote.domain.VoteMatchGroup.create(includedRegularVote)));
 
         List<AdminCompletedVoteResponse> response = adminVoteService.getCompletedVotes();
 
