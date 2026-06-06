@@ -66,6 +66,12 @@ public class Guest {
         this.level = level;
     }
 
+    public void update(String name, Gender gender, String level) {
+        this.name = name;
+        this.gender = gender;
+        this.level = level;
+    }
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {

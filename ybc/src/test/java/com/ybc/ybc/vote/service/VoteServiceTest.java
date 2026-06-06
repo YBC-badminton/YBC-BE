@@ -272,6 +272,63 @@ class VoteServiceTest {
     }
 
     @Test
+    @DisplayName("게스트를 추가한 사람은 본인 게스트를 수정할 수 있다")
+    void updateGuestUpdatesGuest() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        Member inviter = savedMember(2L, "2001");
+        Guest guest = Guest.builder()
+                .vote(vote)
+                .member(inviter)
+                .name("기존 게스트")
+                .gender(Gender.FEMALE)
+                .level("A")
+                .build();
+
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
+        when(guestRepository.findByIdAndVote_Id(10L, 1L)).thenReturn(Optional.of(guest));
+
+        voteService.updateGuest(1L, 10L, 2L, new VoteGuestRequest("수정 게스트", Gender.MALE, "B"));
+
+        assertThat(guest.getName()).isEqualTo("수정 게스트");
+        assertThat(guest.getGender()).isEqualTo(Gender.MALE);
+        assertThat(guest.getLevel()).isEqualTo("B");
+    }
+
+    @Test
+    @DisplayName("게스트를 추가한 사람만 해당 게스트를 수정할 수 있다")
+    void updateGuestThrowsWhenRequesterIsNotInviter() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        Member inviter = savedMember(2L, "2001");
+        Guest guest = Guest.builder()
+                .vote(vote)
+                .member(inviter)
+                .name("기존 게스트")
+                .gender(Gender.FEMALE)
+                .level("A")
+                .build();
+
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
+        when(guestRepository.findByIdAndVote_Id(10L, 1L)).thenReturn(Optional.of(guest));
+
+        assertThatThrownBy(() -> voteService.updateGuest(1L, 10L, 3L, new VoteGuestRequest("수정 게스트", Gender.MALE, "B")))
+                .isInstanceOfSatisfying(YbcException.class,
+                        exception -> assertThat(exception.getExceptionCodeName()).isEqualTo("GUEST_UPDATE_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 게스트는 수정할 수 없다")
+    void updateGuestThrowsWhenGuestIsMissing() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
+        when(guestRepository.findByIdAndVote_Id(10L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> voteService.updateGuest(1L, 10L, 2L, new VoteGuestRequest("수정 게스트", Gender.MALE, "B")))
+                .isInstanceOfSatisfying(YbcException.class,
+                        exception -> assertThat(exception.getExceptionCodeName()).isEqualTo("GUEST_NOT_FOUND"));
+    }
+
+    @Test
     @DisplayName("투표 참여 정보가 없으면 새로 생성한다")
     void saveVoteAttendanceCreatesNewAttendance() {
         Vote vote = savedVote(1L, "목요 정기 운동");

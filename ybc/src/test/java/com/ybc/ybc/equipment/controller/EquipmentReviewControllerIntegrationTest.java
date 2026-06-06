@@ -13,6 +13,7 @@ import com.ybc.ybc.equipment.domain.Equipment;
 import com.ybc.ybc.equipment.domain.EquipmentCategory;
 import com.ybc.ybc.equipment.domain.EquipmentReview;
 import com.ybc.ybc.equipment.dto.request.EquipmentReviewCreateRequest;
+import com.ybc.ybc.equipment.dto.request.EquipmentReviewUpdateRequest;
 import com.ybc.ybc.equipment.repository.EquipmentRepository;
 import com.ybc.ybc.equipment.repository.EquipmentReviewRepository;
 import jakarta.persistence.EntityManager;
@@ -30,8 +31,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -195,6 +198,147 @@ class EquipmentReviewControllerIntegrationTest {
                                 4,
                                 "후기입니다."
                         ))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("작성자는 본인 장비 후기를 수정할 수 있다")
+    void updateEquipmentReview() throws Exception {
+        Member author = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "김민수", "3001@example.com")
+        );
+        Brand brand = brandRepository.save(Brand.create("YONEX"));
+        Equipment equipment = equipmentRepository.save(
+                Equipment.create("아스트록스 99 프로", EquipmentCategory.RACKET, brand)
+        );
+        EquipmentReview review = equipmentReviewRepository.save(
+                EquipmentReview.create(5, "기존 후기입니다.", 6, author, equipment)
+        );
+
+        mockMvc.perform(patch("/reviews/{reviewId}", review.getId())
+                        .with(authenticatedMember(author))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new EquipmentReviewUpdateRequest(12, 4, "수정된 후기입니다."))))
+                .andExpect(status().isOk());
+
+        EquipmentReview updatedReview = equipmentReviewRepository.findById(review.getId()).orElseThrow();
+        assertThat(updatedReview.getUsageMonth()).isEqualTo(12);
+        assertThat(updatedReview.getRating()).isEqualTo(4);
+        assertThat(updatedReview.getContent()).isEqualTo("수정된 후기입니다.");
+    }
+
+    @Test
+    @DisplayName("작성자가 아니면 장비 후기를 수정할 수 없다")
+    void updateEquipmentReviewThrowsWhenRequesterIsNotAuthor() throws Exception {
+        Member author = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "김민수", "3001@example.com")
+        );
+        Member anotherMember = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3002", "강태호", "3002@example.com")
+        );
+        Brand brand = brandRepository.save(Brand.create("YONEX"));
+        Equipment equipment = equipmentRepository.save(
+                Equipment.create("아스트록스 99 프로", EquipmentCategory.RACKET, brand)
+        );
+        EquipmentReview review = equipmentReviewRepository.save(
+                EquipmentReview.create(5, "기존 후기입니다.", 6, author, equipment)
+        );
+
+        mockMvc.perform(patch("/reviews/{reviewId}", review.getId())
+                        .with(authenticatedMember(anotherMember))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new EquipmentReviewUpdateRequest(12, 4, "수정된 후기입니다."))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("REVIEW_UPDATE_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 장비 후기는 수정할 수 없다")
+    void updateEquipmentReviewThrowsWhenReviewIsMissing() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "강태호", "3001@example.com")
+        );
+
+        mockMvc.perform(patch("/reviews/{reviewId}", 999L)
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new EquipmentReviewUpdateRequest(12, 4, "수정된 후기입니다."))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("REVIEW_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("작성자는 본인 장비 후기를 삭제할 수 있다")
+    void deleteEquipmentReview() throws Exception {
+        Member author = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "김민수", "3001@example.com")
+        );
+        Brand brand = brandRepository.save(Brand.create("YONEX"));
+        Equipment equipment = equipmentRepository.save(
+                Equipment.create("아스트록스 99 프로", EquipmentCategory.RACKET, brand)
+        );
+        EquipmentReview review = equipmentReviewRepository.save(
+                EquipmentReview.create(5, "기존 후기입니다.", 6, author, equipment)
+        );
+
+        mockMvc.perform(delete("/reviews/{reviewId}", review.getId())
+                        .with(authenticatedMember(author)))
+                .andExpect(status().isNoContent());
+
+        assertThat(equipmentReviewRepository.findById(review.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("작성자가 아니면 장비 후기를 삭제할 수 없다")
+    void deleteEquipmentReviewThrowsWhenRequesterIsNotAuthor() throws Exception {
+        Member author = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "김민수", "3001@example.com")
+        );
+        Member anotherMember = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3002", "강태호", "3002@example.com")
+        );
+        Brand brand = brandRepository.save(Brand.create("YONEX"));
+        Equipment equipment = equipmentRepository.save(
+                Equipment.create("아스트록스 99 프로", EquipmentCategory.RACKET, brand)
+        );
+        EquipmentReview review = equipmentReviewRepository.save(
+                EquipmentReview.create(5, "기존 후기입니다.", 6, author, equipment)
+        );
+
+        mockMvc.perform(delete("/reviews/{reviewId}", review.getId())
+                        .with(authenticatedMember(anotherMember)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("REVIEW_DELETE_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 장비 후기는 삭제할 수 없다")
+    void deleteEquipmentReviewThrowsWhenReviewIsMissing() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "강태호", "3001@example.com")
+        );
+
+        mockMvc.perform(delete("/reviews/{reviewId}", 999L)
+                        .with(authenticatedMember(member)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("REVIEW_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 장비 후기를 수정할 수 없다")
+    void updateEquipmentReviewRequiresAuthentication() throws Exception {
+        mockMvc.perform(patch("/reviews/{reviewId}", 1L)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new EquipmentReviewUpdateRequest(12, 4, "수정된 후기입니다."))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 장비 후기를 삭제할 수 없다")
+    void deleteEquipmentReviewRequiresAuthentication() throws Exception {
+        mockMvc.perform(delete("/reviews/{reviewId}", 1L))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
     }

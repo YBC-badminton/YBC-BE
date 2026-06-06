@@ -168,6 +168,23 @@ public class VoteService {
     }
 
     /**
+     * 현재 로그인한 회원이 본인이 추가한 게스트 참여 정보를 수정한다.
+     */
+    @Transactional
+    public void updateGuest(Long voteId, Long guestId, Long memberId, VoteGuestRequest request) {
+        Vote vote = getVoteEntityForUpdate(voteId);
+        validateVoteIsJoinable(vote);
+        Guest guest = guestRepository.findByIdAndVote_Id(guestId, voteId)
+                .orElseThrow(() -> new YbcException(ExceptionCode.GUEST_NOT_FOUND));
+
+        if (!guest.getMember().getId().equals(memberId)) {
+            throw new YbcException(ExceptionCode.GUEST_UPDATE_FORBIDDEN);
+        }
+
+        guest.update(request.name(), request.gender(), request.level());
+    }
+
+    /**
      * 현재 로그인한 회원이 본인이 추가한 게스트만 삭제한다.
      */
     @Transactional

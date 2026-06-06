@@ -39,6 +39,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -416,6 +417,97 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("게스트를 추가한 사람은 본인 게스트를 수정할 수 있다")
+    void updateGuest() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+        Guest guest = guestRepository.save(
+                Guest.builder()
+                        .vote(vote)
+                        .member(member)
+                        .name("게스트")
+                        .gender(Gender.FEMALE)
+                        .level("A")
+                        .build()
+        );
+
+        mockMvc.perform(patch("/votes/{voteId}/guests/{guestId}", vote.getId(), guest.getId())
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteGuestRequest("수정 게스트", Gender.MALE, "B"))))
+                .andExpect(status().isOk());
+
+        Guest updatedGuest = guestRepository.findById(guest.getId()).orElseThrow();
+        assertThat(updatedGuest.getName()).isEqualTo("수정 게스트");
+        assertThat(updatedGuest.getGender()).isEqualTo(Gender.MALE);
+        assertThat(updatedGuest.getLevel()).isEqualTo("B");
+    }
+
+    @Test
+    @DisplayName("게스트를 추가한 사람만 해당 게스트를 수정할 수 있다")
+    void updateGuestThrowsWhenRequesterIsNotInviter() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        Member inviter = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+        Member anotherMember = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3002", "member-3002", "3002@example.com")
+        );
+        Guest guest = guestRepository.save(
+                Guest.builder()
+                        .vote(vote)
+                        .member(inviter)
+                        .name("게스트")
+                        .gender(Gender.FEMALE)
+                        .level("A")
+                        .build()
+        );
+
+        mockMvc.perform(patch("/votes/{voteId}/guests/{guestId}", vote.getId(), guest.getId())
+                        .with(authenticatedMember(anotherMember))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteGuestRequest("수정 게스트", Gender.MALE, "B"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("GUEST_UPDATE_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 게스트를 수정하면 예외가 발생한다")
+    void updateGuestThrowsWhenGuestIsMissing() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+
+        mockMvc.perform(patch("/votes/{voteId}/guests/{guestId}", vote.getId(), 999L)
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteGuestRequest("수정 게스트", Gender.MALE, "B"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("GUEST_NOT_FOUND"));
+    }
+
+    @Test
     @DisplayName("게스트를 추가한 사람은 본인 게스트를 삭제할 수 있다")
     void deleteGuest() throws Exception {
         Vote vote = voteRepository.save(vote(
@@ -697,6 +789,16 @@ class VoteControllerIntegrationTest {
     @DisplayName("인증되지 않은 사용자는 게스트 참여를 저장할 수 없다")
     void createGuestRequiresAuthentication() throws Exception {
         mockMvc.perform(post("/votes/{voteId}/guests", 1L)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteGuestRequest("게스트", Gender.FEMALE, "A"))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 게스트를 수정할 수 없다")
+    void updateGuestRequiresAuthentication() throws Exception {
+        mockMvc.perform(patch("/votes/{voteId}/guests/{guestId}", 1L, 1L)
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new VoteGuestRequest("게스트", Gender.FEMALE, "A"))))
                 .andExpect(status().isUnauthorized())

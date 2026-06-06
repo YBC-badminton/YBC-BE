@@ -20,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -114,6 +115,18 @@ public class VoteController {
                                             @Valid @RequestBody VoteGuestRequest request) {
         voteService.createGuest(voteId, memberPrincipal.getId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    /**
+     * 현재 로그인한 회원이 추가한 게스트 참여 정보를 수정한다.
+     */
+    @PatchMapping("/{voteId}/guests/{guestId}")
+    public ResponseEntity<Void> updateGuest(@PathVariable Long voteId,
+                                            @PathVariable Long guestId,
+                                            @AuthenticationPrincipal MemberPrincipal memberPrincipal,
+                                            @Valid @RequestBody VoteGuestRequest request) {
+        voteService.updateGuest(voteId, guestId, memberPrincipal.getId(), request);
+        return ResponseEntity.ok().build();
     }
 
     /**
