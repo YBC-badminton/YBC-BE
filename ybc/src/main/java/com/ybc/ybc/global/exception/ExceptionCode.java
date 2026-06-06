@@ -15,6 +15,7 @@ public enum ExceptionCode {
     VOTE_CLOSED(HttpStatus.BAD_REQUEST, ClientExceptionCode.VOTE_CLOSED, "마감된 투표에는 참여할 수 없습니다."),
     VOTE_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.VOTE_NOT_FOUND, "존재하지 않는 투표입니다."),
     GUEST_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.GUEST_NOT_FOUND, "존재하지 않는 게스트입니다."),
+    GUEST_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.GUEST_UPDATE_FORBIDDEN, "해당 게스트를 수정할 권한이 없습니다."),
     GUEST_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.GUEST_DELETE_FORBIDDEN, "해당 게스트를 삭제할 권한이 없습니다."),
     INVALID_VOTE_ACTIVITY_TYPE(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_VOTE_ACTIVITY_TYPE, "투표 활동 유형이 올바르지 않습니다."),
     INVALID_VOTE_PERIOD(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_VOTE_PERIOD, "투표 시작 시간과 종료 시간을 다시 확인해 주세요."),
