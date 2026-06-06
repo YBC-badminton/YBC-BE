@@ -30,6 +30,8 @@ public enum ExceptionCode {
     RECRUITMENT_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.RECRUITMENT_NOT_FOUND, "존재하지 않는 모집 기수입니다."),
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.MEMBER_NOT_FOUND, "존재하지 않는 부원입니다."),
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.REVIEW_NOT_FOUND, "존재하지 않는 장비 후기입니다."),
+    REVIEW_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.REVIEW_UPDATE_FORBIDDEN, "해당 장비 후기를 수정할 권한이 없습니다."),
+    REVIEW_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.REVIEW_DELETE_FORBIDDEN, "해당 장비 후기를 삭제할 권한이 없습니다."),
     INVALID_RECRUITMENT_SCHEDULE(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_RECRUITMENT_SCHEDULE, "모집 일정 순서가 올바르지 않습니다."),
     INVALID_FRONTEND_REDIRECT_URI(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_FRONTEND_REDIRECT_URI, "허용되지 않은 프론트엔드 리다이렉트 주소입니다."),
     INVALID_EQUIPMENT_REVIEW_RATING(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_EQUIPMENT_REVIEW_RATING, "장비 후기 평점은 1점부터 5점까지만 가능합니다."),
