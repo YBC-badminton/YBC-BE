@@ -3,6 +3,7 @@ package com.ybc.ybc.equipment.controller;
 import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.equipment.domain.EquipmentCategory;
 import com.ybc.ybc.equipment.dto.request.EquipmentReviewCreateRequest;
+import com.ybc.ybc.equipment.dto.request.EquipmentReviewUpdateRequest;
 import com.ybc.ybc.equipment.dto.response.EquipmentReviewCreateResponse;
 import com.ybc.ybc.equipment.dto.response.EquipmentReviewDetailResponse;
 import com.ybc.ybc.equipment.dto.response.EquipmentReviewListResponse;
@@ -14,7 +15,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -56,5 +59,24 @@ public class EquipmentReviewController {
     ) {
         EquipmentReviewCreateResponse response = equipmentReviewService.createReview(memberPrincipal.getId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PatchMapping("/{reviewId}")
+    public ResponseEntity<Void> updateReview(
+            @PathVariable Long reviewId,
+            @AuthenticationPrincipal MemberPrincipal memberPrincipal,
+            @Valid @RequestBody EquipmentReviewUpdateRequest request
+    ) {
+        equipmentReviewService.updateReview(reviewId, memberPrincipal.getId(), request);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{reviewId}")
+    public ResponseEntity<Void> deleteReview(
+            @PathVariable Long reviewId,
+            @AuthenticationPrincipal MemberPrincipal memberPrincipal
+    ) {
+        equipmentReviewService.deleteReview(reviewId, memberPrincipal.getId());
+        return ResponseEntity.noContent().build();
     }
 }
