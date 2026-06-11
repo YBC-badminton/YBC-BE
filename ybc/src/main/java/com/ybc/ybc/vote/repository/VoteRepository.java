@@ -39,12 +39,18 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                         v.activityTime,
                         v.capacity,
                         coalesce(sum(case when va.attendanceStatus = true then 1 else 0 end), 0)
-                        + (select count(g) from Guest g where g.vote = v)
+                        + (select count(g) from Guest g where g.vote = v),
+                        case when (
+                            select count(mg)
+                            from VoteMatchGroup mg
+                            where mg.vote.id = case when ov is not null then ov.id else v.id end
+                        ) > 0 then true else false end
                     )
                     from Vote v
+                    left join v.originalVote ov
                     left join VoteAttendance va on va.vote = v
                     where v.voteEndAt > :now
-                    group by v.id, v.title, v.activityType, v.activityDate, v.location, v.voteStartAt, v.voteEndAt, v.activityTime, v.capacity
+                    group by v.id, v.title, v.activityType, v.activityDate, v.location, v.voteStartAt, v.voteEndAt, v.activityTime, v.capacity, ov.id
                     """,
             countQuery = """
                     select count(v)
@@ -73,12 +79,18 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                         v.activityTime,
                         v.capacity,
                         coalesce(sum(case when va.attendanceStatus = true then 1 else 0 end), 0)
-                        + (select count(g) from Guest g where g.vote = v)
+                        + (select count(g) from Guest g where g.vote = v),
+                        case when (
+                            select count(mg)
+                            from VoteMatchGroup mg
+                            where mg.vote.id = case when ov is not null then ov.id else v.id end
+                        ) > 0 then true else false end
                     )
                     from Vote v
+                    left join v.originalVote ov
                     left join VoteAttendance va on va.vote = v
                     where v.voteEndAt <= :now
-                    group by v.id, v.title, v.activityType, v.activityDate, v.location, v.voteStartAt, v.voteEndAt, v.activityTime, v.capacity
+                    group by v.id, v.title, v.activityType, v.activityDate, v.location, v.voteStartAt, v.voteEndAt, v.activityTime, v.capacity, ov.id
                     """,
             countQuery = """
                     select count(v)
