@@ -65,7 +65,7 @@ class AdminMemberControllerIntegrationTest {
     @Test
     @DisplayName("인증된 사용자는 부원 명단을 조회할 수 있다")
     void getMembersReturnsSummaryAndMembersWhenAuthenticated() throws Exception {
-        ClubMember firstMember = saveMember("홍길동", "한국대학교", "010-1234-5678", "03", "2기");
+        ClubMember firstMember = saveMember("홍길동", "한국대학교", "010-1234-5678", "03", "2기", true);
         ClubMember secondMember = saveMember("강해린", "미래대학교", "010-5555-6666", "05", "7.5기");
         ClubMember thirdMember = saveMember("이마크", "글로벌대학교", "010-7777-8888", "01", "8기");
 
@@ -73,10 +73,13 @@ class AdminMemberControllerIntegrationTest {
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.totalMembers").value(3))
+                .andExpect(jsonPath("$.summary.mapoResidentCount").value(1))
                 .andExpect(jsonPath("$.members[0].memberId").value(firstMember.getId()))
                 .andExpect(jsonPath("$.members[0].name").value("홍길동"))
+                .andExpect(jsonPath("$.members[0].isMapoResident").value(true))
                 .andExpect(jsonPath("$.members[1].memberId").value(secondMember.getId()))
                 .andExpect(jsonPath("$.members[1].term").value("7.5기"))
+                .andExpect(jsonPath("$.members[1].isMapoResident").value(false))
                 .andExpect(jsonPath("$.members[2].memberId").value(thirdMember.getId()))
                 .andExpect(jsonPath("$.members[2].court").doesNotExist());
     }
@@ -91,11 +94,30 @@ class AdminMemberControllerIntegrationTest {
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.totalMembers").value(1))
+                .andExpect(jsonPath("$.summary.mapoResidentCount").value(0))
                 .andExpect(jsonPath("$.members[0].name").value("김철수"))
                 .andExpect(jsonPath("$.members[0].age").value(expectedBirthYear(24)))
-                .andExpect(jsonPath("$.members[0].term").value("미정"));
+                .andExpect(jsonPath("$.members[0].term").value("미정"))
+                .andExpect(jsonPath("$.members[0].isMapoResident").value(false));
 
         assertThat(clubMemberRepository.findByApplicationId(application.getId())).isPresent();
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DisplayName("최종 합격 지원자의 주소에 마포가 포함되면 부원 명단 자동 보정 시 마포구민으로 저장된다")
+    void getMembersSetsMapoResidentWhenFinalPassAddressContainsMapo() throws Exception {
+        Application application = saveApplication("김철수", Status.FINAL_PASS, 24, "서울 마포구 연남동");
+
+        mockMvc.perform(get(ADMIN_MEMBERS_API)
+                        .with(authorizedUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary.mapoResidentCount").value(1))
+                .andExpect(jsonPath("$.members[0].name").value("김철수"))
+                .andExpect(jsonPath("$.members[0].isMapoResident").value(true));
+
+        ClubMember clubMember = clubMemberRepository.findByApplicationId(application.getId()).orElseThrow();
+        assertThat(clubMember.isMapoResident()).isTrue();
     }
 
     @Test
@@ -111,6 +133,7 @@ class AdminMemberControllerIntegrationTest {
                                 "age", "02",
                                 "university", "한국대학교",
                                 "term", "10기",
+                                "isMapoResident", true,
                                 "email", "hong@example.com",
                                 "gender", "MALE"
                         ))))
@@ -121,10 +144,12 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.gender").value("MALE"))
                 .andExpect(jsonPath("$.age").value("02"))
                 .andExpect(jsonPath("$.term").value("10기"))
+                .andExpect(jsonPath("$.isMapoResident").value(true))
                 .andExpect(jsonPath("$.court").doesNotExist());
 
         ClubMember updatedMember = clubMemberRepository.findById(member.getId()).orElseThrow();
         assertThat(updatedMember.getAge()).isEqualTo("02");
+        assertThat(updatedMember.isMapoResident()).isTrue();
     }
 
     @Test
@@ -140,6 +165,7 @@ class AdminMemberControllerIntegrationTest {
                                 "age", "02",
                                 "university", "한국대학교",
                                 "term", "10기",
+                                "isMapoResident", true,
                                 "email", "hong@example.com",
                                 "gender", "MALE"
                         ))))
@@ -172,6 +198,7 @@ class AdminMemberControllerIntegrationTest {
                                 "phone", "010-1234-5678",
                                 "age", "03",
                                 "term", "2기",
+                                "isMapoResident", true,
                                 "email", "hong@example.com",
                                 "gender", "MALE"
                         ))))
@@ -181,6 +208,7 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.email").value("hong@example.com"))
                 .andExpect(jsonPath("$.gender").value("MALE"))
                 .andExpect(jsonPath("$.age").value("03"))
+                .andExpect(jsonPath("$.isMapoResident").value(true))
                 .andExpect(jsonPath("$.court").doesNotExist());
 
         assertThat(clubMemberRepository.findAll()).hasSize(1);
@@ -240,15 +268,28 @@ class AdminMemberControllerIntegrationTest {
                                   String phone,
                                   String age,
                                   String term) {
-        ClubMember clubMember = ClubMember.create(name, university, phone, age, term);
+        return saveMember(name, university, phone, age, term, false);
+    }
+
+    private ClubMember saveMember(String name,
+                                  String university,
+                                  String phone,
+                                  String age,
+                                  String term,
+                                  boolean isMapoResident) {
+        ClubMember clubMember = ClubMember.create(name, university, phone, age, term, isMapoResident, null, null);
         ClubMember savedMember = clubMemberRepository.saveAndFlush(clubMember);
         return clubMemberRepository.findById(savedMember.getId()).orElseThrow();
     }
 
     private Application saveApplication(String name, Status status, int age) {
+        return saveApplication(name, status, age, "서울 강서구");
+    }
+
+    private Application saveApplication(String name, Status status, int age, String address) {
         Application application = Application.builder()
                 .name(name)
-                .address("서울 강서구")
+                .address(address)
                 .gender(Gender.MALE)
                 .age(age)
                 .phone("010-1234-5678")

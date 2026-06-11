@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.StringUtils;
 
 import java.time.Year;
 import java.util.List;
@@ -78,6 +79,7 @@ public class ClubMemberSyncService {
 
     private void upsertClubMember(Application application) {
         String birthYear = toBirthYear(application.getAge());
+        boolean mapoResident = isMapoResident(application.getAddress());
         clubMemberRepository.findByApplicationId(application.getId())
                 .ifPresentOrElse(
                         clubMember -> clubMember.syncFromApplication(
@@ -85,6 +87,7 @@ public class ClubMemberSyncService {
                                 application.getUniversity(),
                                 application.getPhone(),
                                 birthYear,
+                                mapoResident,
                                 application.getEmail(),
                                 application.getGender()
                         ),
@@ -95,6 +98,7 @@ public class ClubMemberSyncService {
                                         application.getUniversity(),
                                         application.getPhone(),
                                         birthYear,
+                                        mapoResident,
                                         application.getEmail(),
                                         application.getGender()
                                 )
@@ -105,5 +109,9 @@ public class ClubMemberSyncService {
     private String toBirthYear(int age) {
         int birthYear = Year.now().getValue() - age + 1;
         return String.format("%02d", Math.floorMod(birthYear, 100));
+    }
+
+    private boolean isMapoResident(String address) {
+        return StringUtils.hasText(address) && address.contains("마포");
     }
 }
