@@ -286,7 +286,6 @@ class AdminVoteServiceTest {
                 LocalDateTime.of(2026, 4, 10, 20, 0),
                 ActivityType.FLASH,
                 20);
-
         when(voteRepository.findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime.of(2026, 4, 10, 12, 0)))
                 .thenReturn(List.of());
         when(voteRepository.findAll(any(Sort.class))).thenReturn(List.of(

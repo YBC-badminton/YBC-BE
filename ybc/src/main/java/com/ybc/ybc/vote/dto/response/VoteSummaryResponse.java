@@ -15,6 +15,7 @@ public record VoteSummaryResponse(
         LocalDateTime voteEndAt,
         String activityTime,
         int capacity,
-        long currentParticipantCount
+        long currentParticipantCount,
+        boolean matchRegistered
 ) {
 }

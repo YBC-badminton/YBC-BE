@@ -77,7 +77,8 @@ class VoteServiceTest {
                 LocalDateTime.of(2026, 4, 9, 23, 0),
                 "19:00",
                 20,
-                3L
+                3L,
+                true
         );
         when(voteRepository.findJoinableVoteSummaries(any(LocalDateTime.class), any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(summary), PageRequest.of(0, 10), 1));
@@ -86,6 +87,7 @@ class VoteServiceTest {
 
         assertThat(response.votes()).hasSize(1);
         assertThat(response.votes().get(0).activityDate()).isEqualTo(LocalDate.of(2026, 4, 10));
+        assertThat(response.votes().get(0).matchRegistered()).isTrue();
         verify(voteRepository).findJoinableVoteSummaries(any(LocalDateTime.class), any(org.springframework.data.domain.Pageable.class));
     }
 

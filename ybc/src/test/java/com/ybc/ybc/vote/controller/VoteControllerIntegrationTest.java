@@ -107,13 +107,14 @@ class VoteControllerIntegrationTest {
     @Test
     @DisplayName("진행 중인 투표 목록과 페이지 정보를 함께 조회한다")
     void getJoinableVotes() throws Exception {
-        Vote joinableVote = voteRepository.save(vote(
+        Vote joinableVote = vote(
                 "목요 정기 운동",
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusDays(1),
                 20
-        ));
+        );
+        joinableVote = voteRepository.save(joinableVote);
         Vote closedVote = voteRepository.save(vote(
                 "지난 번개 운동",
                 ActivityType.FLASH,
@@ -127,6 +128,7 @@ class VoteControllerIntegrationTest {
         addGuest(joinableVote, "host1", "게스트");
         addAttendance(joinableVote, false, "1003");
         addAttendance(closedVote, true, "2001");
+        jdbcTemplate.update("insert into vote_match_group (vote_id, created_at) values (?, current_timestamp)", joinableVote.getId());
 
         mockMvc.perform(get("/votes")
                         .with(jwt())
@@ -136,7 +138,8 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.votes.length()").value(1))
                 .andExpect(jsonPath("$.votes[0].voteId").value(joinableVote.getId()))
-                .andExpect(jsonPath("$.votes[0].currentParticipantCount").value(3));
+                .andExpect(jsonPath("$.votes[0].currentParticipantCount").value(3))
+                .andExpect(jsonPath("$.votes[0].matchRegistered").value(true));
     }
 
     @Test
