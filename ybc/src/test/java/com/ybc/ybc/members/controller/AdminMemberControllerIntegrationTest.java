@@ -73,6 +73,7 @@ class AdminMemberControllerIntegrationTest {
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.totalMembers").value(3))
+                .andExpect(jsonPath("$.summary.mapoResidentCount").value(1))
                 .andExpect(jsonPath("$.members[0].memberId").value(firstMember.getId()))
                 .andExpect(jsonPath("$.members[0].name").value("홍길동"))
                 .andExpect(jsonPath("$.members[0].isMapoResident").value(true))
@@ -93,6 +94,7 @@ class AdminMemberControllerIntegrationTest {
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.totalMembers").value(1))
+                .andExpect(jsonPath("$.summary.mapoResidentCount").value(0))
                 .andExpect(jsonPath("$.members[0].name").value("김철수"))
                 .andExpect(jsonPath("$.members[0].age").value(expectedBirthYear(24)))
                 .andExpect(jsonPath("$.members[0].term").value("미정"))
@@ -110,6 +112,7 @@ class AdminMemberControllerIntegrationTest {
         mockMvc.perform(get(ADMIN_MEMBERS_API)
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary.mapoResidentCount").value(1))
                 .andExpect(jsonPath("$.members[0].name").value("김철수"))
                 .andExpect(jsonPath("$.members[0].isMapoResident").value(true));
 

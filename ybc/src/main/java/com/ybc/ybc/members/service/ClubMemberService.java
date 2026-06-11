@@ -88,6 +88,9 @@ public class ClubMemberService {
     }
 
     private ClubMemberSummaryResponse summarize(List<ClubMember> members) {
-        return new ClubMemberSummaryResponse(members.size());
+        long mapoResidentCount = members.stream()
+                .filter(ClubMember::isMapoResident)
+                .count();
+        return new ClubMemberSummaryResponse(members.size(), mapoResidentCount);
     }
 }

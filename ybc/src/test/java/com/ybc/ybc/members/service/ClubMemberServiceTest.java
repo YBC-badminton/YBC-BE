@@ -50,6 +50,7 @@ class ClubMemberServiceTest {
 
         verify(clubMemberSyncService).reconcileFinalPassMembersSafely();
         assertThat(response.summary().totalMembers()).isEqualTo(3);
+        assertThat(response.summary().mapoResidentCount()).isEqualTo(1);
         assertThat(response.members()).hasSize(3);
         assertThat(response.members().get(0).memberId()).isEqualTo(1L);
         assertThat(response.members().get(1).name()).isEqualTo("강해린");
