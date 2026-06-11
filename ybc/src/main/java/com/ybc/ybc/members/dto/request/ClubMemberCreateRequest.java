@@ -18,6 +18,7 @@ public record ClubMemberCreateRequest(
         String age,
         @NotBlank(message = "기수를 입력해 주세요.")
         String term,
+        Boolean isMapoResident,
         @NotBlank(message = "이메일을 입력해 주세요.")
         @Email(message = "이메일 형식이 올바르지 않습니다.")
         String email,
@@ -29,6 +30,16 @@ public record ClubMemberCreateRequest(
                                    String phone,
                                    String age,
                                    String term) {
-        this(name, university, phone, age, term, null, null);
+        this(name, university, phone, age, term, null, null, null);
+    }
+
+    public ClubMemberCreateRequest(String name,
+                                   String university,
+                                   String phone,
+                                   String age,
+                                   String term,
+                                   String email,
+                                   Gender gender) {
+        this(name, university, phone, age, term, null, email, gender);
     }
 }

@@ -16,6 +16,7 @@ public record ClubMemberUpdateRequest(
         String university,
         @NotBlank(message = "기수를 입력해 주세요.")
         String term,
+        Boolean isMapoResident,
         @NotBlank(message = "이메일을 입력해 주세요.")
         @Email(message = "이메일 형식이 올바르지 않습니다.")
         String email,
@@ -26,6 +27,15 @@ public record ClubMemberUpdateRequest(
                                    String age,
                                    String university,
                                    String term) {
-        this(name, age, university, term, null, null);
+        this(name, age, university, term, null, null, null);
+    }
+
+    public ClubMemberUpdateRequest(String name,
+                                   String age,
+                                   String university,
+                                   String term,
+                                   String email,
+                                   Gender gender) {
+        this(name, age, university, term, null, email, gender);
     }
 }

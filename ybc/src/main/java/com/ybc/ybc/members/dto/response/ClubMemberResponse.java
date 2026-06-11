@@ -12,7 +12,8 @@ public record ClubMemberResponse(
         String email,
         Gender gender,
         String age,
-        String term
+        String term,
+        boolean isMapoResident
 ) {
     public static ClubMemberResponse from(ClubMember clubMember) {
         return new ClubMemberResponse(
@@ -23,7 +24,8 @@ public record ClubMemberResponse(
                 clubMember.getEmail(),
                 clubMember.getGender(),
                 clubMember.getAge(),
-                clubMember.getTerm()
+                clubMember.getTerm(),
+                clubMember.isMapoResident()
         );
     }
 }

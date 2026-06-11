@@ -58,7 +58,7 @@ class ClubMemberSyncServiceTest {
     @Test
     @DisplayName("지원서가 최종 합격으로 변경되면 부원을 자동 생성한다")
     void syncByApplicationStatusChangeCreatesClubMemberWhenStatusBecomesFinalPass() {
-        Application application = savedApplication(1L, "홍길동", 23);
+        Application application = savedApplication(1L, "홍길동", 23, "서울 마포구");
         when(clubMemberRepository.findByApplicationId(1L)).thenReturn(Optional.empty());
 
         clubMemberSyncService.syncByApplicationStatusChange(application, Status.FIRST_PASS, Status.FINAL_PASS);
@@ -71,12 +71,13 @@ class ClubMemberSyncServiceTest {
         assertThat(memberCaptor.getValue().getEmail()).isEqualTo("email@example.com");
         assertThat(memberCaptor.getValue().getGender()).isEqualTo(Gender.MALE);
         assertThat(memberCaptor.getValue().getTerm()).isEqualTo("미정");
+        assertThat(memberCaptor.getValue().isMapoResident()).isTrue();
     }
 
     @Test
     @DisplayName("기존 자동 생성 부원이 있으면 최종 합격 시 정보만 갱신한다")
     void syncByApplicationStatusChangeUpdatesExistingAutoCreatedMember() {
-        Application application = savedApplication(1L, "홍길동", 24);
+        Application application = savedApplication(1L, "홍길동", 24, "서울 마포구");
         ClubMember clubMember = ClubMember.createFromApplication(1L, "이전이름", "이전학교", "010-0000-0000", "99");
         when(clubMemberRepository.findByApplicationId(1L)).thenReturn(Optional.of(clubMember));
 
@@ -89,6 +90,28 @@ class ClubMemberSyncServiceTest {
         assertThat(clubMember.getAge()).isEqualTo(expectedBirthYear(24));
         assertThat(clubMember.getEmail()).isEqualTo("email@example.com");
         assertThat(clubMember.getGender()).isEqualTo(Gender.MALE);
+        assertThat(clubMember.isMapoResident()).isTrue();
+    }
+
+    @Test
+    @DisplayName("수동으로 수정된 마포구민 여부는 최종 합격 동기화 시 덮어쓰지 않는다")
+    void syncByApplicationStatusChangeKeepsExistingMapoResidentOverride() {
+        Application application = savedApplication(1L, "홍길동", 24, "서울 마포구");
+        ClubMember clubMember = ClubMember.createFromApplication(
+                1L,
+                "이전이름",
+                "이전학교",
+                "010-0000-0000",
+                "99",
+                false,
+                "old@example.com",
+                Gender.MALE
+        );
+        when(clubMemberRepository.findByApplicationId(1L)).thenReturn(Optional.of(clubMember));
+
+        clubMemberSyncService.syncByApplicationStatusChange(application, Status.HOLD, Status.FINAL_PASS);
+
+        assertThat(clubMember.isMapoResident()).isFalse();
     }
 
     @Test
@@ -141,9 +164,13 @@ class ClubMemberSyncServiceTest {
     }
 
     private Application savedApplication(Long id, String name, int age) {
+        return savedApplication(id, name, age, "서울 강서구");
+    }
+
+    private Application savedApplication(Long id, String name, int age, String address) {
         Application application = Application.builder()
                 .name(name)
-                .address("서울 강서구")
+                .address(address)
                 .gender(Gender.MALE)
                 .age(age)
                 .phone("010-1234-5678")

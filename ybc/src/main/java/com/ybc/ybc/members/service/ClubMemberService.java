@@ -42,6 +42,7 @@ public class ClubMemberService {
                 request.phone(),
                 request.age(),
                 request.term(),
+                request.isMapoResident(),
                 request.email(),
                 request.gender()
         );
@@ -57,6 +58,7 @@ public class ClubMemberService {
                 request.age(),
                 request.university(),
                 request.term(),
+                request.isMapoResident(),
                 request.email(),
                 request.gender()
         );

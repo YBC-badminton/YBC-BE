@@ -49,6 +49,9 @@ public class ClubMember {
     @Column(length = 10)
     private Gender gender;
 
+    @Column(name = "is_mapo_resident")
+    private Boolean mapoResident;
+
     @Column(nullable = false, length = 2)
     private String age;
 
@@ -63,6 +66,7 @@ public class ClubMember {
                        String phone,
                        String email,
                        Gender gender,
+                       Boolean mapoResident,
                        String age,
                        String term) {
         this.applicationId = applicationId;
@@ -72,6 +76,7 @@ public class ClubMember {
         this.phone = phone;
         this.email = normalizeEmail(email);
         this.gender = gender;
+        this.mapoResident = mapoResident;
         this.age = age;
         this.term = term;
     }
@@ -91,12 +96,24 @@ public class ClubMember {
                                     String term,
                                     String email,
                                     Gender gender) {
+        return create(name, university, phone, age, term, false, email, gender);
+    }
+
+    public static ClubMember create(String name,
+                                    String university,
+                                    String phone,
+                                    String age,
+                                    String term,
+                                    Boolean mapoResident,
+                                    String email,
+                                    Gender gender) {
         return ClubMember.builder()
                 .name(name)
                 .university(university)
                 .phone(phone)
                 .email(email)
                 .gender(gender)
+                .mapoResident(mapoResident)
                 .age(age)
                 .term(term)
                 .build();
@@ -117,6 +134,17 @@ public class ClubMember {
                                                    String age,
                                                    String email,
                                                    Gender gender) {
+        return createFromApplication(applicationId, name, university, phone, age, null, email, gender);
+    }
+
+    public static ClubMember createFromApplication(Long applicationId,
+                                                   String name,
+                                                   String university,
+                                                   String phone,
+                                                   String age,
+                                                   Boolean mapoResident,
+                                                   String email,
+                                                   Gender gender) {
         return ClubMember.builder()
                 .applicationId(applicationId)
                 .name(name)
@@ -124,6 +152,7 @@ public class ClubMember {
                 .phone(phone)
                 .email(email)
                 .gender(gender)
+                .mapoResident(mapoResident)
                 .age(age)
                 .term(DEFAULT_TERM)
                 .build();
@@ -133,7 +162,7 @@ public class ClubMember {
                        String age,
                        String university,
                        String term) {
-        update(name, age, university, term, null, null);
+        update(name, age, university, term, null, null, null);
     }
 
     public void update(String name,
@@ -142,10 +171,23 @@ public class ClubMember {
                        String term,
                        String email,
                        Gender gender) {
+        update(name, age, university, term, null, email, gender);
+    }
+
+    public void update(String name,
+                       String age,
+                       String university,
+                       String term,
+                       Boolean mapoResident,
+                       String email,
+                       Gender gender) {
         this.name = name;
         this.age = age;
         this.university = university;
         this.term = term;
+        if (mapoResident != null) {
+            this.mapoResident = mapoResident;
+        }
         if (email != null) {
             this.email = normalizeEmail(email);
         }
@@ -158,7 +200,7 @@ public class ClubMember {
                                     String university,
                                     String phone,
                                     String age) {
-        syncFromApplication(name, university, phone, age, null, null);
+        syncFromApplication(name, university, phone, age, null, null, null);
     }
 
     public void syncFromApplication(String name,
@@ -167,12 +209,25 @@ public class ClubMember {
                                     String age,
                                     String email,
                                     Gender gender) {
+        syncFromApplication(name, university, phone, age, null, email, gender);
+    }
+
+    public void syncFromApplication(String name,
+                                    String university,
+                                    String phone,
+                                    String age,
+                                    Boolean mapoResident,
+                                    String email,
+                                    Gender gender) {
         this.name = name;
         this.university = university;
         this.phone = phone;
         this.age = age;
         this.email = normalizeEmail(email);
         this.gender = gender;
+        if (this.mapoResident == null && mapoResident != null) {
+            this.mapoResident = mapoResident;
+        }
         if (this.term == null || this.term.isBlank()) {
             this.term = DEFAULT_TERM;
         }
@@ -183,6 +238,10 @@ public class ClubMember {
             return;
         }
         this.memberId = memberId;
+    }
+
+    public boolean isMapoResident() {
+        return Boolean.TRUE.equals(mapoResident);
     }
 
     private String normalizeEmail(String email) {
