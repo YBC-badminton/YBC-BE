@@ -42,6 +42,7 @@ public class ClubMemberService {
                 request.phone(),
                 request.age(),
                 request.term(),
+                request.isMapoResident(),
                 request.email(),
                 request.gender()
         );
@@ -57,6 +58,7 @@ public class ClubMemberService {
                 request.age(),
                 request.university(),
                 request.term(),
+                request.isMapoResident(),
                 request.email(),
                 request.gender()
         );
@@ -86,6 +88,9 @@ public class ClubMemberService {
     }
 
     private ClubMemberSummaryResponse summarize(List<ClubMember> members) {
-        return new ClubMemberSummaryResponse(members.size());
+        long mapoResidentCount = members.stream()
+                .filter(ClubMember::isMapoResident)
+                .count();
+        return new ClubMemberSummaryResponse(members.size(), mapoResidentCount);
     }
 }
