@@ -171,7 +171,7 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.capacity").value(20))
                 .andExpect(jsonPath("$.attendance.currentAttendees").value(2))
                 .andExpect(jsonPath("$.attendance.currentGuests").value(1))
-                .andExpect(jsonPath("$.attendance.totalParticipants").value(3));
+                .andExpect(jsonPath("$.attendance.totalParticipants").value(2));
 
         Vote updatedVote = voteRepository.findById(vote.getId()).orElseThrow();
         assertThat(updatedVote.getActivityType()).isEqualTo(ActivityType.REGULAR);
@@ -256,7 +256,7 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.data[1].capacity").value(20))
                 .andExpect(jsonPath("$.data[1].attendance.currentAttendees").value(2))
                 .andExpect(jsonPath("$.data[1].attendance.currentGuests").value(1))
-                .andExpect(jsonPath("$.data[1].attendance.totalParticipants").value(3));
+                .andExpect(jsonPath("$.data[1].attendance.totalParticipants").value(2));
     }
 
     @Test
@@ -323,7 +323,7 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].location").value("망원체육관"))
                 .andExpect(jsonPath("$[0].attendance.currentAttendees").value(2))
                 .andExpect(jsonPath("$[0].attendance.currentGuests").value(2))
-                .andExpect(jsonPath("$[0].attendance.totalParticipants").value(4))
+                .andExpect(jsonPath("$[0].attendance.totalParticipants").value(2))
                 .andExpect(jsonPath("$[0].matchRegistered").value(true))
                 .andExpect(jsonPath("$[1].voteId").value(secondCompletedVote.getId()))
                 .andExpect(jsonPath("$[1].title").value("목요일 이벤트 운동"))
