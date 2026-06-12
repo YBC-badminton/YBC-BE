@@ -19,10 +19,9 @@ final class VoteAttendanceWaitlistResolver {
     }
 
     static List<ResolvedVoteAttendance> resolve(Vote vote,
-                                                Collection<VoteAttendance> attendances,
-                                                long guestCount) {
+                                                Collection<VoteAttendance> attendances) {
         List<VoteAttendance> orderedAttendances = sortByAttendanceOrder(attendances);
-        int confirmedSlots = resolveConfirmedMemberSlots(vote, guestCount);
+        int confirmedSlots = resolveConfirmedMemberSlots(vote);
         List<ResolvedVoteAttendance> resolvedAttendances = new ArrayList<>(orderedAttendances.size());
         for (int index = 0; index < orderedAttendances.size(); index++) {
             resolvedAttendances.add(new ResolvedVoteAttendance(
@@ -34,16 +33,14 @@ final class VoteAttendanceWaitlistResolver {
     }
 
     static List<VoteAttendance> resolveConfirmedAttendances(Vote vote,
-                                                            Collection<VoteAttendance> attendances,
-                                                            long guestCount) {
-        return resolve(vote, attendances, guestCount).stream()
+                                                            Collection<VoteAttendance> attendances) {
+        return resolve(vote, attendances).stream()
                 .filter(resolvedAttendance -> !resolvedAttendance.waiting())
                 .map(ResolvedVoteAttendance::attendance)
                 .toList();
     }
 
-    static List<VoteAttendance> resolveConfirmedAttendancesByVote(Collection<VoteAttendance> attendances,
-                                                                  Map<Long, Long> guestCountByVoteId) {
+    static List<VoteAttendance> resolveConfirmedAttendancesByVote(Collection<VoteAttendance> attendances) {
         return attendances.stream()
                 .collect(Collectors.groupingBy(
                         attendance -> attendance.getVote().getId()
@@ -52,15 +49,12 @@ final class VoteAttendanceWaitlistResolver {
                 .stream()
                 .flatMap(voteAttendances -> resolveConfirmedAttendances(
                         voteAttendances.get(0).getVote(),
-                        voteAttendances,
-                        guestCountByVoteId.getOrDefault(voteAttendances.get(0).getVote().getId(), 0L)
+                        voteAttendances
                 ).stream())
                 .toList();
     }
 
-    static Set<Long> resolveConfirmedAttendanceIds(Collection<VoteAttendance> attendances,
-                                                   Map<Long, Vote> voteById,
-                                                   Map<Long, Long> guestCountByVoteId) {
+    static Set<Long> resolveConfirmedAttendanceIds(Collection<VoteAttendance> attendances) {
         return attendances.stream()
                 .collect(Collectors.groupingBy(
                         attendance -> attendance.getVote().getId()
@@ -68,9 +62,8 @@ final class VoteAttendanceWaitlistResolver {
                 .entrySet()
                 .stream()
                 .flatMap(entry -> resolveConfirmedAttendances(
-                        Objects.requireNonNull(voteById.get(entry.getKey())),
-                        entry.getValue(),
-                        guestCountByVoteId.getOrDefault(entry.getKey(), 0L)
+                        Objects.requireNonNull(entry.getValue().get(0).getVote()),
+                        entry.getValue()
                 ).stream())
                 .map(VoteAttendance::getId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -84,8 +77,8 @@ final class VoteAttendanceWaitlistResolver {
                 .toList();
     }
 
-    private static int resolveConfirmedMemberSlots(Vote vote, long guestCount) {
-        return (int) Math.max((long) vote.getCapacity() - guestCount, 0L);
+    private static int resolveConfirmedMemberSlots(Vote vote) {
+        return Math.max(vote.getCapacity(), 0);
     }
 
     private static LocalDateTime resolveAttendanceOrderAt(VoteAttendance attendance) {

@@ -29,6 +29,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -166,28 +167,69 @@ class VoteControllerIntegrationTest {
     @Test
     @DisplayName("특정 투표의 게스트 목록을 조회한다")
     void getVoteGuests() throws Exception {
-        Vote vote = voteRepository.save(vote(
+        Vote vote = vote(
                 "목요 정기 운동",
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusDays(1),
                 20
-        ));
+        );
+        ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 7));
+        vote = voteRepository.save(vote);
         addGuest(vote, "host1", "게스트1");
         addGuest(vote, "host2", "게스트2");
 
         mockMvc.perform(get("/votes/{voteId}/guests", vote.getId()).with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalGuestCount").value(2))
+                .andExpect(jsonPath("$.confirmedGuestCount").value(2))
+                .andExpect(jsonPath("$.waitingGuestCount").value(0))
+                .andExpect(jsonPath("$.guestQuota").value(3))
                 .andExpect(jsonPath("$.guests.length()").value(2))
+                .andExpect(jsonPath("$.guests[0].voteId").value(vote.getId()))
                 .andExpect(jsonPath("$.guests[0].inviterId").isNumber())
                 .andExpect(jsonPath("$.guests[0].inviterName").value("member-host1"))
                 .andExpect(jsonPath("$.guests[0].guestName").value("게스트1"))
                 .andExpect(jsonPath("$.guests[0].gender").value("FEMALE"))
                 .andExpect(jsonPath("$.guests[0].level").value("A"))
+                .andExpect(jsonPath("$.guests[0].isWaiting").value(false))
                 .andExpect(jsonPath("$.guests[1].inviterId").isNumber())
                 .andExpect(jsonPath("$.guests[1].inviterName").value("member-host2"))
-                .andExpect(jsonPath("$.guests[1].guestName").value("게스트2"));
+                .andExpect(jsonPath("$.guests[1].guestName").value("게스트2"))
+                .andExpect(jsonPath("$.guests[1].isWaiting").value(false));
+    }
+
+    @Test
+    @DisplayName("게스트 신청은 모두 저장되지만 정원 초과분은 대기 상태로 조회한다")
+    void getVoteGuestsMarksOverflowGuestsAsWaiting() throws Exception {
+        Vote vote = vote(
+                "화요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        );
+        ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 7));
+        vote = voteRepository.save(vote);
+        addGuest(vote, "guest-waiting-host1", "게스트1");
+        addGuest(vote, "guest-waiting-host2", "게스트2");
+        addGuest(vote, "guest-waiting-host3", "게스트3");
+        addGuest(vote, "guest-waiting-host4", "게스트4");
+
+        mockMvc.perform(get("/votes/{voteId}/guests", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalGuestCount").value(4))
+                .andExpect(jsonPath("$.confirmedGuestCount").value(3))
+                .andExpect(jsonPath("$.waitingGuestCount").value(1))
+                .andExpect(jsonPath("$.guestQuota").value(3))
+                .andExpect(jsonPath("$.guests[0].guestName").value("게스트1"))
+                .andExpect(jsonPath("$.guests[0].isWaiting").value(false))
+                .andExpect(jsonPath("$.guests[1].guestName").value("게스트2"))
+                .andExpect(jsonPath("$.guests[1].isWaiting").value(false))
+                .andExpect(jsonPath("$.guests[2].guestName").value("게스트3"))
+                .andExpect(jsonPath("$.guests[2].isWaiting").value(false))
+                .andExpect(jsonPath("$.guests[3].guestName").value("게스트4"))
+                .andExpect(jsonPath("$.guests[3].isWaiting").value(true));
     }
 
     @Test
@@ -225,11 +267,10 @@ class VoteControllerIntegrationTest {
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusDays(1),
-                2
+                1
         ));
         addAttendance(vote, true, "3001");
         addAttendance(vote, true, "3002");
-        addGuest(vote, "host1", "게스트1");
         addAttendance(vote, false, "3003");
 
         mockMvc.perform(get("/votes/{voteId}/attendees", vote.getId()).with(jwt()))
@@ -376,15 +417,17 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("게스트 참여도 정원 제한을 받는다")
-    void createGuestThrowsWhenSessionIsFull() throws Exception {
-        Vote vote = voteRepository.save(vote(
+    @DisplayName("게스트 신청은 정원이 가득 차도 저장된다")
+    void createGuestAllowsWaitlistWhenSessionIsFull() throws Exception {
+        Vote vote = vote(
                 "목요 정기 운동",
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusDays(1),
                 2
-        ));
+        );
+        ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 7));
+        vote = voteRepository.save(vote);
         addAttendance(vote, true, "1001");
         addGuest(vote, "host1", "게스트");
 
@@ -396,8 +439,13 @@ class VoteControllerIntegrationTest {
                         .with(authenticatedMember(member))
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new VoteGuestRequest("게스트", Gender.FEMALE, "A"))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("SESSION_FULL"));
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/votes/{voteId}/guests", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalGuestCount").value(2))
+                .andExpect(jsonPath("$.confirmedGuestCount").value(2))
+                .andExpect(jsonPath("$.waitingGuestCount").value(0));
     }
 
     @Test

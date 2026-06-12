@@ -326,7 +326,7 @@ class AdminVoteServiceTest {
         when(voteRepository.findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime.of(2026, 4, 10, 12, 0)))
                 .thenReturn(List.of(endedVote));
         when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(1L)))
-                .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 16L)));
+                .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 17L)));
         when(guestRepository.countGuestsByVoteIds(List.of(1L)))
                 .thenReturn(List.of(new VoteGuestCountProjection(1L, 1L)));
 
@@ -379,7 +379,7 @@ class AdminVoteServiceTest {
         when(voteRepository.findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime.of(2026, 4, 10, 12, 0)))
                 .thenReturn(List.of(endedVote));
         when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(1L)))
-                .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 16L)));
+                .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 17L)));
         when(guestRepository.countGuestsByVoteIds(List.of(1L)))
                 .thenReturn(List.of(new VoteGuestCountProjection(1L, 1L)));
 

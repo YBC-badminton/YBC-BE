@@ -18,6 +18,7 @@ import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendeeResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteGuestListResponse;
+import com.ybc.ybc.vote.dto.response.VoteGuestSummaryResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
 import com.ybc.ybc.vote.dto.response.VoteListResponse;
 import com.ybc.ybc.vote.dto.response.VoteSummaryResponse;
@@ -96,8 +97,31 @@ public class VoteService {
      * 특정 투표에 참여한 게스트 수와 게스트 상세 목록을 조회하여 반환한다.
      */
     public VoteGuestListResponse getVoteGuests(Long voteId) {
-        getVoteEntity(voteId);
-        return VoteGuestListResponse.from(guestRepository.findAllByVote_IdOrderByIdAsc(voteId));
+        Vote requestedVote = getVoteEntity(voteId);
+        Vote baseVote = resolveBaseVote(requestedVote);
+        List<Vote> relatedVotes = getRelatedVotes(baseVote);
+        Set<Long> relatedVoteIds = getVoteIds(relatedVotes);
+        VoteGuestWaitlistResolver.ResolvedGuestList guestList = VoteGuestWaitlistResolver.resolve(
+                baseVote,
+                relatedVotes,
+                VoteAttendanceWaitlistResolver.resolveConfirmedAttendancesByVote(
+                        voteAttendanceRepository.findAllActiveWithMemberByVoteIds(relatedVoteIds)
+                ),
+                guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(relatedVoteIds),
+                LocalDateTime.now()
+        );
+        List<VoteGuestSummaryResponse> guests = guestList.guests().stream()
+                .map(resolvedGuest -> VoteGuestSummaryResponse.from(
+                        resolvedGuest.guest(),
+                        resolvedGuest.waiting()
+                ))
+                .toList();
+        return VoteGuestListResponse.from(
+                guestList.confirmedGuestCount(),
+                guestList.waitingGuestCount(),
+                guestList.guestQuota(),
+                guests
+        );
     }
 
     /**
@@ -118,8 +142,7 @@ public class VoteService {
         Vote vote = getVoteEntity(voteId);
         List<VoteAttendeeResponse> attendees = VoteAttendanceWaitlistResolver.resolve(
                         vote,
-                        voteAttendanceRepository.findAllActiveWithMemberByVoteId(voteId),
-                        guestRepository.countByVote_Id(voteId)
+                        voteAttendanceRepository.findAllActiveWithMemberByVoteId(voteId)
                 ).stream()
                 .map(resolvedAttendance -> VoteAttendeeResponse.from(
                         resolvedAttendance.attendance(),
@@ -161,8 +184,7 @@ public class VoteService {
     @Transactional
     public void createGuest(Long voteId, Long memberId, VoteGuestRequest request) {
         Vote vote = getVoteEntityForUpdate(voteId);
-        validateVoteIsJoinable(vote);
-        validateCapacity(vote);
+        validateGuestApplicationIsJoinable(vote);
         Member member = memberService.getMemberById(memberId);
 
         guestRepository.save(
@@ -182,8 +204,8 @@ public class VoteService {
     @Transactional
     public void updateGuest(Long voteId, Long guestId, Long memberId, VoteGuestRequest request) {
         Vote vote = getVoteEntityForUpdate(voteId);
-        validateVoteIsJoinable(vote);
-        Guest guest = guestRepository.findByIdAndVote_Id(guestId, voteId)
+        validateGuestApplicationIsJoinable(vote);
+        Guest guest = guestRepository.findByIdAndVote_IdIn(guestId, getRelatedVoteIds(vote))
                 .orElseThrow(() -> new YbcException(ExceptionCode.GUEST_NOT_FOUND));
 
         if (!guest.getMember().getId().equals(memberId)) {
@@ -198,8 +220,8 @@ public class VoteService {
      */
     @Transactional
     public void deleteGuest(Long voteId, Long guestId, Long memberId) {
-        getVoteEntity(voteId);
-        Guest guest = guestRepository.findByIdAndVote_Id(guestId, voteId)
+        Vote vote = getVoteEntity(voteId);
+        Guest guest = guestRepository.findByIdAndVote_IdIn(guestId, getRelatedVoteIds(vote))
                 .orElseThrow(() -> new YbcException(ExceptionCode.GUEST_NOT_FOUND));
 
         if (!guest.getMember().getId().equals(memberId)) {
@@ -256,13 +278,6 @@ public class VoteService {
                 );
     }
 
-    private void validateCapacity(Vote vote) {
-        long currentParticipantCount = countCurrentParticipantCount(vote.getId());
-        if (currentParticipantCount >= vote.getCapacity()) {
-            throw new YbcException(ExceptionCode.SESSION_FULL);
-        }
-    }
-
     private long countCurrentParticipantCount(Long voteId) {
         return voteAttendanceRepository.countAttendancesByVoteId(voteId) + guestRepository.countByVote_Id(voteId);
     }
@@ -284,10 +299,16 @@ public class VoteService {
         }
     }
 
+    private void validateGuestApplicationIsJoinable(Vote vote) {
+        boolean hasJoinableVote = getRelatedVotes(vote).stream()
+                .anyMatch(relatedVote -> relatedVote.getVoteEndAt().isAfter(LocalDateTime.now()));
+        if (!hasJoinableVote) {
+            throw new YbcException(ExceptionCode.VOTE_CLOSED);
+        }
+    }
+
     private Set<Long> getRelatedVoteIds(Vote vote) {
-        return getRelatedVotes(vote).stream()
-                .map(Vote::getId)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        return getVoteIds(getRelatedVotes(vote));
     }
 
     private List<Vote> getRelatedVotes(Vote vote) {
@@ -320,6 +341,12 @@ public class VoteService {
                 .values()
                 .stream()
                 .toList();
+    }
+
+    private Set<Long> getVoteIds(List<Vote> votes) {
+        return votes.stream()
+                .map(Vote::getId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
     private void validateVotePeriod(LocalDateTime voteStartAt, LocalDateTime voteEndAt) {

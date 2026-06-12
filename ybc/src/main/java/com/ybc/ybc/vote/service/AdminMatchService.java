@@ -29,7 +29,6 @@ import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
 import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
-import com.ybc.ybc.vote.repository.projection.VoteGuestCountProjection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,6 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -85,10 +85,11 @@ public class AdminMatchService {
         clubMemberSyncService.reconcileFinalPassMembersSafely();
         VoteMatchGroup matchGroup = getMatchGroup(matchId);
         Vote baseVote = resolveBaseVote(matchGroup.getVote());
-        Set<Long> relatedVoteIds = getRelatedVoteIds(baseVote);
+        List<Vote> relatedVotes = getRelatedVotes(baseVote);
         validateRequestedGames(request);
         Map<ParticipantKey, MatchParticipantSource> participantMap = getParticipantMap(
-                relatedVoteIds,
+                baseVote,
+                relatedVotes,
                 extractMatchParticipantKeys(request)
         );
 
@@ -112,15 +113,9 @@ public class AdminMatchService {
         clubMemberSyncService.reconcileFinalPassMembersSafely();
         Vote requestedVote = getVote(voteId);
         Vote baseVote = resolveBaseVote(requestedVote);
-        Set<Long> relatedVoteIds = getRelatedVoteIds(baseVote);
-        List<Guest> guests = guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(relatedVoteIds);
-        Map<Long, Long> guestCountByVoteId = getGuestCountByVoteId(guests);
-        List<VoteAttendance> attendances = deduplicateAttendances(
-                VoteAttendanceWaitlistResolver.resolveConfirmedAttendancesByVote(
-                        voteAttendanceRepository.findAllActiveWithMemberByVoteIds(relatedVoteIds),
-                        guestCountByVoteId
-                )
-        );
+        List<Vote> relatedVotes = getRelatedVotes(baseVote);
+        ConfirmedParticipantScope participantScope = resolveConfirmedParticipantScope(baseVote, relatedVotes);
+        List<VoteAttendance> attendances = deduplicateAttendances(participantScope.confirmedAttendances());
         Map<Long, ClubMember> clubMembersByMemberId = getClubMembersByMemberIdSafely(attendances);
 
         List<AdminMatchParticipantResponse> participants = new ArrayList<>();
@@ -133,7 +128,7 @@ public class AdminMatchService {
                     profile.gender()
             ));
         });
-        guests.forEach(guest -> participants.add(new AdminMatchParticipantResponse(
+        participantScope.confirmedGuests().forEach(guest -> participants.add(new AdminMatchParticipantResponse(
                 guest.getId(),
                 MatchParticipantType.GUEST.name(),
                 guest.getName(),
@@ -152,10 +147,12 @@ public class AdminMatchService {
         clubMemberSyncService.reconcileFinalPassMembersSafely();
         Vote requestedVote = getVote(voteId);
         Vote baseVote = resolveBaseVote(requestedVote);
-        Set<Long> relatedVoteIds = getRelatedVoteIds(baseVote);
+        List<Vote> relatedVotes = getRelatedVotes(baseVote);
+        Set<Long> relatedVoteIds = getVoteIds(relatedVotes);
         validateRequestedGames(request);
         Map<ParticipantKey, MatchParticipantSource> participantMap = getParticipantMap(
-                relatedVoteIds,
+                baseVote,
+                relatedVotes,
                 extractMatchParticipantKeys(request)
         );
 
@@ -172,14 +169,15 @@ public class AdminMatchService {
         clubMemberSyncService.reconcileFinalPassMembersSafely();
         Vote requestedVote = getVote(voteId);
         Vote baseVote = resolveBaseVote(requestedVote);
-        Set<Long> relatedVoteIds = getRelatedVoteIds(baseVote);
+        List<Vote> relatedVotes = getRelatedVotes(baseVote);
+        Set<Long> relatedVoteIds = getVoteIds(relatedVotes);
         validateCourtAssignments(request);
 
         Set<ParticipantKey> participantKeys = extractAssignedParticipantKeys(request.courtAssignments());
         if (participantKeys.isEmpty()) {
             throw new YbcException(ExceptionCode.INVALID_MATCH_REQUEST);
         }
-        Map<ParticipantKey, MatchParticipantSource> participantMap = getParticipantMap(relatedVoteIds, participantKeys);
+        Map<ParticipantKey, MatchParticipantSource> participantMap = getParticipantMap(baseVote, relatedVotes, participantKeys);
         List<AdminMatchCourtRequest> generatedMatches = generateCourtMatches(request.courtAssignments(), participantMap);
 
         VoteMatchGroup matchGroup = replaceMatches(baseVote, relatedVoteIds, generatedMatches, participantMap);
@@ -767,12 +765,14 @@ public class AdminMatchService {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    private Map<ParticipantKey, MatchParticipantSource> getParticipantMap(Set<Long> relatedVoteIds,
+    private Map<ParticipantKey, MatchParticipantSource> getParticipantMap(Vote baseVote,
+                                                                          List<Vote> relatedVotes,
                                                                           Set<ParticipantKey> participantKeys) {
+        ConfirmedParticipantScope participantScope = resolveConfirmedParticipantScope(baseVote, relatedVotes);
         Set<Long> attendanceIds = filterParticipantIds(participantKeys, MatchParticipantType.MEMBER);
         Set<Long> guestIds = filterParticipantIds(participantKeys, MatchParticipantType.GUEST);
-        Map<Long, VoteAttendance> attendanceMap = getAttendanceMap(relatedVoteIds, attendanceIds);
-        Map<Long, Guest> guestMap = getGuestMap(relatedVoteIds, guestIds);
+        Map<Long, VoteAttendance> attendanceMap = getAttendanceMap(participantScope, attendanceIds);
+        Map<Long, Guest> guestMap = getGuestMap(participantScope, guestIds);
         Map<Long, ClubMember> clubMembersByMemberId = getClubMembersByMemberIdSafely(attendanceMap.values());
 
         Map<ParticipantKey, MatchParticipantSource> participantMap = new LinkedHashMap<>();
@@ -797,20 +797,11 @@ public class AdminMatchService {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    private Map<Long, VoteAttendance> getAttendanceMap(Set<Long> relatedVoteIds, Collection<Long> attendanceIds) {
+    private Map<Long, VoteAttendance> getAttendanceMap(ConfirmedParticipantScope participantScope,
+                                                       Collection<Long> attendanceIds) {
         if (attendanceIds.isEmpty()) {
             return Map.of();
         }
-
-        List<VoteAttendance> allActiveAttendances = voteAttendanceRepository.findAllActiveWithMemberByVoteIds(relatedVoteIds);
-        Set<Long> confirmedAttendanceIds = VoteAttendanceWaitlistResolver.resolveConfirmedAttendanceIds(
-                allActiveAttendances,
-                allActiveAttendances.stream()
-                        .map(VoteAttendance::getVote)
-                        .collect(Collectors.toMap(Vote::getId, Function.identity(), (first, ignored) -> first)),
-                guestRepository.countGuestsByVoteIds(relatedVoteIds.stream().toList()).stream()
-                        .collect(Collectors.toMap(VoteGuestCountProjection::voteId, VoteGuestCountProjection::guestCount))
-        );
 
         Map<Long, VoteAttendance> attendanceMap = voteAttendanceRepository.findAllWithVoteAndMemberByIdIn(attendanceIds)
                 .stream()
@@ -821,8 +812,8 @@ public class AdminMatchService {
 
         boolean hasInvalidParticipant = attendanceMap.values().stream()
                 .anyMatch(attendance -> !attendance.isAttendanceStatus()
-                        || !relatedVoteIds.contains(attendance.getVote().getId())
-                        || !confirmedAttendanceIds.contains(attendance.getId()));
+                        || !participantScope.relatedVoteIds().contains(attendance.getVote().getId())
+                        || !participantScope.confirmedAttendanceIds().contains(attendance.getId()));
         if (hasInvalidParticipant) {
             throw new YbcException(ExceptionCode.MATCH_PARTICIPANT_NOT_FOUND);
         }
@@ -830,7 +821,8 @@ public class AdminMatchService {
         return attendanceMap;
     }
 
-    private Map<Long, Guest> getGuestMap(Set<Long> relatedVoteIds, Collection<Long> guestIds) {
+    private Map<Long, Guest> getGuestMap(ConfirmedParticipantScope participantScope,
+                                         Collection<Long> guestIds) {
         if (guestIds.isEmpty()) {
             return Map.of();
         }
@@ -842,7 +834,8 @@ public class AdminMatchService {
         }
 
         boolean hasInvalidParticipant = guestMap.values().stream()
-                .anyMatch(guest -> !relatedVoteIds.contains(guest.getVote().getId()));
+                .anyMatch(guest -> !participantScope.relatedVoteIds().contains(guest.getVote().getId())
+                        || !participantScope.confirmedGuestIds().contains(guest.getId()));
         if (hasInvalidParticipant) {
             throw new YbcException(ExceptionCode.MATCH_PARTICIPANT_NOT_FOUND);
         }
@@ -1097,8 +1090,8 @@ public class AdminMatchService {
                 .orElse(vote);
     }
 
-    private Set<Long> getRelatedVoteIds(Vote vote) {
-        return getRelatedVotes(vote).stream()
+    private Set<Long> getVoteIds(Collection<Vote> votes) {
+        return votes.stream()
                 .map(Vote::getId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
@@ -1141,12 +1134,29 @@ public class AdminMatchService {
         return uniqueAttendancesByMemberId.values().stream().toList();
     }
 
-    private Map<Long, Long> getGuestCountByVoteId(List<Guest> guests) {
-        return guests.stream()
-                .collect(Collectors.groupingBy(
-                        guest -> guest.getVote().getId(),
-                        Collectors.counting()
-                ));
+    private ConfirmedParticipantScope resolveConfirmedParticipantScope(Vote baseVote, List<Vote> relatedVotes) {
+        Set<Long> relatedVoteIds = getVoteIds(relatedVotes);
+        List<VoteAttendance> confirmedAttendances = VoteAttendanceWaitlistResolver.resolveConfirmedAttendancesByVote(
+                voteAttendanceRepository.findAllActiveWithMemberByVoteIds(relatedVoteIds)
+        );
+        List<Guest> confirmedGuests = VoteGuestWaitlistResolver.resolveConfirmedGuests(
+                baseVote,
+                relatedVotes,
+                confirmedAttendances,
+                guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(relatedVoteIds),
+                LocalDateTime.now()
+        );
+        return new ConfirmedParticipantScope(
+                relatedVoteIds,
+                confirmedAttendances,
+                confirmedAttendances.stream()
+                        .map(VoteAttendance::getId)
+                        .collect(Collectors.toCollection(LinkedHashSet::new)),
+                confirmedGuests,
+                confirmedGuests.stream()
+                        .map(Guest::getId)
+                        .collect(Collectors.toCollection(LinkedHashSet::new))
+        );
     }
 
     private void validateGame(AdminMatchGameRequest game) {
@@ -1164,6 +1174,15 @@ public class AdminMatchService {
         private static ParticipantKey from(AdminMatchParticipantRequest participantRequest) {
             return new ParticipantKey(participantRequest.participantType(), participantRequest.participantId());
         }
+    }
+
+    private record ConfirmedParticipantScope(
+            Set<Long> relatedVoteIds,
+            List<VoteAttendance> confirmedAttendances,
+            Set<Long> confirmedAttendanceIds,
+            List<Guest> confirmedGuests,
+            Set<Long> confirmedGuestIds
+    ) {
     }
 
     private record MatchParticipantSource(MatchParticipantType participantType,

@@ -114,6 +114,7 @@ class VoteServiceTest {
     @DisplayName("특정 투표의 게스트 목록을 반환한다")
     void getVoteGuestsReturnsGuestList() {
         Vote vote = savedVote(1L, "목요 정기 운동");
+        ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 7));
         Member inviter = savedMember(2L, "2001");
         ReflectionTestUtils.setField(inviter, "nickname", "host-2001");
 
@@ -127,17 +128,51 @@ class VoteServiceTest {
         ReflectionTestUtils.setField(guest, "id", 10L);
 
         when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
-        when(guestRepository.findAllByVote_IdOrderByIdAsc(1L)).thenReturn(List.of(guest));
+        when(guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(anyCollection())).thenReturn(List.of(guest));
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteIds(anyCollection())).thenReturn(List.of());
 
         VoteGuestListResponse response = voteService.getVoteGuests(1L);
 
         assertThat(response.totalGuestCount()).isEqualTo(1L);
+        assertThat(response.confirmedGuestCount()).isEqualTo(1L);
+        assertThat(response.waitingGuestCount()).isZero();
+        assertThat(response.guestQuota()).isEqualTo(3);
         assertThat(response.guests()).hasSize(1);
         assertThat(response.guests().get(0).guestId()).isEqualTo(10L);
+        assertThat(response.guests().get(0).voteId()).isEqualTo(1L);
         assertThat(response.guests().get(0).inviterName()).isEqualTo("host-2001");
         assertThat(response.guests().get(0).guestName()).isEqualTo("게스트");
         assertThat(response.guests().get(0).gender()).isEqualTo(Gender.FEMALE);
         assertThat(response.guests().get(0).level()).isEqualTo("A");
+        assertThat(response.guests().get(0).isWaiting()).isFalse();
+    }
+
+    @Test
+    @DisplayName("화요일 정원보다 많은 게스트는 대기 상태로 반환한다")
+    void getVoteGuestsMarksOverflowGuestsAsWaiting() {
+        Vote vote = savedVote(1L, "화요 정기 운동");
+        ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 7));
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteIds(anyCollection())).thenReturn(List.of());
+        when(guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(anyCollection())).thenReturn(List.of(
+                guest(vote, savedMember(2L, "2001"), 10L, "게스트1"),
+                guest(vote, savedMember(3L, "2002"), 11L, "게스트2"),
+                guest(vote, savedMember(4L, "2003"), 12L, "게스트3"),
+                guest(vote, savedMember(5L, "2004"), 13L, "게스트4")
+        ));
+
+        VoteGuestListResponse response = voteService.getVoteGuests(1L);
+
+        assertThat(response.totalGuestCount()).isEqualTo(4L);
+        assertThat(response.confirmedGuestCount()).isEqualTo(3L);
+        assertThat(response.waitingGuestCount()).isEqualTo(1L);
+        assertThat(response.guestQuota()).isEqualTo(3);
+        assertThat(response.guests()).hasSize(4);
+        assertThat(response.guests().get(0).isWaiting()).isFalse();
+        assertThat(response.guests().get(1).isWaiting()).isFalse();
+        assertThat(response.guests().get(2).isWaiting()).isFalse();
+        assertThat(response.guests().get(3).isWaiting()).isTrue();
     }
 
     @Test
@@ -176,7 +211,7 @@ class VoteServiceTest {
     @DisplayName("특정 투표에서 참석 상태가 true인 회원 목록을 참석 순서대로 반환하고 초과 인원은 대기 처리한다")
     void getVoteAttendeesReturnsAttendeeList() {
         Vote vote = savedVote(1L, "목요 정기 운동");
-        ReflectionTestUtils.setField(vote, "capacity", 2);
+        ReflectionTestUtils.setField(vote, "capacity", 1);
         Member firstMember = savedMember(2L, "2001");
         Member secondMember = savedMember(3L, "2002");
         ReflectionTestUtils.setField(firstMember, "nickname", "member-2001");
@@ -198,7 +233,6 @@ class VoteServiceTest {
         when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
         when(voteAttendanceRepository.findAllActiveWithMemberByVoteId(1L))
                 .thenReturn(List.of(firstAttendance, secondAttendance));
-        when(guestRepository.countByVote_Id(1L)).thenReturn(1L);
 
         VoteAttendeeListResponse response = voteService.getVoteAttendees(1L);
 
@@ -253,8 +287,6 @@ class VoteServiceTest {
         Member member = savedMember(2L, "2001");
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
-        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
-        when(guestRepository.countByVote_Id(1L)).thenReturn(0L);
 
         voteService.createGuest(1L, 2L, new VoteGuestRequest("게스트", Gender.FEMALE, "A"));
 
@@ -266,17 +298,17 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("게스트 참여도 정원 계산에 포함된다")
-    void createGuestThrowsWhenSessionIsFull() {
+    @DisplayName("게스트 신청은 정원이 꽉 차도 저장된다")
+    void createGuestAllowsWaitlistWhenQuotaIsFull() {
         Vote vote = savedVote(1L, "목요 정기 운동");
         ReflectionTestUtils.setField(vote, "capacity", 2);
+        ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 7));
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
-        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
-        when(guestRepository.countByVote_Id(1L)).thenReturn(1L);
+        when(memberService.getMemberById(2L)).thenReturn(savedMember(2L, "2001"));
 
-        assertThatThrownBy(() -> voteService.createGuest(1L, 2L, new VoteGuestRequest("게스트", Gender.FEMALE, "A")))
-                .isInstanceOf(YbcException.class)
-                .hasMessage("해당 모임의 정원이 모두 찼습니다.");
+        voteService.createGuest(1L, 2L, new VoteGuestRequest("게스트", Gender.FEMALE, "A"));
+
+        verify(guestRepository).save(any(Guest.class));
     }
 
     @Test
@@ -293,7 +325,7 @@ class VoteServiceTest {
                 .build();
 
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
-        when(guestRepository.findByIdAndVote_Id(10L, 1L)).thenReturn(Optional.of(guest));
+        when(guestRepository.findByIdAndVote_IdIn(eq(10L), anyCollection())).thenReturn(Optional.of(guest));
 
         voteService.updateGuest(1L, 10L, 2L, new VoteGuestRequest("수정 게스트", Gender.MALE, "B"));
 
@@ -316,7 +348,7 @@ class VoteServiceTest {
                 .build();
 
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
-        when(guestRepository.findByIdAndVote_Id(10L, 1L)).thenReturn(Optional.of(guest));
+        when(guestRepository.findByIdAndVote_IdIn(eq(10L), anyCollection())).thenReturn(Optional.of(guest));
 
         assertThatThrownBy(() -> voteService.updateGuest(1L, 10L, 3L, new VoteGuestRequest("수정 게스트", Gender.MALE, "B")))
                 .isInstanceOfSatisfying(YbcException.class,
@@ -329,7 +361,7 @@ class VoteServiceTest {
         Vote vote = savedVote(1L, "목요 정기 운동");
 
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
-        when(guestRepository.findByIdAndVote_Id(10L, 1L)).thenReturn(Optional.empty());
+        when(guestRepository.findByIdAndVote_IdIn(eq(10L), anyCollection())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> voteService.updateGuest(1L, 10L, 2L, new VoteGuestRequest("수정 게스트", Gender.MALE, "B")))
                 .isInstanceOfSatisfying(YbcException.class,
@@ -542,5 +574,17 @@ class VoteServiceTest {
         Member member = Member.createSocialMember(SocialProvider.KAKAO, socialId, "member-" + socialId, socialId + "@example.com");
         ReflectionTestUtils.setField(member, "id", id);
         return member;
+    }
+
+    private Guest guest(Vote vote, Member inviter, Long id, String name) {
+        Guest guest = Guest.builder()
+                .vote(vote)
+                .member(inviter)
+                .name(name)
+                .gender(Gender.FEMALE)
+                .level("A")
+                .build();
+        ReflectionTestUtils.setField(guest, "id", id);
+        return guest;
     }
 }
