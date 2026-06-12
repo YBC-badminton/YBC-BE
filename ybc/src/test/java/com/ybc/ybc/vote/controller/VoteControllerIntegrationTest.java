@@ -218,17 +218,18 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("특정 투표에서 참석 상태가 true인 회원 목록과 총원을 조회한다")
+    @DisplayName("특정 투표에서 참석 상태가 true인 회원 목록을 순서대로 조회하고 초과 인원은 대기 처리한다")
     void getVoteAttendees() throws Exception {
         Vote vote = voteRepository.save(vote(
                 "목요 정기 운동",
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusDays(1),
-                20
+                2
         ));
         addAttendance(vote, true, "3001");
         addAttendance(vote, true, "3002");
+        addGuest(vote, "host1", "게스트1");
         addAttendance(vote, false, "3003");
 
         mockMvc.perform(get("/votes/{voteId}/attendees", vote.getId()).with(jwt()))
@@ -237,8 +238,10 @@ class VoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.attendees.length()").value(2))
                 .andExpect(jsonPath("$.attendees[0].nickname").value("member-3001"))
                 .andExpect(jsonPath("$.attendees[0].memberId").isNumber())
+                .andExpect(jsonPath("$.attendees[0].isWaiting").value(false))
                 .andExpect(jsonPath("$.attendees[1].nickname").value("member-3002"))
-                .andExpect(jsonPath("$.attendees[1].memberId").isNumber());
+                .andExpect(jsonPath("$.attendees[1].memberId").isNumber())
+                .andExpect(jsonPath("$.attendees[1].isWaiting").value(true));
     }
 
     @Test
@@ -624,8 +627,8 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("정원이 가득 찬 투표에는 추가 참석할 수 없다")
-    void saveVoteAttendanceThrowsWhenSessionIsFull() throws Exception {
+    @DisplayName("정원이 가득 차도 참석 투표는 저장되고 대기열에 들어간다")
+    void saveVoteAttendanceAllowsWaitlistWhenSessionIsFull() throws Exception {
         Vote vote = voteRepository.save(vote(
                 "목요 정기 운동",
                 ActivityType.REGULAR,
@@ -644,8 +647,62 @@ class VoteControllerIntegrationTest {
                         .with(authenticatedMember(member))
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new VoteAttendanceRequest(true))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("SESSION_FULL"));
+                .andExpect(status().isOk());
+
+        VoteAttendance voteAttendance = voteAttendanceRepository.findByVote_IdAndMember_Id(vote.getId(), member.getId()).orElseThrow();
+        assertThat(voteAttendance.isAttendanceStatus()).isTrue();
+    }
+
+    @Test
+    @DisplayName("앞선 참석자가 빠지면 대기자는 자동으로 참석 확정 상태가 된다")
+    void getVoteAttendeesRemovesWaitingWhenEarlierAttendeeCancels() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                1
+        ));
+        Member firstMember = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "4001", "member-4001", "4001@example.com")
+        );
+        Member secondMember = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "4002", "member-4002", "4002@example.com")
+        );
+        voteAttendanceRepository.save(
+                VoteAttendance.builder()
+                        .vote(vote)
+                        .member(firstMember)
+                        .attendanceStatus(true)
+                        .build()
+        );
+        voteAttendanceRepository.save(
+                VoteAttendance.builder()
+                        .vote(vote)
+                        .member(secondMember)
+                        .attendanceStatus(true)
+                        .build()
+        );
+
+        mockMvc.perform(get("/votes/{voteId}/attendees", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attendees[0].nickname").value("member-4001"))
+                .andExpect(jsonPath("$.attendees[0].isWaiting").value(false))
+                .andExpect(jsonPath("$.attendees[1].nickname").value("member-4002"))
+                .andExpect(jsonPath("$.attendees[1].isWaiting").value(true));
+
+        mockMvc.perform(put("/votes/{voteId}/attendance", vote.getId())
+                        .with(authenticatedMember(firstMember))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteAttendanceRequest(false))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/votes/{voteId}/attendees", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalAttendeeCount").value(1))
+                .andExpect(jsonPath("$.attendees.length()").value(1))
+                .andExpect(jsonPath("$.attendees[0].nickname").value("member-4002"))
+                .andExpect(jsonPath("$.attendees[0].isWaiting").value(false));
     }
 
     @Test

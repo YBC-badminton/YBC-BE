@@ -173,9 +173,10 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("특정 투표에서 참석 상태가 true인 회원 목록과 총원을 반환한다")
+    @DisplayName("특정 투표에서 참석 상태가 true인 회원 목록을 참석 순서대로 반환하고 초과 인원은 대기 처리한다")
     void getVoteAttendeesReturnsAttendeeList() {
         Vote vote = savedVote(1L, "목요 정기 운동");
+        ReflectionTestUtils.setField(vote, "capacity", 2);
         Member firstMember = savedMember(2L, "2001");
         Member secondMember = savedMember(3L, "2002");
         ReflectionTestUtils.setField(firstMember, "nickname", "member-2001");
@@ -191,10 +192,13 @@ class VoteServiceTest {
                 .member(secondMember)
                 .attendanceStatus(true)
                 .build();
+        ReflectionTestUtils.setField(firstAttendance, "attendingAt", LocalDateTime.of(2026, 6, 12, 10, 0));
+        ReflectionTestUtils.setField(secondAttendance, "attendingAt", LocalDateTime.of(2026, 6, 12, 10, 5));
 
         when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
-        when(voteAttendanceRepository.findAllByVote_IdAndAttendanceStatusTrueOrderByIdAsc(1L))
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteId(1L))
                 .thenReturn(List.of(firstAttendance, secondAttendance));
+        when(guestRepository.countByVote_Id(1L)).thenReturn(1L);
 
         VoteAttendeeListResponse response = voteService.getVoteAttendees(1L);
 
@@ -202,8 +206,10 @@ class VoteServiceTest {
         assertThat(response.attendees()).hasSize(2);
         assertThat(response.attendees().get(0).memberId()).isEqualTo(2L);
         assertThat(response.attendees().get(0).nickname()).isEqualTo("member-2001");
+        assertThat(response.attendees().get(0).isWaiting()).isFalse();
         assertThat(response.attendees().get(1).memberId()).isEqualTo(3L);
         assertThat(response.attendees().get(1).nickname()).isEqualTo("member-2002");
+        assertThat(response.attendees().get(1).isWaiting()).isTrue();
     }
 
     @Test
@@ -338,8 +344,6 @@ class VoteServiceTest {
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.empty());
-        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(0L);
-        when(guestRepository.countByVote_Id(1L)).thenReturn(0L);
 
         voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true));
 
@@ -395,8 +399,8 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("정원이 가득 찬 투표에 새로 참석하면 예외가 발생한다")
-    void saveVoteAttendanceThrowsWhenSessionIsFullOnCreate() {
+    @DisplayName("정원이 가득 차도 새 참석 투표는 저장할 수 있다")
+    void saveVoteAttendanceAllowsWaitlistOnCreate() {
         Vote vote = savedVote(1L, "목요 정기 운동");
         ReflectionTestUtils.setField(vote, "capacity", 2);
         Member member = savedMember(2L, "2001");
@@ -404,12 +408,10 @@ class VoteServiceTest {
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.empty());
-        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
-        when(guestRepository.countByVote_Id(1L)).thenReturn(1L);
 
-        assertThatThrownBy(() -> voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true)))
-                .isInstanceOf(YbcException.class)
-                .hasMessage("해당 모임의 정원이 모두 찼습니다.");
+        voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true));
+
+        verify(voteAttendanceRepository).save(any(VoteAttendance.class));
     }
 
     @Test
@@ -447,8 +449,8 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("정원이 가득 찬 투표에서 불참을 참석으로 바꾸면 예외가 발생한다")
-    void saveVoteAttendanceThrowsWhenSessionIsFullOnUpdate() {
+    @DisplayName("정원이 가득 차도 불참을 참석으로 바꾸면 대기열에 포함된다")
+    void saveVoteAttendanceAllowsWaitlistOnUpdate() {
         Vote vote = savedVote(1L, "목요 정기 운동");
         ReflectionTestUtils.setField(vote, "capacity", 2);
         Member member = savedMember(2L, "2001");
@@ -461,12 +463,11 @@ class VoteServiceTest {
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.of(attendance));
-        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
-        when(guestRepository.countByVote_Id(1L)).thenReturn(1L);
 
-        assertThatThrownBy(() -> voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true)))
-                .isInstanceOf(YbcException.class)
-                .hasMessage("해당 모임의 정원이 모두 찼습니다.");
+        voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true));
+
+        assertThat(attendance.isAttendanceStatus()).isTrue();
+        assertThat(attendance.getAttendingAt()).isNotNull();
     }
 
     @Test

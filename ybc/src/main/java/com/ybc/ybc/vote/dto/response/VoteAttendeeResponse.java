@@ -4,12 +4,14 @@ import com.ybc.ybc.vote.domain.VoteAttendance;
 
 public record VoteAttendeeResponse(
         Long memberId,
-        String nickname
+        String nickname,
+        boolean isWaiting
 ) {
-    public static VoteAttendeeResponse from(VoteAttendance voteAttendance) {
+    public static VoteAttendeeResponse from(VoteAttendance voteAttendance, boolean isWaiting) {
         return new VoteAttendeeResponse(
                 voteAttendance.getMember().getId(),
-                voteAttendance.getMember().getNickname()
+                voteAttendance.getMember().getNickname(),
+                isWaiting
         );
     }
 }

@@ -363,6 +363,33 @@ class AdminVoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("대진 등록용 참석 인원 조회에서는 대기 중인 참석자를 제외한다")
+    void getMatchParticipantsExcludesWaitingAttendees() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "대기 참석자 제외용 정기 운동",
+                LocalDate.now().minusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                2
+        ));
+        VoteAttendance firstAttendance = addAttendance(vote, true, "waiting-1001", "선착순회원");
+        addAttendance(vote, true, "waiting-1002", "대기회원");
+        saveClubMember("선착순회원", "waiting-1001@example.com", Gender.MALE);
+        addGuest(vote, "waiting-host-1", "게스트1");
+
+        mockMvc.perform(get(ADMIN_VOTES_API + "/{voteId}/matches", vote.getId())
+                        .with(authorizedUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(2))
+                .andExpect(jsonPath("$.participants.length()").value(2))
+                .andExpect(jsonPath("$.participants[0].participantId").value(firstAttendance.getId()))
+                .andExpect(jsonPath("$.participants[0].name").value("선착순회원"))
+                .andExpect(jsonPath("$.participants[1].participantType").value("GUEST"))
+                .andExpect(jsonPath("$.participants[1].name").value("게스트1"));
+    }
+
+    @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @DisplayName("기존 자동 생성 부원에 이메일과 성별이 비어 있어도 참석 인원 조회 시 보정한다")
     void getMatchParticipantsReconcilesFinalPassMemberProfile() throws Exception {

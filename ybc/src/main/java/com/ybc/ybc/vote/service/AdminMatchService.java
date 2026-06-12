@@ -29,6 +29,7 @@ import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
 import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
+import com.ybc.ybc.vote.repository.projection.VoteGuestCountProjection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -112,10 +113,14 @@ public class AdminMatchService {
         Vote requestedVote = getVote(voteId);
         Vote baseVote = resolveBaseVote(requestedVote);
         Set<Long> relatedVoteIds = getRelatedVoteIds(baseVote);
-        List<VoteAttendance> attendances = deduplicateAttendances(
-                voteAttendanceRepository.findAllActiveWithMemberByVoteIds(relatedVoteIds)
-        );
         List<Guest> guests = guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(relatedVoteIds);
+        Map<Long, Long> guestCountByVoteId = getGuestCountByVoteId(guests);
+        List<VoteAttendance> attendances = deduplicateAttendances(
+                VoteAttendanceWaitlistResolver.resolveConfirmedAttendancesByVote(
+                        voteAttendanceRepository.findAllActiveWithMemberByVoteIds(relatedVoteIds),
+                        guestCountByVoteId
+                )
+        );
         Map<Long, ClubMember> clubMembersByMemberId = getClubMembersByMemberIdSafely(attendances);
 
         List<AdminMatchParticipantResponse> participants = new ArrayList<>();
@@ -797,6 +802,16 @@ public class AdminMatchService {
             return Map.of();
         }
 
+        List<VoteAttendance> allActiveAttendances = voteAttendanceRepository.findAllActiveWithMemberByVoteIds(relatedVoteIds);
+        Set<Long> confirmedAttendanceIds = VoteAttendanceWaitlistResolver.resolveConfirmedAttendanceIds(
+                allActiveAttendances,
+                allActiveAttendances.stream()
+                        .map(VoteAttendance::getVote)
+                        .collect(Collectors.toMap(Vote::getId, Function.identity(), (first, ignored) -> first)),
+                guestRepository.countGuestsByVoteIds(relatedVoteIds.stream().toList()).stream()
+                        .collect(Collectors.toMap(VoteGuestCountProjection::voteId, VoteGuestCountProjection::guestCount))
+        );
+
         Map<Long, VoteAttendance> attendanceMap = voteAttendanceRepository.findAllWithVoteAndMemberByIdIn(attendanceIds)
                 .stream()
                 .collect(Collectors.toMap(VoteAttendance::getId, Function.identity()));
@@ -806,7 +821,8 @@ public class AdminMatchService {
 
         boolean hasInvalidParticipant = attendanceMap.values().stream()
                 .anyMatch(attendance -> !attendance.isAttendanceStatus()
-                        || !relatedVoteIds.contains(attendance.getVote().getId()));
+                        || !relatedVoteIds.contains(attendance.getVote().getId())
+                        || !confirmedAttendanceIds.contains(attendance.getId()));
         if (hasInvalidParticipant) {
             throw new YbcException(ExceptionCode.MATCH_PARTICIPANT_NOT_FOUND);
         }
@@ -1123,6 +1139,14 @@ public class AdminMatchService {
         Map<Long, VoteAttendance> uniqueAttendancesByMemberId = new LinkedHashMap<>();
         attendances.forEach(attendance -> uniqueAttendancesByMemberId.putIfAbsent(attendance.getMember().getId(), attendance));
         return uniqueAttendancesByMemberId.values().stream().toList();
+    }
+
+    private Map<Long, Long> getGuestCountByVoteId(List<Guest> guests) {
+        return guests.stream()
+                .collect(Collectors.groupingBy(
+                        guest -> guest.getVote().getId(),
+                        Collectors.counting()
+                ));
     }
 
     private void validateGame(AdminMatchGameRequest game) {

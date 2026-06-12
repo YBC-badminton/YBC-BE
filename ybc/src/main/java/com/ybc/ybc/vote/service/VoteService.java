@@ -15,6 +15,7 @@ import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
 import com.ybc.ybc.vote.dto.response.VoteAbsenteeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
+import com.ybc.ybc.vote.dto.response.VoteAttendeeResponse;
 import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteGuestListResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
@@ -114,10 +115,18 @@ public class VoteService {
      * 특정 투표에서 참석 상태가 true인 회원 목록과 총 참석 인원 수를 조회하여 반환한다.
      */
     public VoteAttendeeListResponse getVoteAttendees(Long voteId) {
-        getVoteEntity(voteId);
-        return VoteAttendeeListResponse.from(
-                voteAttendanceRepository.findAllByVote_IdAndAttendanceStatusTrueOrderByIdAsc(voteId)
-        );
+        Vote vote = getVoteEntity(voteId);
+        List<VoteAttendeeResponse> attendees = VoteAttendanceWaitlistResolver.resolve(
+                        vote,
+                        voteAttendanceRepository.findAllActiveWithMemberByVoteId(voteId),
+                        guestRepository.countByVote_Id(voteId)
+                ).stream()
+                .map(resolvedAttendance -> VoteAttendeeResponse.from(
+                        resolvedAttendance.attendance(),
+                        resolvedAttendance.waiting()
+                ))
+                .toList();
+        return VoteAttendeeListResponse.from(attendees);
     }
 
     /**
@@ -229,7 +238,6 @@ public class VoteService {
     private void updateVoteAttendance(Vote vote, VoteAttendance voteAttendance, boolean attendanceStatus) {
         if (!voteAttendance.isAttendanceStatus() && attendanceStatus) {
             validateRelatedVoteAttendance(vote, voteAttendance.getMember().getId());
-            validateCapacity(vote);
         }
         voteAttendance.updateAttendanceStatus(attendanceStatus);
     }
@@ -237,7 +245,6 @@ public class VoteService {
     private void createVoteAttendance(Vote vote, Member member, boolean attendanceStatus) {
         if (attendanceStatus) {
             validateRelatedVoteAttendance(vote, member.getId());
-            validateCapacity(vote);
         }
 
         voteAttendanceRepository.save(
@@ -246,7 +253,7 @@ public class VoteService {
                         .member(member)
                         .attendanceStatus(attendanceStatus)
                         .build()
-        );
+                );
     }
 
     private void validateCapacity(Vote vote) {
