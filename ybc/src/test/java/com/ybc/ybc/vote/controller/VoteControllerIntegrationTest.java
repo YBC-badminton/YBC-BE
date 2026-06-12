@@ -19,6 +19,7 @@ import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +72,14 @@ class VoteControllerIntegrationTest {
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
             .build();
+
+    @BeforeEach
+    void setUp() {
+        guestRepository.deleteAll();
+        voteAttendanceRepository.deleteAll();
+        voteRepository.deleteAll();
+        memberRepository.deleteAll();
+    }
 
     @Test
     @DisplayName("인증된 사용자는 번개 모임 투표를 생성할 수 있다")
@@ -138,7 +147,7 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.votes.length()").value(1))
                 .andExpect(jsonPath("$.votes[0].voteId").value(joinableVote.getId()))
-                .andExpect(jsonPath("$.votes[0].currentParticipantCount").value(3))
+                .andExpect(jsonPath("$.votes[0].currentParticipantCount").value(2))
                 .andExpect(jsonPath("$.votes[0].matchRegistered").value(true));
     }
 
@@ -160,7 +169,7 @@ class VoteControllerIntegrationTest {
         mockMvc.perform(get("/votes/{voteId}", vote.getId()).with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.voteId").value(vote.getId()))
-                .andExpect(jsonPath("$.currentParticipantCount").value(3));
+                .andExpect(jsonPath("$.currentParticipantCount").value(2));
     }
 
     @Test
@@ -373,7 +382,7 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("게스트 참여도 정원 제한을 받는다")
+    @DisplayName("참석 회원 수가 정원에 도달하면 게스트를 추가할 수 없다")
     void createGuestThrowsWhenSessionIsFull() throws Exception {
         Vote vote = voteRepository.save(vote(
                 "목요 정기 운동",
@@ -383,7 +392,7 @@ class VoteControllerIntegrationTest {
                 2
         ));
         addAttendance(vote, true, "1001");
-        addGuest(vote, "host1", "게스트");
+        addAttendance(vote, true, "1002");
 
         Member member = memberRepository.save(
                 Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
@@ -624,7 +633,7 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("정원이 가득 찬 투표에는 추가 참석할 수 없다")
+    @DisplayName("참석 회원 수가 정원에 도달한 투표에는 추가 참석할 수 없다")
     void saveVoteAttendanceThrowsWhenSessionIsFull() throws Exception {
         Vote vote = voteRepository.save(vote(
                 "목요 정기 운동",
@@ -634,7 +643,7 @@ class VoteControllerIntegrationTest {
                 2
         ));
         addAttendance(vote, true, "1001");
-        addGuest(vote, "host1", "게스트");
+        addAttendance(vote, true, "1002");
 
         Member member = memberRepository.save(
                 Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")

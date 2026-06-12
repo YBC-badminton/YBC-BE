@@ -24,7 +24,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
     java.util.Optional<Vote> findByIdForUpdate(@Param("voteId") Long voteId);
 
     /**
-     * 투표 마감 시간이 현재보다 뒤인 항목만 조회하고 참석 회원 수와 게스트 수를 함께 집계한다.
+     * 투표 마감 시간이 현재보다 뒤인 항목만 조회하고 참석 회원 수를 집계한다.
      */
     @Query(
             value = """
@@ -38,8 +38,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                         v.voteEndAt,
                         v.activityTime,
                         v.capacity,
-                        coalesce(sum(case when va.attendanceStatus = true then 1 else 0 end), 0)
-                        + (select count(g) from Guest g where g.vote = v),
+                        coalesce(sum(case when va.attendanceStatus = true then 1 else 0 end), 0),
                         case when (
                             select count(mg)
                             from VoteMatchGroup mg
@@ -64,7 +63,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
     );
 
     /**
-     * 투표 마감 시간이 현재와 같거나 지난 항목만 조회하고 참석 회원 수와 게스트 수를 함께 집계한다.
+     * 투표 마감 시간이 현재와 같거나 지난 항목만 조회하고 참석 회원 수를 집계한다.
      */
     @Query(
             value = """
@@ -78,8 +77,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                         v.voteEndAt,
                         v.activityTime,
                         v.capacity,
-                        coalesce(sum(case when va.attendanceStatus = true then 1 else 0 end), 0)
-                        + (select count(g) from Guest g where g.vote = v),
+                        coalesce(sum(case when va.attendanceStatus = true then 1 else 0 end), 0),
                         case when (
                             select count(mg)
                             from VoteMatchGroup mg
