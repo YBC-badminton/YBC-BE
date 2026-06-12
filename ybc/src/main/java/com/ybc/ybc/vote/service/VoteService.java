@@ -257,7 +257,7 @@ public class VoteService {
     }
 
     private long countCurrentParticipantCount(Long voteId) {
-        return voteAttendanceRepository.countAttendancesByVoteId(voteId) + guestRepository.countByVote_Id(voteId);
+        return voteAttendanceRepository.countAttendancesByVoteId(voteId);
     }
 
     private void validateVoteIsJoinable(Vote vote) {

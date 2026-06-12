@@ -224,12 +224,10 @@ public class AdminVoteService {
         }
 
         long attendeeCount = voteCountBundle.attendeeCounts().getOrDefault(vote.getId(), 0L);
-        long guestCount = voteCountBundle.guestCounts().getOrDefault(vote.getId(), 0L);
-        long totalParticipants = attendeeCount + guestCount;
         int additionalCapacity = resolveAdditionalCapacity(vote);
         long threshold = Math.max(vote.getCapacity() - ADDITIONAL_VOTE_TRIGGER_VACANCY, 0);
 
-        if (totalParticipants < threshold) {
+        if (attendeeCount < threshold) {
             return null;
         }
 
