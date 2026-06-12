@@ -327,6 +327,8 @@ class AdminVoteServiceTest {
                 .thenReturn(List.of(endedVote));
         when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(1L)))
                 .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 17L)));
+        when(guestRepository.countGuestsByVoteIds(List.of(1L)))
+                .thenReturn(List.of(new VoteGuestCountProjection(1L, 1L)));
 
         adminVoteService.reconcileAdditionalVotes();
 
@@ -376,6 +378,8 @@ class AdminVoteServiceTest {
                 .thenReturn(List.of(endedVote));
         when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(1L)))
                 .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 17L)));
+        when(guestRepository.countGuestsByVoteIds(List.of(1L)))
+                .thenReturn(List.of(new VoteGuestCountProjection(1L, 1L)));
 
         adminVoteService.reconcileAdditionalVotes();
 

@@ -15,7 +15,9 @@ public interface GuestRepository extends JpaRepository<Guest, Long> {
 
     List<Guest> findAllByVote_IdOrderByIdAsc(Long voteId);
 
-    Optional<Guest> findByIdAndVote_Id(Long guestId, Long voteId);
+    List<Guest> findAllByVote_IdInOrderByIdAsc(Collection<Long> voteIds);
+
+    Optional<Guest> findByIdAndVote_IdIn(Long guestId, Collection<Long> voteIds);
 
     List<Guest> findAllByVote_IdInOrderByVote_IdAscIdAsc(Collection<Long> voteIds);
 
