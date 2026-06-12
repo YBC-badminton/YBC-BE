@@ -77,12 +77,12 @@ class AdminMatchServiceTest {
         Vote vote = Vote.builder()
                 .activityType(ActivityType.REGULAR)
                 .title("정기 운동")
-                .activityDate(LocalDate.of(2026, 5, 22))
+                .activityDate(LocalDate.of(2026, 5, 23))
                 .activityTime("14:00 ~ 17:00")
                 .location("망원체육관")
                 .memo("memo")
-                .voteStartAt(LocalDateTime.of(2026, 5, 22, 18, 0))
-                .voteEndAt(LocalDateTime.of(2026, 5, 22, 21, 0))
+                .voteStartAt(LocalDateTime.of(2026, 5, 23, 18, 0))
+                .voteEndAt(LocalDateTime.of(2026, 5, 23, 21, 0))
                 .capacity(24)
                 .build();
         ReflectionTestUtils.setField(vote, "id", 1L);

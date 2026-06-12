@@ -5,20 +5,24 @@ import com.ybc.ybc.vote.domain.Guest;
 
 public record VoteGuestSummaryResponse(
         Long guestId,
+        Long voteId,
         Long inviterId,
         String inviterName,
         String guestName,
         Gender gender,
-        String level
+        String level,
+        boolean isWaiting
 ) {
-    public static VoteGuestSummaryResponse from(Guest guest) {
+    public static VoteGuestSummaryResponse from(Guest guest, boolean isWaiting) {
         return new VoteGuestSummaryResponse(
                 guest.getId(),
+                guest.getVote().getId(),
                 guest.getMember().getId(),
                 guest.getMember().getNickname(),
                 guest.getName(),
                 guest.getGender(),
-                guest.getLevel()
+                guest.getLevel(),
+                isWaiting
         );
     }
 }

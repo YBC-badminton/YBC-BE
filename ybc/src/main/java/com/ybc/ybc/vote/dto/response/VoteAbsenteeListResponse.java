@@ -10,7 +10,7 @@ public record VoteAbsenteeListResponse(
 ) {
     public static VoteAbsenteeListResponse from(List<VoteAttendance> voteAttendances) {
         List<VoteAttendeeResponse> absentees = voteAttendances.stream()
-                .map(VoteAttendeeResponse::from)
+                .map(voteAttendance -> VoteAttendeeResponse.from(voteAttendance, false))
                 .toList();
         return new VoteAbsenteeListResponse(absentees.size(), absentees);
     }

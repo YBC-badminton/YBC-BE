@@ -171,7 +171,7 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.capacity").value(20))
                 .andExpect(jsonPath("$.attendance.currentAttendees").value(2))
                 .andExpect(jsonPath("$.attendance.currentGuests").value(1))
-                .andExpect(jsonPath("$.attendance.totalParticipants").value(3));
+                .andExpect(jsonPath("$.attendance.totalParticipants").value(2));
 
         Vote updatedVote = voteRepository.findById(vote.getId()).orElseThrow();
         assertThat(updatedVote.getActivityType()).isEqualTo(ActivityType.REGULAR);
@@ -256,7 +256,7 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.data[1].capacity").value(20))
                 .andExpect(jsonPath("$.data[1].attendance.currentAttendees").value(2))
                 .andExpect(jsonPath("$.data[1].attendance.currentGuests").value(1))
-                .andExpect(jsonPath("$.data[1].attendance.totalParticipants").value(3));
+                .andExpect(jsonPath("$.data[1].attendance.totalParticipants").value(2));
     }
 
     @Test
@@ -323,7 +323,7 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].location").value("망원체육관"))
                 .andExpect(jsonPath("$[0].attendance.currentAttendees").value(2))
                 .andExpect(jsonPath("$[0].attendance.currentGuests").value(2))
-                .andExpect(jsonPath("$[0].attendance.totalParticipants").value(4))
+                .andExpect(jsonPath("$[0].attendance.totalParticipants").value(2))
                 .andExpect(jsonPath("$[0].matchRegistered").value(true))
                 .andExpect(jsonPath("$[1].voteId").value(secondCompletedVote.getId()))
                 .andExpect(jsonPath("$[1].title").value("목요일 이벤트 운동"))
@@ -337,7 +337,7 @@ class AdminVoteControllerIntegrationTest {
     void getMatchParticipantsReturnsMemberAndGuestProfilesWhenAuthenticated() throws Exception {
         Vote vote = voteRepository.save(vote(
                 "참석 인원 조회용 정기 운동",
-                LocalDate.now().minusDays(1),
+                LocalDate.of(2026, 5, 23),
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusDays(2),
                 LocalDateTime.now().minusDays(1),
@@ -360,6 +360,30 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.participants[1].participantType").value("GUEST"))
                 .andExpect(jsonPath("$.participants[1].name").value("게스트1"))
                 .andExpect(jsonPath("$.participants[1].gender").value("FEMALE"));
+    }
+
+    @Test
+    @DisplayName("대진 등록용 참석 인원 조회에서는 대기 중인 참석자를 제외한다")
+    void getMatchParticipantsExcludesWaitingAttendees() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "대기 참석자 제외용 정기 운동",
+                LocalDate.now().minusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                1
+        ));
+        VoteAttendance firstAttendance = addAttendance(vote, true, "waiting-1001", "선착순회원");
+        addAttendance(vote, true, "waiting-1002", "대기회원");
+        saveClubMember("선착순회원", "waiting-1001@example.com", Gender.MALE);
+
+        mockMvc.perform(get(ADMIN_VOTES_API + "/{voteId}/matches", vote.getId())
+                        .with(authorizedUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.participants.length()").value(1))
+                .andExpect(jsonPath("$.participants[0].participantId").value(firstAttendance.getId()))
+                .andExpect(jsonPath("$.participants[0].name").value("선착순회원"));
     }
 
     @Test
@@ -718,7 +742,7 @@ class AdminVoteControllerIntegrationTest {
     void registerMatchesSupportsGuestParticipants() throws Exception {
         Vote vote = voteRepository.save(vote(
                 "게스트 포함 대진 등록용 정기 운동",
-                LocalDate.now().minusDays(1),
+                LocalDate.of(2026, 5, 23),
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusDays(2),
                 LocalDateTime.now().minusDays(1),
@@ -904,7 +928,7 @@ class AdminVoteControllerIntegrationTest {
     void updateMatchSupportsGuestParticipants() throws Exception {
         Vote vote = voteRepository.save(vote(
                 "게스트 포함 대진 수정용 정기 운동",
-                LocalDate.now().minusDays(1),
+                LocalDate.of(2026, 5, 23),
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusDays(2),
                 LocalDateTime.now().minusDays(1),
@@ -977,10 +1001,9 @@ class AdminVoteControllerIntegrationTest {
                 20
         ));
 
-        for (int index = 0; index < 16; index++) {
+        for (int index = 0; index < 17; index++) {
             addAttendance(endedVote, true, "member-" + index);
         }
-        addGuest(endedVote, "host-extra", "게스트");
 
         mockMvc.perform(get(ADMIN_VOTES_API)
                         .with(authorizedUser()))

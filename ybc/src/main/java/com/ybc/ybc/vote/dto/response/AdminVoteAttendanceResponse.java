@@ -9,7 +9,7 @@ public record AdminVoteAttendanceResponse(
         return new AdminVoteAttendanceResponse(
                 currentAttendees,
                 currentGuests,
-                currentAttendees + currentGuests
+                currentAttendees
         );
     }
 }

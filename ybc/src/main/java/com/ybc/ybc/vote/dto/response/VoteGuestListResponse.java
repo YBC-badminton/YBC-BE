@@ -1,19 +1,24 @@
 package com.ybc.ybc.vote.dto.response;
 
-import com.ybc.ybc.vote.domain.Guest;
-
 import java.util.List;
 
 public record VoteGuestListResponse(
         long totalGuestCount,
+        long confirmedGuestCount,
+        long waitingGuestCount,
+        int guestQuota,
         List<VoteGuestSummaryResponse> guests
 ) {
-    public static VoteGuestListResponse from(List<Guest> guests) {
+    public static VoteGuestListResponse from(long confirmedGuestCount,
+                                             long waitingGuestCount,
+                                             int guestQuota,
+                                             List<VoteGuestSummaryResponse> guests) {
         return new VoteGuestListResponse(
                 guests.size(),
-                guests.stream()
-                        .map(VoteGuestSummaryResponse::from)
-                        .toList()
+                confirmedGuestCount,
+                waitingGuestCount,
+                guestQuota,
+                guests
         );
     }
 }

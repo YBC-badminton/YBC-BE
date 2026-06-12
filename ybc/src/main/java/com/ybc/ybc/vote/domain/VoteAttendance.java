@@ -40,6 +40,9 @@ public class VoteAttendance {
     @Column(name = "attendance_status", nullable = false)
     private boolean attendanceStatus;
 
+    @Column(name = "attending_at")
+    private LocalDateTime attendingAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -53,13 +56,20 @@ public class VoteAttendance {
     }
 
     public void updateAttendanceStatus(boolean attendanceStatus) {
+        if (this.attendanceStatus == attendanceStatus) {
+            return;
+        }
         this.attendanceStatus = attendanceStatus;
+        this.attendingAt = attendanceStatus ? LocalDateTime.now() : null;
     }
 
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
+        }
+        if (attendanceStatus && attendingAt == null) {
+            attendingAt = createdAt;
         }
     }
 }
