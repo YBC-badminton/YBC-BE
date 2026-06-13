@@ -237,9 +237,11 @@ class VoteServiceTest {
 
         assertThat(response.totalAttendeeCount()).isEqualTo(2L);
         assertThat(response.attendees()).hasSize(2);
+        assertThat(response.attendees().get(0).attendeeNumber()).isEqualTo(1);
         assertThat(response.attendees().get(0).memberId()).isEqualTo(2L);
         assertThat(response.attendees().get(0).nickname()).isEqualTo("member-2001");
         assertThat(response.attendees().get(0).isWaiting()).isFalse();
+        assertThat(response.attendees().get(1).attendeeNumber()).isEqualTo(2);
         assertThat(response.attendees().get(1).memberId()).isEqualTo(3L);
         assertThat(response.attendees().get(1).nickname()).isEqualTo("member-2002");
         assertThat(response.attendees().get(1).isWaiting()).isTrue();
@@ -300,14 +302,11 @@ class VoteServiceTest {
     @Test
     @DisplayName("게스트 신청은 정원이 꽉 차도 저장된다")
     void createGuestAllowsWaitlistWhenQuotaIsFull() {
-    @DisplayName("참석 회원 수가 정원에 도달하면 게스트를 추가할 수 없다")
-    void createGuestThrowsWhenAttendeeCapacityIsFull() {
         Vote vote = savedVote(1L, "목요 정기 운동");
         ReflectionTestUtils.setField(vote, "capacity", 2);
         ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 7));
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(savedMember(2L, "2001"));
-        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(2L);
 
         voteService.createGuest(1L, 2L, new VoteGuestRequest("게스트", Gender.FEMALE, "A"));
 

@@ -6,11 +6,11 @@ import java.util.List;
 
 public record VoteAbsenteeListResponse(
         long totalAbsenteeCount,
-        List<VoteAttendeeResponse> absentees
+        List<VoteAbsenteeResponse> absentees
 ) {
     public static VoteAbsenteeListResponse from(List<VoteAttendance> voteAttendances) {
-        List<VoteAttendeeResponse> absentees = voteAttendances.stream()
-                .map(voteAttendance -> VoteAttendeeResponse.from(voteAttendance, false))
+        List<VoteAbsenteeResponse> absentees = voteAttendances.stream()
+                .map(VoteAbsenteeResponse::from)
                 .toList();
         return new VoteAbsenteeListResponse(absentees.size(), absentees);
     }

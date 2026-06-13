@@ -286,9 +286,11 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalAttendeeCount").value(2))
                 .andExpect(jsonPath("$.attendees.length()").value(2))
+                .andExpect(jsonPath("$.attendees[0].attendeeNumber").value(1))
                 .andExpect(jsonPath("$.attendees[0].nickname").value("member-3001"))
                 .andExpect(jsonPath("$.attendees[0].memberId").isNumber())
                 .andExpect(jsonPath("$.attendees[0].isWaiting").value(false))
+                .andExpect(jsonPath("$.attendees[1].attendeeNumber").value(2))
                 .andExpect(jsonPath("$.attendees[1].nickname").value("member-3002"))
                 .andExpect(jsonPath("$.attendees[1].memberId").isNumber())
                 .andExpect(jsonPath("$.attendees[1].isWaiting").value(true));
@@ -429,9 +431,6 @@ class VoteControllerIntegrationTest {
     @DisplayName("게스트 신청은 정원이 가득 차도 저장된다")
     void createGuestAllowsWaitlistWhenSessionIsFull() throws Exception {
         Vote vote = vote(
-    @DisplayName("참석 회원 수가 정원에 도달하면 게스트를 추가할 수 없다")
-    void createGuestThrowsWhenSessionIsFull() throws Exception {
-        Vote vote = voteRepository.save(vote(
                 "목요 정기 운동",
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusHours(1),
@@ -441,7 +440,7 @@ class VoteControllerIntegrationTest {
         ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 7));
         vote = voteRepository.save(vote);
         addAttendance(vote, true, "1001");
-        addAttendance(vote, true, "1002");
+        addGuest(vote, "host1", "게스트");
 
         Member member = memberRepository.save(
                 Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
@@ -689,8 +688,6 @@ class VoteControllerIntegrationTest {
     @Test
     @DisplayName("정원이 가득 차도 참석 투표는 저장되고 대기열에 들어간다")
     void saveVoteAttendanceAllowsWaitlistWhenSessionIsFull() throws Exception {
-    @DisplayName("참석 회원 수가 정원에 도달한 투표에는 추가 참석할 수 없다")
-    void saveVoteAttendanceThrowsWhenSessionIsFull() throws Exception {
         Vote vote = voteRepository.save(vote(
                 "목요 정기 운동",
                 ActivityType.REGULAR,
@@ -748,8 +745,10 @@ class VoteControllerIntegrationTest {
 
         mockMvc.perform(get("/votes/{voteId}/attendees", vote.getId()).with(jwt()))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attendees[0].attendeeNumber").value(1))
                 .andExpect(jsonPath("$.attendees[0].nickname").value("member-4001"))
                 .andExpect(jsonPath("$.attendees[0].isWaiting").value(false))
+                .andExpect(jsonPath("$.attendees[1].attendeeNumber").value(2))
                 .andExpect(jsonPath("$.attendees[1].nickname").value("member-4002"))
                 .andExpect(jsonPath("$.attendees[1].isWaiting").value(true));
 
@@ -763,6 +762,7 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalAttendeeCount").value(1))
                 .andExpect(jsonPath("$.attendees.length()").value(1))
+                .andExpect(jsonPath("$.attendees[0].attendeeNumber").value(1))
                 .andExpect(jsonPath("$.attendees[0].nickname").value("member-4002"))
                 .andExpect(jsonPath("$.attendees[0].isWaiting").value(false));
     }
