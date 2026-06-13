@@ -12,6 +12,8 @@ import com.ybc.ybc.vote.dto.response.VoteDetailResponse;
 import com.ybc.ybc.vote.dto.response.VoteGuestListResponse;
 import com.ybc.ybc.vote.dto.response.VoteHistoryResponse;
 import com.ybc.ybc.vote.dto.response.VoteListResponse;
+import com.ybc.ybc.vote.dto.response.AdminMatchRegistrationResponse;
+import com.ybc.ybc.vote.service.AdminMatchService;
 import com.ybc.ybc.vote.service.VoteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class VoteController {
     private final VoteService voteService;
+    private final AdminMatchService adminMatchService;
 
     /**
      * 번개 모임 투표를 생성한다.
@@ -68,6 +71,14 @@ public class VoteController {
     @GetMapping("/{voteId}/guests")
     public ResponseEntity<VoteGuestListResponse> getVoteGuests(@PathVariable Long voteId) {
         return ResponseEntity.ok(voteService.getVoteGuests(voteId));
+    }
+
+    /**
+     * 특정 투표에 등록된 대진을 조회하여 반환한다.
+     */
+    @GetMapping("/{voteId}/matches")
+    public ResponseEntity<AdminMatchRegistrationResponse> getVoteMatch(@PathVariable Long voteId) {
+        return ResponseEntity.ok(adminMatchService.getMatchByVoteId(voteId));
     }
 
     /**
