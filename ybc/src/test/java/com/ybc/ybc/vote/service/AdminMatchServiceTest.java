@@ -7,6 +7,8 @@ import com.ybc.ybc.members.service.ClubMemberSyncService;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
+import com.ybc.ybc.vote.domain.VoteMatchGroup;
+import com.ybc.ybc.vote.dto.response.AdminMatchRegistrationResponse;
 import com.ybc.ybc.vote.dto.response.AdminMatchParticipantListResponse;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
@@ -123,5 +125,45 @@ class AdminMatchServiceTest {
         assertThat(response.participants().get(0).participantId()).isEqualTo(100L);
         assertThat(response.participants().get(0).name()).isEqualTo("닉네임회원");
         assertThat(response.participants().get(0).gender()).isNull();
+    }
+
+    @Test
+    @DisplayName("추가참여 투표로 대진 조회 시 원본 투표 대진을 반환한다")
+    void getMatchByVoteIdReturnsBaseVoteMatchForAdditionalVote() {
+        Vote baseVote = Vote.builder()
+                .activityType(ActivityType.REGULAR)
+                .title("정기 운동")
+                .activityDate(LocalDate.of(2026, 5, 23))
+                .activityTime("14:00 ~ 17:00")
+                .location("망원체육관")
+                .memo("memo")
+                .voteStartAt(LocalDateTime.of(2026, 5, 23, 18, 0))
+                .voteEndAt(LocalDateTime.of(2026, 5, 23, 21, 0))
+                .capacity(24)
+                .build();
+        ReflectionTestUtils.setField(baseVote, "id", 1L);
+
+        Vote additionalVote = Vote.createAdditionalVote(
+                baseVote,
+                LocalDateTime.of(2026, 5, 23, 21, 0),
+                LocalDateTime.of(2026, 5, 24, 12, 0),
+                5
+        );
+        ReflectionTestUtils.setField(additionalVote, "id", 2L);
+
+        VoteMatchGroup matchGroup = VoteMatchGroup.create(baseVote);
+        ReflectionTestUtils.setField(matchGroup, "id", 100L);
+
+        when(voteRepository.findById(2L)).thenReturn(Optional.of(additionalVote));
+        when(voteMatchGroupRepository.findByVote_Id(1L)).thenReturn(Optional.of(matchGroup));
+        when(voteMatchRepository.findAllWithParticipantsByMatchGroupId(100L)).thenReturn(List.of());
+
+        AdminMatchRegistrationResponse response = adminMatchService.getMatchByVoteId(2L);
+
+        verify(clubMemberSyncService).reconcileFinalPassMembersSafely();
+        assertThat(response.voteId()).isEqualTo(1L);
+        assertThat(response.matchId()).isEqualTo(100L);
+        assertThat(response.courtCount()).isZero();
+        assertThat(response.matches()).isEmpty();
     }
 }

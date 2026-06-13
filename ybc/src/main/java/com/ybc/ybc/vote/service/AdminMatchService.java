@@ -76,6 +76,16 @@ public class AdminMatchService {
         return toMatchResponse(matchGroup);
     }
 
+    @Transactional(readOnly = true)
+    public AdminMatchRegistrationResponse getMatchByVoteId(Long voteId) {
+        clubMemberSyncService.reconcileFinalPassMembersSafely();
+        Vote requestedVote = getVote(voteId);
+        Vote baseVote = resolveBaseVote(requestedVote);
+        VoteMatchGroup matchGroup = voteMatchGroupRepository.findByVote_Id(baseVote.getId())
+                .orElseThrow(() -> new YbcException(ExceptionCode.MATCH_NOT_FOUND));
+        return toMatchResponse(matchGroup);
+    }
+
     @Transactional
     public AdminMatchRegistrationResponse updateMatch(Long matchId, List<AdminMatchCourtRequest> request) {
         if (request == null || request.isEmpty()) {
