@@ -140,14 +140,19 @@ public class VoteService {
      */
     public VoteAttendeeListResponse getVoteAttendees(Long voteId) {
         Vote vote = getVoteEntity(voteId);
-        List<VoteAttendeeResponse> attendees = VoteAttendanceWaitlistResolver.resolve(
-                        vote,
-                        voteAttendanceRepository.findAllActiveWithMemberByVoteId(voteId)
-                ).stream()
-                .map(resolvedAttendance -> VoteAttendeeResponse.from(
-                        resolvedAttendance.attendance(),
-                        resolvedAttendance.waiting()
-                ))
+        List<VoteAttendanceWaitlistResolver.ResolvedVoteAttendance> resolvedAttendances = VoteAttendanceWaitlistResolver.resolve(
+                vote,
+                voteAttendanceRepository.findAllActiveWithMemberByVoteId(voteId)
+        );
+        List<VoteAttendeeResponse> attendees = java.util.stream.IntStream.range(0, resolvedAttendances.size())
+                .mapToObj(index -> {
+                    VoteAttendanceWaitlistResolver.ResolvedVoteAttendance resolvedAttendance = resolvedAttendances.get(index);
+                    return VoteAttendeeResponse.from(
+                            index + 1,
+                            resolvedAttendance.attendance(),
+                            resolvedAttendance.waiting()
+                    );
+                })
                 .toList();
         return VoteAttendeeListResponse.from(attendees);
     }

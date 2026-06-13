@@ -11,13 +11,18 @@ import com.ybc.ybc.auth.repository.MemberRepository;
 import com.ybc.ybc.support.TestMailConfig;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
+import com.ybc.ybc.vote.domain.MatchParticipantType;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
+import com.ybc.ybc.vote.domain.VoteMatch;
+import com.ybc.ybc.vote.domain.VoteMatchGroup;
 import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
+import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
+import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -65,6 +70,12 @@ class VoteControllerIntegrationTest {
     private GuestRepository guestRepository;
 
     @Autowired
+    private VoteMatchRepository voteMatchRepository;
+
+    @Autowired
+    private VoteMatchGroupRepository voteMatchGroupRepository;
+
+    @Autowired
     private MemberRepository memberRepository;
 
     @Autowired
@@ -76,6 +87,8 @@ class VoteControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        voteMatchRepository.deleteAll();
+        voteMatchGroupRepository.deleteAll();
         guestRepository.deleteAll();
         voteAttendanceRepository.deleteAll();
         voteRepository.deleteAll();
@@ -242,6 +255,80 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("인증된 사용자는 등록된 대진을 조회할 수 있다")
+    void getVoteMatch() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        VoteAttendance first = saveAttendance(vote, true, "1001");
+        VoteAttendance second = saveAttendance(vote, true, "1002");
+        VoteAttendance third = saveAttendance(vote, true, "1003");
+        VoteAttendance fourth = saveAttendance(vote, true, "1004");
+
+        VoteMatchGroup matchGroup = voteMatchGroupRepository.saveAndFlush(VoteMatchGroup.create(vote));
+        voteMatchRepository.saveAllAndFlush(java.util.List.of(
+                memberMatch(vote, matchGroup, first, 1, 1, 1),
+                memberMatch(vote, matchGroup, second, 1, 1, 1),
+                memberMatch(vote, matchGroup, third, 1, 1, 2),
+                memberMatch(vote, matchGroup, fourth, 1, 1, 2)
+        ));
+
+        mockMvc.perform(get("/votes/{voteId}/matches", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voteId").value(vote.getId()))
+                .andExpect(jsonPath("$.matchId").value(matchGroup.getId()))
+                .andExpect(jsonPath("$.courtCount").value(1))
+                .andExpect(jsonPath("$.matches[0].courtNumber").value(1))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].matchNumber").value(1))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[0].name").value("member-1001"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[1].name").value("member-1002"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[0].name").value("member-1003"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].name").value("member-1004"));
+    }
+
+    @Test
+    @DisplayName("추가참여 투표로 대진 조회 시 원본 투표 대진을 반환한다")
+    void getVoteMatchReturnsBaseMatchWhenAdditionalVoteRequested() throws Exception {
+        Vote baseVote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(2),
+                LocalDateTime.now().plusHours(1),
+                20
+        ));
+        Vote additionalVote = voteRepository.saveAndFlush(
+                Vote.createAdditionalVote(
+                        baseVote,
+                        LocalDateTime.now().plusHours(1),
+                        LocalDateTime.now().plusHours(2),
+                        5
+                )
+        );
+        VoteAttendance first = saveAttendance(baseVote, true, "2001");
+        VoteAttendance second = saveAttendance(baseVote, true, "2002");
+        VoteAttendance third = saveAttendance(baseVote, true, "2003");
+        VoteAttendance fourth = saveAttendance(baseVote, true, "2004");
+
+        VoteMatchGroup matchGroup = voteMatchGroupRepository.saveAndFlush(VoteMatchGroup.create(baseVote));
+        voteMatchRepository.saveAllAndFlush(java.util.List.of(
+                memberMatch(baseVote, matchGroup, first, 1, 1, 1),
+                memberMatch(baseVote, matchGroup, second, 1, 1, 1),
+                memberMatch(baseVote, matchGroup, third, 1, 1, 2),
+                memberMatch(baseVote, matchGroup, fourth, 1, 1, 2)
+        ));
+
+        mockMvc.perform(get("/votes/{voteId}/matches", additionalVote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voteId").value(baseVote.getId()))
+                .andExpect(jsonPath("$.matchId").value(matchGroup.getId()))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[0].name").value("member-2001"));
+    }
+
+    @Test
     @DisplayName("현재 로그인한 회원의 투표 참석 여부를 조회한다")
     void getVoteAttendance() throws Exception {
         Vote vote = voteRepository.save(vote(
@@ -286,9 +373,11 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalAttendeeCount").value(2))
                 .andExpect(jsonPath("$.attendees.length()").value(2))
+                .andExpect(jsonPath("$.attendees[0].attendeeNumber").value(1))
                 .andExpect(jsonPath("$.attendees[0].nickname").value("member-3001"))
                 .andExpect(jsonPath("$.attendees[0].memberId").isNumber())
                 .andExpect(jsonPath("$.attendees[0].isWaiting").value(false))
+                .andExpect(jsonPath("$.attendees[1].attendeeNumber").value(2))
                 .andExpect(jsonPath("$.attendees[1].nickname").value("member-3002"))
                 .andExpect(jsonPath("$.attendees[1].memberId").isNumber())
                 .andExpect(jsonPath("$.attendees[1].isWaiting").value(true));
@@ -429,9 +518,6 @@ class VoteControllerIntegrationTest {
     @DisplayName("게스트 신청은 정원이 가득 차도 저장된다")
     void createGuestAllowsWaitlistWhenSessionIsFull() throws Exception {
         Vote vote = vote(
-    @DisplayName("참석 회원 수가 정원에 도달하면 게스트를 추가할 수 없다")
-    void createGuestThrowsWhenSessionIsFull() throws Exception {
-        Vote vote = voteRepository.save(vote(
                 "목요 정기 운동",
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusHours(1),
@@ -441,7 +527,7 @@ class VoteControllerIntegrationTest {
         ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 7));
         vote = voteRepository.save(vote);
         addAttendance(vote, true, "1001");
-        addAttendance(vote, true, "1002");
+        addGuest(vote, "host1", "게스트");
 
         Member member = memberRepository.save(
                 Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
@@ -689,8 +775,6 @@ class VoteControllerIntegrationTest {
     @Test
     @DisplayName("정원이 가득 차도 참석 투표는 저장되고 대기열에 들어간다")
     void saveVoteAttendanceAllowsWaitlistWhenSessionIsFull() throws Exception {
-    @DisplayName("참석 회원 수가 정원에 도달한 투표에는 추가 참석할 수 없다")
-    void saveVoteAttendanceThrowsWhenSessionIsFull() throws Exception {
         Vote vote = voteRepository.save(vote(
                 "목요 정기 운동",
                 ActivityType.REGULAR,
@@ -748,8 +832,10 @@ class VoteControllerIntegrationTest {
 
         mockMvc.perform(get("/votes/{voteId}/attendees", vote.getId()).with(jwt()))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attendees[0].attendeeNumber").value(1))
                 .andExpect(jsonPath("$.attendees[0].nickname").value("member-4001"))
                 .andExpect(jsonPath("$.attendees[0].isWaiting").value(false))
+                .andExpect(jsonPath("$.attendees[1].attendeeNumber").value(2))
                 .andExpect(jsonPath("$.attendees[1].nickname").value("member-4002"))
                 .andExpect(jsonPath("$.attendees[1].isWaiting").value(true));
 
@@ -763,6 +849,7 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalAttendeeCount").value(1))
                 .andExpect(jsonPath("$.attendees.length()").value(1))
+                .andExpect(jsonPath("$.attendees[0].attendeeNumber").value(1))
                 .andExpect(jsonPath("$.attendees[0].nickname").value("member-4002"))
                 .andExpect(jsonPath("$.attendees[0].isWaiting").value(false));
     }
@@ -978,6 +1065,30 @@ class VoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
     }
 
+    @Test
+    @DisplayName("인증되지 않은 사용자는 대진을 조회할 수 없다")
+    void getVoteMatchRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/votes/{voteId}/matches", 1L))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("등록된 대진이 없으면 대진 조회 시 예외가 발생한다")
+    void getVoteMatchThrowsWhenMatchIsMissing() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+
+        mockMvc.perform(get("/votes/{voteId}/matches", vote.getId()).with(jwt()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("MATCH_NOT_FOUND"));
+    }
+
     private Vote vote(String title,
                       ActivityType activityType,
                       LocalDateTime voteStartAt,
@@ -999,10 +1110,29 @@ class VoteControllerIntegrationTest {
     private void addAttendance(Vote vote,
                                boolean attendanceStatus,
                                String socialId) {
+        saveAttendance(vote, attendanceStatus, socialId);
+    }
+
+    private void addGuest(Vote vote, String socialId, String guestName) {
+        saveGuest(vote, socialId, guestName);
+    }
+
+    private void updateCreatedAt(Long voteId, LocalDateTime createdAt) {
+        jdbcTemplate.update("update vote set created_at = ? where vote_id = ?", createdAt, voteId);
+    }
+
+    private RequestPostProcessor authenticatedMember(Member member) {
+        MemberPrincipal principal = MemberPrincipal.from(MemberSummary.from(member));
+        return authentication(UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities()));
+    }
+
+    private VoteAttendance saveAttendance(Vote vote,
+                                          boolean attendanceStatus,
+                                          String socialId) {
         Member member = memberRepository.save(
                 Member.createSocialMember(SocialProvider.KAKAO, socialId, "member-" + socialId, socialId + "@example.com")
         );
-        voteAttendanceRepository.save(
+        return voteAttendanceRepository.saveAndFlush(
                 VoteAttendance.builder()
                         .vote(vote)
                         .member(member)
@@ -1011,11 +1141,11 @@ class VoteControllerIntegrationTest {
         );
     }
 
-    private void addGuest(Vote vote, String socialId, String guestName) {
+    private Guest saveGuest(Vote vote, String socialId, String guestName) {
         Member member = memberRepository.save(
                 Member.createSocialMember(SocialProvider.KAKAO, socialId, "member-" + socialId, socialId + "@example.com")
         );
-        guestRepository.save(
+        return guestRepository.saveAndFlush(
                 Guest.builder()
                         .vote(vote)
                         .member(member)
@@ -1026,12 +1156,20 @@ class VoteControllerIntegrationTest {
         );
     }
 
-    private void updateCreatedAt(Long voteId, LocalDateTime createdAt) {
-        jdbcTemplate.update("update vote set created_at = ? where vote_id = ?", createdAt, voteId);
-    }
-
-    private RequestPostProcessor authenticatedMember(Member member) {
-        MemberPrincipal principal = MemberPrincipal.from(MemberSummary.from(member));
-        return authentication(UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities()));
+    private VoteMatch memberMatch(Vote vote,
+                                  VoteMatchGroup matchGroup,
+                                  VoteAttendance voteAttendance,
+                                  int courtNumber,
+                                  int matchNumber,
+                                  int teamNumber) {
+        return VoteMatch.builder()
+                .vote(vote)
+                .matchGroup(matchGroup)
+                .participantType(MatchParticipantType.MEMBER)
+                .voteAttendance(voteAttendance)
+                .courtNumber(courtNumber)
+                .matchNumber(matchNumber)
+                .teamNumber(teamNumber)
+                .build();
     }
 }
