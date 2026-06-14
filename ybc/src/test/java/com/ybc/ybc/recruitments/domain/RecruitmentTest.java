@@ -46,14 +46,24 @@ class RecruitmentTest {
     }
 
     @Test
-    @DisplayName("기본 정보 수정 시에도 기존 일정과의 순서를 검증한다")
-    void updateBasicInfoFailsWhenEndAtMovesAfterInterviewDate() {
+    @DisplayName("전체 정보 수정 시에도 기존 일정과의 순서를 검증한다")
+    void updateFailsWhenEndAtMovesAfterInterviewDate() {
         Recruitment recruitment = recruitmentBuilder().build();
 
-        assertThatThrownBy(() -> recruitment.updateBasicInfo(
+        assertThatThrownBy(() -> recruitment.update(
                 "10기",
                 LocalDateTime.of(2026, 4, 10, 9, 0),
-                LocalDateTime.of(2026, 4, 13, 18, 0)
+                LocalDateTime.of(2026, 4, 13, 18, 0),
+                LocalDate.of(2026, 4, 10),
+                LocalDate.of(2026, 4, 17),
+                LocalDate.of(2026, 4, 12),
+                "ECC",
+                "10:00",
+                "14:00",
+                LocalDate.of(2026, 4, 20),
+                "기초반도 지원 가능합니다.",
+                30000,
+                6
         ))
                 .isInstanceOfSatisfying(YbcException.class, exception ->
                         assertThat(exception.getExceptionCodeName()).isEqualTo("INVALID_RECRUITMENT_SCHEDULE"));
@@ -71,6 +81,7 @@ class RecruitmentTest {
                 .interviewFirstTime("10:00")
                 .interviewSecondTime("14:00")
                 .otDate(LocalDate.of(2026, 4, 20))
+                .recruitmentMessage("기초반도 지원 가능합니다.")
                 .membershipFee(30000)
                 .activityPeriod(6);
     }
