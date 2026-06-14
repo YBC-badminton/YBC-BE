@@ -166,6 +166,73 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("비로그인 사용자는 최근 투표 3개 조회 시 참여 인원 수가 숨겨진다")
+    void getRecentVotesHidesParticipantCountsForUnauthenticatedUser() throws Exception {
+        Vote newestVote = voteRepository.save(vote(
+                "가장 최근 투표",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        Vote secondVote = voteRepository.save(vote(
+                "두 번째 최근 투표",
+                ActivityType.EVENT,
+                LocalDateTime.now().minusHours(2),
+                LocalDateTime.now().plusDays(2),
+                18
+        ));
+        voteRepository.save(vote(
+                "세 번째 최근 투표",
+                ActivityType.FLASH,
+                LocalDateTime.now().minusHours(3),
+                LocalDateTime.now().plusDays(3),
+                12
+        ));
+        voteRepository.save(vote(
+                "네 번째 투표",
+                ActivityType.FLASH,
+                LocalDateTime.now().minusHours(4),
+                LocalDateTime.now().plusDays(4),
+                10
+        ));
+        addAttendance(newestVote, true, "recent-1001");
+        addAttendance(secondVote, true, "recent-1002");
+
+        mockMvc.perform(get("/votes/recent"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(3))
+                .andExpect(jsonPath("$.votes[0].name").value("네 번째 투표"))
+                .andExpect(jsonPath("$.votes[0].participantCountVisible").value(false))
+                .andExpect(jsonPath("$.votes[0].currentParticipantCount").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("로그인 사용자는 최근 투표 3개 조회 시 참여 인원 수를 볼 수 있다")
+    void getRecentVotesShowsParticipantCountsForAuthenticatedUser() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "최근 투표",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        addAttendance(vote, true, "recent-auth-1001");
+        addAttendance(vote, true, "recent-auth-1002");
+
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+
+        mockMvc.perform(get("/votes/recent").with(authenticatedMember(member)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(1))
+                .andExpect(jsonPath("$.votes[0].name").value("최근 투표"))
+                .andExpect(jsonPath("$.votes[0].participantCountVisible").value(true))
+                .andExpect(jsonPath("$.votes[0].currentParticipantCount").value(2));
+    }
+
+    @Test
     @DisplayName("투표 상세 정보를 조회한다")
     void getVote() throws Exception {
         Vote vote = voteRepository.save(vote(
