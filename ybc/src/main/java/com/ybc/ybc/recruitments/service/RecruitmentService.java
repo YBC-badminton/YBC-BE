@@ -6,6 +6,7 @@ import com.ybc.ybc.recruitments.domain.Recruitment;
 import com.ybc.ybc.recruitments.dto.request.RecruitmentCreateRequest;
 import com.ybc.ybc.recruitments.dto.request.RecruitmentUpdateRequest;
 import com.ybc.ybc.recruitments.dto.response.RecruitmentListResponse;
+import com.ybc.ybc.recruitments.dto.response.RecruitmentMessageResponse;
 import com.ybc.ybc.recruitments.dto.response.RecruitmentResponse;
 import com.ybc.ybc.recruitments.dto.response.RecruitmentSummaryResponse;
 import com.ybc.ybc.recruitments.repository.RecruitmentRepository;
@@ -14,13 +15,17 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class RecruitmentService {
     private final RecruitmentRepository recruitmentRepository;
+    private final Clock clock;
 
     public RecruitmentListResponse getRecruitments() {
         List<Recruitment> recruitments = recruitmentRepository.findAll(Sort.by(Sort.Order.desc("id")));
@@ -33,6 +38,13 @@ public class RecruitmentService {
 
     public RecruitmentResponse getRecruitment(Long recruitmentId) {
         return RecruitmentResponse.from(getRecruitmentById(recruitmentId));
+    }
+
+    public RecruitmentMessageResponse getCurrentRecruitmentMessage() {
+        LocalDateTime now = LocalDateTime.now(clock);
+        return findCurrentRecruitment(now)
+                .map(RecruitmentMessageResponse::from)
+                .orElseGet(RecruitmentMessageResponse::closed);
     }
 
     @Transactional
@@ -82,5 +94,9 @@ public class RecruitmentService {
     private Recruitment getRecruitmentById(Long recruitmentId) {
         return recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(() -> new YbcException(ExceptionCode.RECRUITMENT_NOT_FOUND));
+    }
+
+    private Optional<Recruitment> findCurrentRecruitment(LocalDateTime now) {
+        return recruitmentRepository.findFirstByStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByStartAtDesc(now, now);
     }
 }
