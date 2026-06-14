@@ -60,10 +60,20 @@ public class RecruitmentService {
     public RecruitmentResponse updateRecruitment(Long recruitmentId, RecruitmentUpdateRequest request) {
         Recruitment recruitment = getRecruitmentById(recruitmentId);
 
-        recruitment.updateBasicInfo(
+        recruitment.update(
                 request.term(),
                 request.startAt(),
-                request.endAt()
+                request.endAt(),
+                request.firstResultDate(),
+                request.finalResultDate(),
+                request.interviewDate(),
+                request.interviewLocation(),
+                request.interviewFirstTime(),
+                request.interviewSecondTime(),
+                request.otDate(),
+                request.recruitmentMessage(),
+                request.membershipFee(),
+                request.activityPeriod()
         );
 
         return RecruitmentResponse.from(recruitment);

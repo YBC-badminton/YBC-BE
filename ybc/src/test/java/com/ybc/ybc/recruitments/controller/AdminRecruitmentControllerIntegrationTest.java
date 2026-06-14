@@ -169,7 +169,7 @@ class AdminRecruitmentControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("인증된 사용자는 모집 기수의 기본 정보를 수정할 수 있다")
+    @DisplayName("인증된 사용자는 모집 기수의 전체 정보를 수정할 수 있다")
     void updateRecruitmentReturnsUpdatedRecruitmentWhenAuthenticated() throws Exception {
         Recruitment recruitment = saveRecruitment("10기");
 
@@ -182,15 +182,23 @@ class AdminRecruitmentControllerIntegrationTest {
                 .andExpect(jsonPath("$.term").value("7.5기"))
                 .andExpect(jsonPath("$.startAt").value("2026-03-01T09:00:00"))
                 .andExpect(jsonPath("$.endAt").value("2026-03-15T23:59:59"))
-                .andExpect(jsonPath("$.firstResultDate").value("2026-04-10"))
-                .andExpect(jsonPath("$.finalResultDate").value("2026-04-17"))
-                .andExpect(jsonPath("$.interviewDate").value("2026-04-12"));
+                .andExpect(jsonPath("$.firstResultDate").value("2026-03-17"))
+                .andExpect(jsonPath("$.finalResultDate").value("2026-03-25"))
+                .andExpect(jsonPath("$.interviewDate").value("2026-03-22"))
+                .andExpect(jsonPath("$.interviewLocation").value("마포구 청년센터 3층 회의실"))
+                .andExpect(jsonPath("$.interviewFirstTime").value("13:00 ~ 15:00"))
+                .andExpect(jsonPath("$.interviewSecondTime").value("15:30 ~ 18:00"))
+                .andExpect(jsonPath("$.otDate").value("2026-03-28"))
+                .andExpect(jsonPath("$.recruitmentMessage").value("배드민턴 경험이 없어도 지원 가능합니다."))
+                .andExpect(jsonPath("$.membershipFee").value(50000))
+                .andExpect(jsonPath("$.activityPeriod").value(6));
 
         Recruitment updatedRecruitment = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
         assertThat(updatedRecruitment.getTerm()).isEqualTo("7.5기");
         assertThat(updatedRecruitment.getStartAt()).isEqualTo(LocalDateTime.of(2026, 3, 1, 9, 0));
         assertThat(updatedRecruitment.getEndAt()).isEqualTo(LocalDateTime.of(2026, 3, 15, 23, 59, 59));
-        assertThat(updatedRecruitment.getInterviewLocation()).isEqualTo("ECC");
+        assertThat(updatedRecruitment.getInterviewLocation()).isEqualTo("마포구 청년센터 3층 회의실");
+        assertThat(updatedRecruitment.getRecruitmentMessage()).isEqualTo("배드민턴 경험이 없어도 지원 가능합니다.");
     }
 
     @Test
@@ -217,7 +225,7 @@ class AdminRecruitmentControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("기본 정보 수정으로 일정 순서가 깨지면 400을 반환한다")
+    @DisplayName("전체 정보 수정으로 일정 순서가 깨지면 400을 반환한다")
     void updateRecruitmentReturnsBadRequestWhenScheduleIsInvalid() throws Exception {
         Recruitment recruitment = saveRecruitment("10기");
 
@@ -278,10 +286,20 @@ class AdminRecruitmentControllerIntegrationTest {
     }
 
     private Map<String, Object> createRecruitmentUpdateRequest() {
-        return Map.of(
-                "term", "7.5기",
-                "startAt", "2026-03-01T09:00:00",
-                "endAt", "2026-03-15T23:59:59"
+        return Map.ofEntries(
+                Map.entry("term", "7.5기"),
+                Map.entry("startAt", "2026-03-01T09:00:00"),
+                Map.entry("endAt", "2026-03-15T23:59:59"),
+                Map.entry("firstResultDate", "2026-03-17"),
+                Map.entry("finalResultDate", "2026-03-25"),
+                Map.entry("interviewDate", "2026-03-22"),
+                Map.entry("interviewLocation", "마포구 청년센터 3층 회의실"),
+                Map.entry("interviewFirstTime", "13:00 ~ 15:00"),
+                Map.entry("interviewSecondTime", "15:30 ~ 18:00"),
+                Map.entry("otDate", "2026-03-28"),
+                Map.entry("recruitmentMessage", "배드민턴 경험이 없어도 지원 가능합니다."),
+                Map.entry("membershipFee", 50000),
+                Map.entry("activityPeriod", 6)
         );
     }
 
@@ -303,10 +321,20 @@ class AdminRecruitmentControllerIntegrationTest {
     }
 
     private Map<String, Object> invalidRecruitmentUpdateRequest() {
-        return Map.of(
-                "term", "7.5기",
-                "startAt", "2026-04-10T09:00:00",
-                "endAt", "2026-04-13T18:00:00"
+        return Map.ofEntries(
+                Map.entry("term", "7.5기"),
+                Map.entry("startAt", "2026-04-10T09:00:00"),
+                Map.entry("endAt", "2026-04-13T18:00:00"),
+                Map.entry("firstResultDate", "2026-03-17"),
+                Map.entry("finalResultDate", "2026-03-25"),
+                Map.entry("interviewDate", "2026-03-22"),
+                Map.entry("interviewLocation", "마포구 청년센터 3층 회의실"),
+                Map.entry("interviewFirstTime", "13:00 ~ 15:00"),
+                Map.entry("interviewSecondTime", "15:30 ~ 18:00"),
+                Map.entry("otDate", "2026-03-28"),
+                Map.entry("recruitmentMessage", "배드민턴 경험이 없어도 지원 가능합니다."),
+                Map.entry("membershipFee", 50000),
+                Map.entry("activityPeriod", 6)
         );
     }
 }
