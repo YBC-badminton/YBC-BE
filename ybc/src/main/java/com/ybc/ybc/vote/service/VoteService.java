@@ -12,6 +12,8 @@ import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
+import com.ybc.ybc.vote.dto.response.RecentVoteListResponse;
+import com.ybc.ybc.vote.dto.response.RecentVoteResponse;
 import com.ybc.ybc.vote.dto.response.VoteAbsenteeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
@@ -82,6 +84,20 @@ public class VoteService {
                 ? voteRepository.findJoinableVoteSummaries(now, pageable)
                 : voteRepository.findClosedVoteSummaries(now, pageable);
         return VoteListResponse.from(votePage);
+    }
+
+    /**
+     * 최근 생성된 투표 3개를 조회한다. 비로그인 사용자는 참여 인원 수를 숨긴다.
+     */
+    public RecentVoteListResponse getRecentVotes(boolean participantCountVisible) {
+        List<RecentVoteResponse> votes = voteRepository.findTop3ByOrderByCreatedAtDescIdDesc().stream()
+                .map(vote -> RecentVoteResponse.from(
+                        vote,
+                        participantCountVisible ? countCurrentParticipantCount(vote.getId()) : null,
+                        participantCountVisible
+                ))
+                .toList();
+        return RecentVoteListResponse.from(votes);
     }
 
     /**

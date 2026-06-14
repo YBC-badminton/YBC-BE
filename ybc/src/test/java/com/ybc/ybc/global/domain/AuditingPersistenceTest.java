@@ -52,6 +52,7 @@ class AuditingPersistenceTest {
                 .interviewFirstTime("18:00")
                 .interviewSecondTime("19:00")
                 .otDate(LocalDate.of(2026, 5, 20))
+                .recruitmentMessage("기초반도 지원 가능합니다.")
                 .membershipFee(30000)
                 .activityPeriod(6)
                 .build();
@@ -64,10 +65,20 @@ class AuditingPersistenceTest {
         LocalDateTime createdAt = savedRecruitment.getCreatedAt();
         LocalDateTime updatedAt = savedRecruitment.getUpdatedAt();
 
-        savedRecruitment.updateBasicInfo(
+        savedRecruitment.update(
                 "11기",
                 LocalDateTime.of(2026, 5, 2, 10, 0),
-                LocalDateTime.of(2026, 5, 11, 18, 0)
+                LocalDateTime.of(2026, 5, 11, 18, 0),
+                LocalDate.of(2026, 5, 12),
+                LocalDate.of(2026, 5, 15),
+                LocalDate.of(2026, 5, 13),
+                "학생회관",
+                "18:00",
+                "19:00",
+                LocalDate.of(2026, 5, 20),
+                "기초반도 지원 가능합니다.",
+                30000,
+                6
         );
         Recruitment updatedRecruitment = recruitmentRepository.saveAndFlush(savedRecruitment);
 

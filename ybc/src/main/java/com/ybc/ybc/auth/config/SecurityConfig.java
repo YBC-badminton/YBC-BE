@@ -39,6 +39,8 @@ public class SecurityConfig {
             "/api/v1/auth/kakao/login",
             "/api/v1/auth/kakao/callback",
             "/api/v1/auth/refresh",
+            "/recruitments/message",
+            "/votes/recent",
             "/error"
     };
 

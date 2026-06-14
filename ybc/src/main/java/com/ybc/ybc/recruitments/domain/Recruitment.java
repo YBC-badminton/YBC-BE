@@ -60,6 +60,9 @@ public class Recruitment extends BaseEntity {
     @Column
     private LocalDate otDate;
 
+    @Column(columnDefinition = "TEXT")
+    private String recruitmentMessage;
+
     @Column(nullable = false)
     private int membershipFee;
 
@@ -77,6 +80,7 @@ public class Recruitment extends BaseEntity {
                         String interviewFirstTime,
                         String interviewSecondTime,
                         LocalDate otDate,
+                        String recruitmentMessage,
                         int membershipFee,
                         int activityPeriod) {
         validateSchedule(startAt, endAt, firstResultDate, finalResultDate, interviewDate);
@@ -90,15 +94,38 @@ public class Recruitment extends BaseEntity {
         this.interviewFirstTime = interviewFirstTime;
         this.interviewSecondTime = interviewSecondTime;
         this.otDate = otDate;
+        this.recruitmentMessage = recruitmentMessage;
         this.membershipFee = membershipFee;
         this.activityPeriod = activityPeriod;
     }
 
-    public void updateBasicInfo(String term, LocalDateTime startAt, LocalDateTime endAt) {
+    public void update(String term,
+                       LocalDateTime startAt,
+                       LocalDateTime endAt,
+                       LocalDate firstResultDate,
+                       LocalDate finalResultDate,
+                       LocalDate interviewDate,
+                       String interviewLocation,
+                       String interviewFirstTime,
+                       String interviewSecondTime,
+                       LocalDate otDate,
+                       String recruitmentMessage,
+                       int membershipFee,
+                       int activityPeriod) {
         validateSchedule(startAt, endAt, firstResultDate, finalResultDate, interviewDate);
         this.term = term;
         this.startAt = startAt;
         this.endAt = endAt;
+        this.firstResultDate = firstResultDate;
+        this.finalResultDate = finalResultDate;
+        this.interviewDate = interviewDate;
+        this.interviewLocation = interviewLocation;
+        this.interviewFirstTime = interviewFirstTime;
+        this.interviewSecondTime = interviewSecondTime;
+        this.otDate = otDate;
+        this.recruitmentMessage = recruitmentMessage;
+        this.membershipFee = membershipFee;
+        this.activityPeriod = activityPeriod;
     }
 
     private void validateSchedule(LocalDateTime startAt,

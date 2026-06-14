@@ -5,6 +5,7 @@ import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
+import com.ybc.ybc.vote.dto.response.RecentVoteListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAbsenteeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
@@ -55,6 +56,14 @@ public class VoteController {
                                                      @RequestParam(defaultValue = "0") int page,
                                                      @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(voteService.getVotes(joinable, page, size));
+    }
+
+    /**
+     * 최근 생성된 투표 3개를 조회한다. 비로그인 사용자는 참여 인원 수를 숨긴다.
+     */
+    @GetMapping("/recent")
+    public ResponseEntity<RecentVoteListResponse> getRecentVotes(@AuthenticationPrincipal MemberPrincipal memberPrincipal) {
+        return ResponseEntity.ok(voteService.getRecentVotes(memberPrincipal != null));
     }
 
     /**
