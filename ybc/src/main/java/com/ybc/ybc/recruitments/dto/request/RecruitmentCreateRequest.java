@@ -27,6 +27,7 @@ public record RecruitmentCreateRequest(
         @NotBlank(message = "면접 2타임을 입력해 주세요.")
         String interviewSecondTime,
         LocalDate otDate,
+        String recruitmentMessage,
         @Positive(message = "회비는 1 이상이어야 합니다.")
         @NotNull(message = "회비를 입력해주세요")
         int membershipFee,

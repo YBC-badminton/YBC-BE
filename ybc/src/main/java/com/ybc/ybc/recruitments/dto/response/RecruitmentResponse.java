@@ -17,6 +17,7 @@ public record RecruitmentResponse(
         String interviewFirstTime,
         String interviewSecondTime,
         LocalDate otDate,
+        String recruitmentMessage,
         int membershipFee,
         int activityPeriod
 ) {
@@ -33,6 +34,7 @@ public record RecruitmentResponse(
                 recruitment.getInterviewFirstTime(),
                 recruitment.getInterviewSecondTime(),
                 recruitment.getOtDate(),
+                recruitment.getRecruitmentMessage(),
                 recruitment.getMembershipFee(),
                 recruitment.getActivityPeriod()
         );

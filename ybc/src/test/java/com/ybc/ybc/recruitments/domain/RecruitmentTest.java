@@ -71,6 +71,7 @@ class RecruitmentTest {
                 .interviewFirstTime("10:00")
                 .interviewSecondTime("14:00")
                 .otDate(LocalDate.of(2026, 4, 20))
+                .recruitmentMessage("기초반도 지원 가능합니다.")
                 .membershipFee(30000)
                 .activityPeriod(6);
     }

@@ -99,6 +99,7 @@ class AdminRecruitmentControllerIntegrationTest {
                 .andExpect(jsonPath("$.interviewFirstTime").value("10:00"))
                 .andExpect(jsonPath("$.interviewSecondTime").value("14:00"))
                 .andExpect(jsonPath("$.otDate").value("2026-04-20"))
+                .andExpect(jsonPath("$.recruitmentMessage").value("기초반도 지원 가능합니다."))
                 .andExpect(jsonPath("$.membershipFee").value(30000))
                 .andExpect(jsonPath("$.activityPeriod").value(6));
     }
@@ -141,6 +142,7 @@ class AdminRecruitmentControllerIntegrationTest {
                 .andExpect(jsonPath("$.interviewFirstTime").value("13:00 ~ 15:00"))
                 .andExpect(jsonPath("$.interviewSecondTime").value("15:30 ~ 18:00"))
                 .andExpect(jsonPath("$.otDate").value("2026-03-28"))
+                .andExpect(jsonPath("$.recruitmentMessage").value("배드민턴 경험이 없어도 지원 가능합니다."))
                 .andExpect(jsonPath("$.membershipFee").value(50000))
                 .andExpect(jsonPath("$.activityPeriod").value(6));
     }
@@ -239,6 +241,7 @@ class AdminRecruitmentControllerIntegrationTest {
                 .interviewFirstTime("10:00")
                 .interviewSecondTime("14:00")
                 .otDate(LocalDate.of(2026, 4, 20))
+                .recruitmentMessage("기초반도 지원 가능합니다.")
                 .membershipFee(30000)
                 .activityPeriod(6)
                 .build();
@@ -268,6 +271,7 @@ class AdminRecruitmentControllerIntegrationTest {
                 Map.entry("interviewFirstTime", "13:00 ~ 15:00"),
                 Map.entry("interviewSecondTime", "15:30 ~ 18:00"),
                 Map.entry("otDate", "2026-03-28"),
+                Map.entry("recruitmentMessage", "배드민턴 경험이 없어도 지원 가능합니다."),
                 Map.entry("membershipFee", 50000),
                 Map.entry("activityPeriod", 6)
         );

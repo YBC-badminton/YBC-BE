@@ -48,6 +48,7 @@ public class RecruitmentService {
                 .interviewFirstTime(request.interviewFirstTime())
                 .interviewSecondTime(request.interviewSecondTime())
                 .otDate(request.otDate())
+                .recruitmentMessage(request.recruitmentMessage())
                 .membershipFee(request.membershipFee())
                 .activityPeriod(request.activityPeriod())
                 .build();

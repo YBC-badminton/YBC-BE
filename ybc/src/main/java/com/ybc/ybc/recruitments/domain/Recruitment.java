@@ -60,6 +60,9 @@ public class Recruitment extends BaseEntity {
     @Column
     private LocalDate otDate;
 
+    @Column(columnDefinition = "TEXT")
+    private String recruitmentMessage;
+
     @Column(nullable = false)
     private int membershipFee;
 
@@ -77,6 +80,7 @@ public class Recruitment extends BaseEntity {
                         String interviewFirstTime,
                         String interviewSecondTime,
                         LocalDate otDate,
+                        String recruitmentMessage,
                         int membershipFee,
                         int activityPeriod) {
         validateSchedule(startAt, endAt, firstResultDate, finalResultDate, interviewDate);
@@ -90,6 +94,7 @@ public class Recruitment extends BaseEntity {
         this.interviewFirstTime = interviewFirstTime;
         this.interviewSecondTime = interviewSecondTime;
         this.otDate = otDate;
+        this.recruitmentMessage = recruitmentMessage;
         this.membershipFee = membershipFee;
         this.activityPeriod = activityPeriod;
     }
