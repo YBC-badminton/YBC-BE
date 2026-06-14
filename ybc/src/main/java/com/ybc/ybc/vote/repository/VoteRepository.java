@@ -101,6 +101,8 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
             Pageable pageable
     );
 
+    List<Vote> findTop3ByOrderByCreatedAtDescIdDesc();
+
     List<Vote> findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime now);
 
     List<Vote> findAllByOriginalVote_IdOrderByIdAsc(Long originalVoteId);

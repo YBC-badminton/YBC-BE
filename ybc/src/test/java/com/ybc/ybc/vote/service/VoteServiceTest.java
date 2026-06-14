@@ -11,6 +11,7 @@ import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
+import com.ybc.ybc.vote.dto.response.RecentVoteListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAbsenteeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
@@ -89,6 +90,42 @@ class VoteServiceTest {
         assertThat(response.votes().get(0).activityDate()).isEqualTo(LocalDate.of(2026, 4, 10));
         assertThat(response.votes().get(0).matchRegistered()).isTrue();
         verify(voteRepository).findJoinableVoteSummaries(any(LocalDateTime.class), any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    @DisplayName("로그인 사용자의 최근 투표 3개 조회 시 참여 인원 수를 함께 반환한다")
+    void getRecentVotesReturnsParticipantCountsForAuthenticatedUser() {
+        Vote firstVote = savedVote(1L, "첫 번째 투표");
+        Vote secondVote = savedVote(2L, "두 번째 투표");
+        Vote thirdVote = savedVote(3L, "세 번째 투표");
+        when(voteRepository.findTop3ByOrderByCreatedAtDescIdDesc()).thenReturn(List.of(firstVote, secondVote, thirdVote));
+        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(3L);
+        when(voteAttendanceRepository.countAttendancesByVoteId(2L)).thenReturn(2L);
+        when(voteAttendanceRepository.countAttendancesByVoteId(3L)).thenReturn(1L);
+
+        RecentVoteListResponse response = voteService.getRecentVotes(true);
+
+        assertThat(response.count()).isEqualTo(3);
+        assertThat(response.votes()).hasSize(3);
+        assertThat(response.votes().get(0).currentParticipantCount()).isEqualTo(3L);
+        assertThat(response.votes().get(0).participantCountVisible()).isTrue();
+        assertThat(response.votes().get(2).currentParticipantCount()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("비로그인 사용자의 최근 투표 3개 조회 시 참여 인원 수를 숨긴다")
+    void getRecentVotesHidesParticipantCountsForUnauthenticatedUser() {
+        Vote firstVote = savedVote(1L, "첫 번째 투표");
+        Vote secondVote = savedVote(2L, "두 번째 투표");
+        when(voteRepository.findTop3ByOrderByCreatedAtDescIdDesc()).thenReturn(List.of(firstVote, secondVote));
+
+        RecentVoteListResponse response = voteService.getRecentVotes(false);
+
+        assertThat(response.count()).isEqualTo(2);
+        assertThat(response.votes()).hasSize(2);
+        assertThat(response.votes().get(0).currentParticipantCount()).isNull();
+        assertThat(response.votes().get(0).participantCountVisible()).isFalse();
+        verify(voteAttendanceRepository, never()).countAttendancesByVoteId(any(Long.class));
     }
 
     @Test
