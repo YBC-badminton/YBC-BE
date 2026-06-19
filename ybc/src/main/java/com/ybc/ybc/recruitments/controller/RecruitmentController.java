@@ -1,5 +1,6 @@
 package com.ybc.ybc.recruitments.controller;
 
+import com.ybc.ybc.recruitments.dto.response.RecruitmentInterviewTimesResponse;
 import com.ybc.ybc.recruitments.dto.response.RecruitmentMessageResponse;
 import com.ybc.ybc.recruitments.service.RecruitmentService;
 import lombok.RequiredArgsConstructor;
@@ -17,5 +18,10 @@ public class RecruitmentController {
     @GetMapping("/message")
     public ResponseEntity<RecruitmentMessageResponse> getRecruitmentMessage() {
         return ResponseEntity.ok(recruitmentService.getCurrentRecruitmentMessage());
+    }
+
+    @GetMapping("/interview-times")
+    public ResponseEntity<RecruitmentInterviewTimesResponse> getCurrentRecruitmentInterviewTimes() {
+        return ResponseEntity.ok(recruitmentService.getCurrentRecruitmentInterviewTimes());
     }
 }
