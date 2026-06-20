@@ -14,6 +14,8 @@ public record ClubMemberUpdateRequest(
         String age,
         @NotBlank(message = "학교를 입력해 주세요.")
         String university,
+        @NotBlank(message = "전화번호를 입력해 주세요.")
+        String phone,
         @NotBlank(message = "기수를 입력해 주세요.")
         String term,
         Boolean isMapoResident,
@@ -26,16 +28,18 @@ public record ClubMemberUpdateRequest(
     public ClubMemberUpdateRequest(String name,
                                    String age,
                                    String university,
+                                   String phone,
                                    String term) {
-        this(name, age, university, term, null, null, null);
+        this(name, age, university, phone, term, null, null, null);
     }
 
     public ClubMemberUpdateRequest(String name,
                                    String age,
                                    String university,
+                                   String phone,
                                    String term,
                                    String email,
                                    Gender gender) {
-        this(name, age, university, term, null, email, gender);
+        this(name, age, university, phone, term, null, email, gender);
     }
 }
