@@ -15,6 +15,8 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
 
     List<Application> findAllByTerm(String term, Sort sort);
 
+    List<Application> findAllByTermAndStatusIn(String term, Collection<Status> statuses, Sort sort);
+
     @Query("""
             select currentApplication.id
             from Application currentApplication

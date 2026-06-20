@@ -9,4 +9,6 @@ import java.util.Optional;
 public interface RecruitmentRepository extends JpaRepository<Recruitment, Long> {
     Optional<Recruitment> findFirstByStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByStartAtDesc(LocalDateTime startAt,
                                                                                                      LocalDateTime endAt);
+
+    Optional<Recruitment> findFirstByEndAtLessThanOrderByEndAtDescIdDesc(LocalDateTime endAt);
 }
