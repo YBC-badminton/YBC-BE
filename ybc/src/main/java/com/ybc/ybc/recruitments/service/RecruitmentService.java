@@ -5,6 +5,7 @@ import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.recruitments.domain.Recruitment;
 import com.ybc.ybc.recruitments.dto.request.RecruitmentCreateRequest;
 import com.ybc.ybc.recruitments.dto.request.RecruitmentUpdateRequest;
+import com.ybc.ybc.recruitments.dto.response.RecruitmentInterviewTimesResponse;
 import com.ybc.ybc.recruitments.dto.response.RecruitmentListResponse;
 import com.ybc.ybc.recruitments.dto.response.RecruitmentMessageResponse;
 import com.ybc.ybc.recruitments.dto.response.RecruitmentResponse;
@@ -45,6 +46,13 @@ public class RecruitmentService {
         return findCurrentRecruitment(now)
                 .map(RecruitmentMessageResponse::from)
                 .orElseGet(RecruitmentMessageResponse::closed);
+    }
+
+    public RecruitmentInterviewTimesResponse getCurrentRecruitmentInterviewTimes() {
+        LocalDateTime now = LocalDateTime.now(clock);
+        return findCurrentRecruitment(now)
+                .map(RecruitmentInterviewTimesResponse::from)
+                .orElseGet(RecruitmentInterviewTimesResponse::closed);
     }
 
     @Transactional
