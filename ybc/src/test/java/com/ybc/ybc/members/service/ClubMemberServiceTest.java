@@ -81,22 +81,23 @@ class ClubMemberServiceTest {
     }
 
     @Test
-    @DisplayName("부원 수정 시 전화번호를 유지한 채 정보를 변경한다")
+    @DisplayName("부원 수정 시 전화번호를 포함한 정보를 변경한다")
     void updateMemberUpdatesProfile() {
         ClubMember member = savedMember(1L, "홍길동", "한국대학교", "010-0000-0000", "03", "2기");
         when(clubMemberRepository.findById(1L)).thenReturn(Optional.of(member));
 
         ClubMemberResponse response = clubMemberService.updateMember(
                 1L,
-                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "10기", true, "hong@example.com", Gender.MALE)
+                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "010-1234-5678", "10기", true, "hong@example.com", Gender.MALE)
         );
 
-        assertThat(member.getPhone()).isEqualTo("010-0000-0000");
+        assertThat(member.getPhone()).isEqualTo("010-1234-5678");
         assertThat(member.getAge()).isEqualTo("02");
         assertThat(member.getTerm()).isEqualTo("10기");
         assertThat(member.getEmail()).isEqualTo("hong@example.com");
         assertThat(member.getGender()).isEqualTo(Gender.MALE);
         assertThat(member.isMapoResident()).isTrue();
+        assertThat(response.phone()).isEqualTo("010-1234-5678");
         assertThat(response.email()).isEqualTo("hong@example.com");
         assertThat(response.isMapoResident()).isTrue();
     }
@@ -109,7 +110,7 @@ class ClubMemberServiceTest {
 
         clubMemberService.updateMember(
                 1L,
-                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "10기", "hong@example.com", Gender.MALE)
+                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "010-1234-5678", "10기", "hong@example.com", Gender.MALE)
         );
 
         assertThat(member.isMapoResident()).isTrue();
@@ -145,7 +146,7 @@ class ClubMemberServiceTest {
 
         assertThatThrownBy(() -> clubMemberService.updateMember(
                 99L,
-                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "10기")
+                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "010-1234-5678", "10기")
         ))
                 .isInstanceOf(YbcException.class)
                 .hasMessage("존재하지 않는 부원입니다.");

@@ -161,22 +161,25 @@ public class ClubMember {
     public void update(String name,
                        String age,
                        String university,
+                       String phone,
                        String term) {
-        update(name, age, university, term, null, null, null);
+        update(name, age, university, phone, term, null, null, null);
     }
 
     public void update(String name,
                        String age,
                        String university,
+                       String phone,
                        String term,
                        String email,
                        Gender gender) {
-        update(name, age, university, term, null, email, gender);
+        update(name, age, university, phone, term, null, email, gender);
     }
 
     public void update(String name,
                        String age,
                        String university,
+                       String phone,
                        String term,
                        Boolean mapoResident,
                        String email,
@@ -184,6 +187,7 @@ public class ClubMember {
         this.name = name;
         this.age = age;
         this.university = university;
+        this.phone = phone;
         this.term = term;
         if (mapoResident != null) {
             this.mapoResident = mapoResident;
