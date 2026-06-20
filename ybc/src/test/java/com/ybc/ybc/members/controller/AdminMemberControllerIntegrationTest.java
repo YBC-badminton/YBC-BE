@@ -132,6 +132,7 @@ class AdminMemberControllerIntegrationTest {
                                 "name", "홍길동",
                                 "age", "02",
                                 "university", "한국대학교",
+                                "phone", "010-1234-5678",
                                 "term", "10기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",
@@ -139,7 +140,7 @@ class AdminMemberControllerIntegrationTest {
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.memberId").value(member.getId()))
-                .andExpect(jsonPath("$.phone").value("010-0000-0000"))
+                .andExpect(jsonPath("$.phone").value("010-1234-5678"))
                 .andExpect(jsonPath("$.email").value("hong@example.com"))
                 .andExpect(jsonPath("$.gender").value("MALE"))
                 .andExpect(jsonPath("$.age").value("02"))
@@ -148,6 +149,7 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.court").doesNotExist());
 
         ClubMember updatedMember = clubMemberRepository.findById(member.getId()).orElseThrow();
+        assertThat(updatedMember.getPhone()).isEqualTo("010-1234-5678");
         assertThat(updatedMember.getAge()).isEqualTo("02");
         assertThat(updatedMember.isMapoResident()).isTrue();
     }
@@ -164,6 +166,7 @@ class AdminMemberControllerIntegrationTest {
                                 "name", "홍길동",
                                 "age", "02",
                                 "university", "한국대학교",
+                                "phone", "010-1234-5678",
                                 "term", "10기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",

@@ -57,6 +57,7 @@ public class ClubMemberService {
                 request.name(),
                 request.age(),
                 request.university(),
+                request.phone(),
                 request.term(),
                 request.isMapoResident(),
                 request.email(),
