@@ -12,14 +12,19 @@ import com.ybc.ybc.interviews.dto.response.InterviewManagementResponse;
 import com.ybc.ybc.interviews.dto.response.InterviewSummaryResponse;
 import com.ybc.ybc.interviews.repository.InterviewRepository;
 import com.ybc.ybc.members.service.ClubMemberSyncService;
+import com.ybc.ybc.recruitments.domain.Recruitment;
+import com.ybc.ybc.recruitments.repository.RecruitmentRepository;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -33,13 +38,16 @@ public class InterviewService {
             Status.FINAL_PASS,
             Status.HOLD
     );
+    private static final Sort INTERVIEW_TARGET_SORT = Sort.by(Sort.Order.asc("id"));
 
     private final ApplicationRepository applicationRepository;
     private final InterviewRepository interviewRepository;
     private final ClubMemberSyncService clubMemberSyncService;
+    private final RecruitmentRepository recruitmentRepository;
+    private final Clock clock;
 
     public InterviewManagementResponse getInterviewManagement() {
-        List<Application> interviewTargets = getInterviewTargets();
+        List<Application> interviewTargets = getInterviewTargetsForDashboard();
         return toResponse(interviewTargets);
     }
 
@@ -64,7 +72,7 @@ public class InterviewService {
                         () -> saveInterviewIfNeeded(application, request)
                 );
 
-        return toResponse(getInterviewTargets());
+        return toResponse(getInterviewTargetsForDashboard());
     }
 
     private void saveInterviewIfNeeded(Application application, InterviewUpdateRequest request) {
@@ -75,11 +83,29 @@ public class InterviewService {
         interviewRepository.save(Interview.create(application, request.scheduledAt(), request.memo()));
     }
 
-    private List<Application> getInterviewTargets() {
-        return applicationRepository.findAllByStatusIn(
+    private List<Application> getInterviewTargetsForDashboard() {
+        return resolveDashboardRecruitmentTerm()
+                .map(this::getInterviewTargetsByTerm)
+                .orElseGet(List::of);
+    }
+
+    private List<Application> getInterviewTargetsByTerm(String term) {
+        return applicationRepository.findAllByTermAndStatusIn(
+                term,
                 INTERVIEW_MANAGEMENT_STATUSES,
-                Sort.by(Sort.Order.asc("id"))
+                INTERVIEW_TARGET_SORT
         );
+    }
+
+    private Optional<String> resolveDashboardRecruitmentTerm() {
+        LocalDateTime now = LocalDateTime.now(clock);
+        return findDashboardRecruitment(now)
+                .map(Recruitment::getTerm);
+    }
+
+    private Optional<Recruitment> findDashboardRecruitment(LocalDateTime now) {
+        return recruitmentRepository.findFirstByStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByStartAtDesc(now, now)
+                .or(() -> recruitmentRepository.findFirstByEndAtLessThanOrderByEndAtDescIdDesc(now));
     }
 
     private InterviewManagementResponse toResponse(List<Application> applications) {
