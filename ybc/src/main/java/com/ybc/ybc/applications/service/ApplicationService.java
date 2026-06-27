@@ -66,7 +66,12 @@ public class ApplicationService {
                         reapplicantIds.contains(application.getId())
                 ))
                 .toList();
-        return new ApplicantListResponse(applicants, applicants.size());
+        return new ApplicantListResponse(
+                applicants,
+                applicants.size(),
+                countApplicantsByStatus(applications, Status.FIRST_PASS),
+                countApplicantsByStatus(applications, Status.FINAL_PASS)
+        );
     }
 
     public ApplicantDetailResponse getApplicant(Long applicationId) {
@@ -115,6 +120,12 @@ public class ApplicationService {
                 application.getId(),
                 normalizeTerm(application.getTerm())
         );
+    }
+
+    private long countApplicantsByStatus(List<Application> applications, Status status) {
+        return applications.stream()
+                .filter(application -> application.getStatusOrDefault() == status)
+                .count();
     }
 
     private String getCurrentRecruitmentTerm() {
