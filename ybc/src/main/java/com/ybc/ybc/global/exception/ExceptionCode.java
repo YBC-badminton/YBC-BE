@@ -12,6 +12,7 @@ public enum ExceptionCode {
     INVALID_JWT_TOKEN(HttpStatus.UNAUTHORIZED, ClientExceptionCode.INVALID_JWT_TOKEN, "유효하지 않은 JWT 토큰입니다."),
     REFRESH_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED, ClientExceptionCode.REFRESH_TOKEN_NOT_FOUND, "다시 로그인이 필요합니다."),
     SESSION_FULL(HttpStatus.BAD_REQUEST, ClientExceptionCode.SESSION_FULL, "해당 모임의 정원이 모두 찼습니다."),
+    VOTE_NOT_OPEN(HttpStatus.BAD_REQUEST, ClientExceptionCode.VOTE_NOT_OPEN, "투표 시작 시간 이후에만 참여할 수 있습니다."),
     VOTE_CLOSED(HttpStatus.BAD_REQUEST, ClientExceptionCode.VOTE_CLOSED, "마감된 투표에는 참여할 수 없습니다."),
     VOTE_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.VOTE_NOT_FOUND, "존재하지 않는 투표입니다."),
     GUEST_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.GUEST_NOT_FOUND, "존재하지 않는 게스트입니다."),

@@ -35,6 +35,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -45,10 +46,13 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class VoteService {
+    private static final long VOTE_PREVIEW_MINUTES = 30L;
+
     private final VoteRepository voteRepository;
     private final VoteAttendanceRepository voteAttendanceRepository;
     private final GuestRepository guestRepository;
     private final MemberService memberService;
+    private final Clock clock;
 
     /**
      * 번개 모임 투표를 생성한다.
@@ -75,13 +79,13 @@ public class VoteService {
     }
 
     /**
-     * 페이지 정보를 구성하고 joinable 조건에 맞는 투표 목록을 조회한 뒤 응답 DTO로 변환한다.
+     * 페이지 정보를 구성하고 open 조건에 맞는 투표 목록을 조회한 뒤 응답 DTO로 변환한다.
      */
-    public VoteListResponse getVotes(boolean joinable, int page, int size) {
+    public VoteListResponse getVotes(boolean open, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "voteStartAt"));
-        LocalDateTime now = LocalDateTime.now();
-        Page<VoteSummaryResponse> votePage = joinable
-                ? voteRepository.findJoinableVoteSummaries(now, pageable)
+        LocalDateTime now = now();
+        Page<VoteSummaryResponse> votePage = open
+                ? voteRepository.findOpenVoteSummaries(now, now.plusMinutes(VOTE_PREVIEW_MINUTES), pageable)
                 : voteRepository.findClosedVoteSummaries(now, pageable);
         return VoteListResponse.from(votePage);
     }
@@ -124,7 +128,7 @@ public class VoteService {
                         voteAttendanceRepository.findAllActiveWithMemberByVoteIds(relatedVoteIds)
                 ),
                 guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(relatedVoteIds),
-                LocalDateTime.now()
+                now()
         );
         List<VoteGuestSummaryResponse> guests = guestList.guests().stream()
                 .map(resolvedGuest -> VoteGuestSummaryResponse.from(
@@ -189,7 +193,7 @@ public class VoteService {
     @Transactional
     public void saveVoteAttendance(Long voteId, Long memberId, VoteAttendanceRequest request) {
         Vote vote = getVoteEntityForUpdate(voteId);
-        validateVoteIsJoinable(vote);
+        validateVoteIsOpenForParticipation(vote);
         Member member = memberService.getMemberById(memberId);
 
         voteAttendanceRepository.findByVote_IdAndMember_Id(voteId, memberId)
@@ -205,7 +209,7 @@ public class VoteService {
     @Transactional
     public void createGuest(Long voteId, Long memberId, VoteGuestRequest request) {
         Vote vote = getVoteEntityForUpdate(voteId);
-        validateGuestApplicationIsJoinable(vote);
+        validateGuestApplicationIsOpen(vote);
         Member member = memberService.getMemberById(memberId);
 
         guestRepository.save(
@@ -225,7 +229,7 @@ public class VoteService {
     @Transactional
     public void updateGuest(Long voteId, Long guestId, Long memberId, VoteGuestRequest request) {
         Vote vote = getVoteEntityForUpdate(voteId);
-        validateGuestApplicationIsJoinable(vote);
+        validateGuestApplicationIsOpen(vote);
         Guest guest = guestRepository.findByIdAndVote_IdIn(guestId, getRelatedVoteIds(vote))
                 .orElseThrow(() -> new YbcException(ExceptionCode.GUEST_NOT_FOUND));
 
@@ -241,7 +245,8 @@ public class VoteService {
      */
     @Transactional
     public void deleteGuest(Long voteId, Long guestId, Long memberId) {
-        Vote vote = getVoteEntity(voteId);
+        Vote vote = getVoteEntityForUpdate(voteId);
+        validateGuestApplicationIsOpen(vote);
         Guest guest = guestRepository.findByIdAndVote_IdIn(guestId, getRelatedVoteIds(vote))
                 .orElseThrow(() -> new YbcException(ExceptionCode.GUEST_NOT_FOUND));
 
@@ -256,7 +261,7 @@ public class VoteService {
      * 현재 참여 가능한 투표 수와 올해 생성된 투표 수를 집계하여 응답 DTO로 변환한다.
      */
     public VoteHistoryResponse getVoteHistory() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = now();
         LocalDateTime startOfYear = now.toLocalDate()
                 .withDayOfYear(1)
                 .atStartOfDay();
@@ -303,8 +308,12 @@ public class VoteService {
         return voteAttendanceRepository.countAttendancesByVoteId(voteId);
     }
 
-    private void validateVoteIsJoinable(Vote vote) {
-        if (!vote.getVoteEndAt().isAfter(LocalDateTime.now())) {
+    private void validateVoteIsOpenForParticipation(Vote vote) {
+        LocalDateTime now = now();
+        if (vote.getVoteStartAt().isAfter(now)) {
+            throw new YbcException(ExceptionCode.VOTE_NOT_OPEN);
+        }
+        if (!vote.getVoteEndAt().isAfter(now)) {
             throw new YbcException(ExceptionCode.VOTE_CLOSED);
         }
     }
@@ -320,12 +329,27 @@ public class VoteService {
         }
     }
 
-    private void validateGuestApplicationIsJoinable(Vote vote) {
-        boolean hasJoinableVote = getRelatedVotes(vote).stream()
-                .anyMatch(relatedVote -> relatedVote.getVoteEndAt().isAfter(LocalDateTime.now()));
-        if (!hasJoinableVote) {
+    private void validateGuestApplicationIsOpen(Vote vote) {
+        LocalDateTime now = now();
+        List<Vote> relatedVotes = getRelatedVotes(vote);
+        boolean hasOpenVote = relatedVotes.stream()
+                .anyMatch(relatedVote -> isOpenForParticipation(relatedVote, now));
+        if (!hasOpenVote) {
+            boolean hasUpcomingVote = relatedVotes.stream()
+                    .anyMatch(relatedVote -> relatedVote.getVoteEndAt().isAfter(now));
+            if (hasUpcomingVote) {
+                throw new YbcException(ExceptionCode.VOTE_NOT_OPEN);
+            }
             throw new YbcException(ExceptionCode.VOTE_CLOSED);
         }
+    }
+
+    private boolean isOpenForParticipation(Vote vote, LocalDateTime now) {
+        return !vote.getVoteStartAt().isAfter(now) && vote.getVoteEndAt().isAfter(now);
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 
     private Set<Long> getRelatedVoteIds(Vote vote) {

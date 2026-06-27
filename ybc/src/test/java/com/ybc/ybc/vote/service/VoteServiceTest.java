@@ -24,6 +24,7 @@ import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -34,8 +35,11 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,12 +48,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class VoteServiceTest {
+    private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
+    private static final Instant FIXED_INSTANT = Instant.parse("2026-04-10T03:00:00Z");
+
     @Mock
     private VoteRepository voteRepository;
 
@@ -62,11 +70,20 @@ class VoteServiceTest {
     @Mock
     private MemberService memberService;
 
+    @Mock
+    private Clock clock;
+
     @InjectMocks
     private VoteService voteService;
 
+    @BeforeEach
+    void setUpClock() {
+        lenient().when(clock.instant()).thenReturn(FIXED_INSTANT);
+        lenient().when(clock.getZone()).thenReturn(KOREA);
+    }
+
     @Test
-    @DisplayName("참여 가능한 투표 목록 조회 시 activityDate를 포함해 반환한다")
+    @DisplayName("open=true 투표 목록 조회 시 activityDate를 포함해 반환한다")
     void getVotesReturnsActivityDate() {
         VoteSummaryResponse summary = new VoteSummaryResponse(
                 1L,
@@ -81,7 +98,8 @@ class VoteServiceTest {
                 3L,
                 true
         );
-        when(voteRepository.findJoinableVoteSummaries(any(LocalDateTime.class), any(org.springframework.data.domain.Pageable.class)))
+        LocalDateTime now = currentTime();
+        when(voteRepository.findOpenVoteSummaries(eq(now), eq(now.plusMinutes(30)), any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(summary), PageRequest.of(0, 10), 1));
 
         VoteListResponse response = voteService.getVotes(true, 0, 10);
@@ -89,7 +107,20 @@ class VoteServiceTest {
         assertThat(response.votes()).hasSize(1);
         assertThat(response.votes().get(0).activityDate()).isEqualTo(LocalDate.of(2026, 4, 10));
         assertThat(response.votes().get(0).matchRegistered()).isTrue();
-        verify(voteRepository).findJoinableVoteSummaries(any(LocalDateTime.class), any(org.springframework.data.domain.Pageable.class));
+        verify(voteRepository).findOpenVoteSummaries(eq(now), eq(now.plusMinutes(30)), any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    @DisplayName("open=false 투표 목록 조회 시 마감된 투표 목록 저장소를 조회한다")
+    void getVotesReturnsClosedVotesWhenOpenIsFalse() {
+        LocalDateTime now = currentTime();
+        when(voteRepository.findClosedVoteSummaries(eq(now), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+
+        VoteListResponse response = voteService.getVotes(false, 0, 10);
+
+        assertThat(response.votes()).isEmpty();
+        verify(voteRepository).findClosedVoteSummaries(eq(now), any(org.springframework.data.domain.Pageable.class));
     }
 
     @Test
@@ -325,7 +356,6 @@ class VoteServiceTest {
         Member member = savedMember(2L, "2001");
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
-        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(1L);
 
         voteService.createGuest(1L, 2L, new VoteGuestRequest("게스트", Gender.FEMALE, "A"));
 
@@ -415,7 +445,6 @@ class VoteServiceTest {
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.empty());
-        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(0L);
 
         voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true));
 
@@ -457,8 +486,8 @@ class VoteServiceTest {
                 .activityTime("19:00")
                 .location("이화체육관")
                 .memo("테스트 모임")
-                .voteStartAt(LocalDateTime.now().minusDays(2))
-                .voteEndAt(LocalDateTime.now().minusMinutes(1))
+                .voteStartAt(currentTime().minusDays(2))
+                .voteEndAt(currentTime().minusMinutes(1))
                 .capacity(20)
                 .build();
         ReflectionTestUtils.setField(vote, "id", 1L);
@@ -471,6 +500,29 @@ class VoteServiceTest {
     }
 
     @Test
+    @DisplayName("투표 시작 전에는 참석 여부를 저장할 수 없다")
+    void saveVoteAttendanceThrowsWhenVoteIsNotOpenYet() {
+        Vote vote = Vote.builder()
+                .title("목요 정기 운동")
+                .activityType(ActivityType.REGULAR)
+                .activityDate(LocalDate.of(2026, 4, 10))
+                .activityTime("19:00")
+                .location("이화체육관")
+                .memo("테스트 모임")
+                .voteStartAt(currentTime().plusMinutes(10))
+                .voteEndAt(currentTime().plusHours(2))
+                .capacity(20)
+                .build();
+        ReflectionTestUtils.setField(vote, "id", 1L);
+
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
+
+        assertThatThrownBy(() -> voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true)))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("투표 시작 시간 이후에만 참여할 수 있습니다.");
+    }
+
+    @Test
     @DisplayName("정원이 가득 차도 새 참석 투표는 저장할 수 있다")
     void saveVoteAttendanceAllowsWaitlistOnCreate() {
         Vote vote = savedVote(1L, "목요 정기 운동");
@@ -480,7 +532,6 @@ class VoteServiceTest {
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.empty());
-        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(2L);
 
         voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true));
 
@@ -493,8 +544,8 @@ class VoteServiceTest {
         Vote baseVote = savedVote(1L, "목요 정기 운동");
         Vote additionalVote = Vote.createAdditionalVote(
                 baseVote,
-                LocalDateTime.now().minusMinutes(30),
-                LocalDateTime.now().plusHours(1),
+                currentTime().minusMinutes(30),
+                currentTime().plusHours(1),
                 5
         );
         ReflectionTestUtils.setField(additionalVote, "id", 2L);
@@ -536,7 +587,6 @@ class VoteServiceTest {
         when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
         when(memberService.getMemberById(2L)).thenReturn(member);
         when(voteAttendanceRepository.findByVote_IdAndMember_Id(1L, 2L)).thenReturn(Optional.of(attendance));
-        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(2L);
 
         voteService.saveVoteAttendance(1L, 2L, new VoteAttendanceRequest(true));
 
@@ -557,7 +607,7 @@ class VoteServiceTest {
     @Test
     @DisplayName("투표 히스토리 조회 시 현재 참여 가능한 투표 수와 올해 생성된 투표 수를 반환한다")
     void getVoteHistoryReturnsJoinableAndThisYearVoteCounts() {
-        when(voteRepository.countByVoteEndAtAfter(any(LocalDateTime.class))).thenReturn(2L);
+        when(voteRepository.countByVoteEndAtAfter(currentTime())).thenReturn(2L);
         when(voteRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)
@@ -572,7 +622,7 @@ class VoteServiceTest {
     @Test
     @DisplayName("투표 히스토리 조회 시 올해 생성 건수 집계를 위해 올해 시작 시각과 다음 해 시작 시각을 사용한다")
     void getVoteHistoryUsesThisYearRange() {
-        when(voteRepository.countByVoteEndAtAfter(any(LocalDateTime.class))).thenReturn(0L);
+        when(voteRepository.countByVoteEndAtAfter(currentTime())).thenReturn(0L);
         when(voteRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)
@@ -596,7 +646,7 @@ class VoteServiceTest {
     }
 
     private Vote savedVote(Long id, String title) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = currentTime();
         Vote vote = Vote.builder()
                 .title(title)
                 .activityType(ActivityType.REGULAR)
@@ -628,5 +678,9 @@ class VoteServiceTest {
                 .build();
         ReflectionTestUtils.setField(guest, "id", id);
         return guest;
+    }
+
+    private LocalDateTime currentTime() {
+        return LocalDateTime.now(clock);
     }
 }
