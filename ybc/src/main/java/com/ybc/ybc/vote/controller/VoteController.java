@@ -1,6 +1,8 @@
 package com.ybc.ybc.vote.controller;
 
 import com.ybc.ybc.auth.domain.MemberPrincipal;
+import com.ybc.ybc.global.exception.ExceptionCode;
+import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
@@ -49,13 +51,14 @@ public class VoteController {
     }
 
     /**
-     * joinable 여부와 페이지 조건에 따라 투표 목록 조회를 요청받고 응답으로 반환한다.
+     * open 여부와 페이지 조건에 따라 투표 목록 조회를 요청받고 응답으로 반환한다.
      */
     @GetMapping
-    public ResponseEntity<VoteListResponse> getVotes(@RequestParam boolean joinable,
+    public ResponseEntity<VoteListResponse> getVotes(@RequestParam(required = false) Boolean open,
+                                                     @RequestParam(required = false) Boolean joinable,
                                                      @RequestParam(defaultValue = "0") int page,
                                                      @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(voteService.getVotes(joinable, page, size));
+        return ResponseEntity.ok(voteService.getVotes(resolveOpen(open, joinable), page, size));
     }
 
     /**
@@ -166,5 +169,15 @@ public class VoteController {
     @GetMapping("/history")
     public ResponseEntity<VoteHistoryResponse> getVoteHistory() {
         return ResponseEntity.ok(voteService.getVoteHistory());
+    }
+
+    private boolean resolveOpen(Boolean open, Boolean joinable) {
+        if (open != null) {
+            return open;
+        }
+        if (joinable != null) {
+            return joinable;
+        }
+        throw new YbcException(ExceptionCode.ILLEGAL_ARGUMENT);
     }
 }
