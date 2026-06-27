@@ -27,6 +27,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
+import static com.ybc.ybc.applications.domain.Status.FINAL_PASS;
 import static com.ybc.ybc.applications.domain.DiscoverySource.INSTAGRAM;
 import static com.ybc.ybc.applications.domain.Gender.MALE;
 import static com.ybc.ybc.applications.domain.InterviewTime.FIRST_SESSION;
@@ -36,6 +37,7 @@ import static com.ybc.ybc.applications.domain.Status.NONE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -173,6 +175,8 @@ class ApplicationServiceTest {
         ApplicantListResponse response = applicationService.getApplicants(null);
 
         assertThat(response.totalCount()).isEqualTo(2);
+        assertThat(response.firstPassCount()).isEqualTo(1);
+        assertThat(response.finalPassCount()).isEqualTo(0);
         assertThat(response.applicants()).hasSize(2);
         assertThat(response.applicants().get(0).applicationId()).isEqualTo(2L);
         assertThat(response.applicants().get(0).name()).isEqualTo("김철수");
@@ -182,6 +186,23 @@ class ApplicationServiceTest {
         assertThat(response.applicants().get(0).phone()).isEqualTo("010-1234-5678");
         assertThat(response.applicants().get(0).status()).isEqualTo("FIRST_PASS");
         assertThat(response.applicants().get(1).applicationId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("기수로 필터링한 지원자 목록은 해당 기수 기준 통계를 함께 반환한다")
+    void getApplicantsReturnsCountsForFilteredTerm() {
+        Application firstPassApplication = savedApplication(1L, "김철수", "10기", FIRST_PASS, LocalDateTime.of(2026, 3, 24, 11, 0));
+        Application finalPassApplication = savedApplication(2L, "이영희", "10기", FINAL_PASS, LocalDateTime.of(2026, 3, 25, 14, 30));
+        when(applicationRepository.findAllByTerm(eq("10기"), any(Sort.class)))
+                .thenReturn(List.of(finalPassApplication, firstPassApplication));
+        when(applicationRepository.findReapplicantIdsByApplicationIds(List.of(2L, 1L))).thenReturn(List.of());
+
+        ApplicantListResponse response = applicationService.getApplicants(" 10기 ");
+
+        assertThat(response.totalCount()).isEqualTo(2);
+        assertThat(response.firstPassCount()).isEqualTo(1);
+        assertThat(response.finalPassCount()).isEqualTo(1);
+        assertThat(response.applicants()).extracting("term").containsOnly("10기");
     }
 
     @Test
