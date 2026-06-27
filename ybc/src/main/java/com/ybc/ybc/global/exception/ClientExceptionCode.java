@@ -8,6 +8,7 @@ public enum ClientExceptionCode {
     INVALID_JWT_TOKEN,
     REFRESH_TOKEN_NOT_FOUND,
     SESSION_FULL,
+    VOTE_NOT_OPEN,
     VOTE_CLOSED,
     VOTE_NOT_FOUND,
     GUEST_NOT_FOUND,

@@ -24,7 +24,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
     java.util.Optional<Vote> findByIdForUpdate(@Param("voteId") Long voteId);
 
     /**
-     * 투표 마감 시간이 현재보다 뒤인 항목만 조회하고 참석 회원 수를 집계한다.
+     * 투표 시작 30분 전 이후이거나 이미 시작된 항목 중 아직 마감되지 않은 항목만 조회하고 참석 회원 수를 집계한다.
      */
     @Query(
             value = """
@@ -49,16 +49,19 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                     left join v.originalVote ov
                     left join VoteAttendance va on va.vote = v
                     where v.voteEndAt > :now
+                      and v.voteStartAt <= :openAt
                     group by v.id, v.title, v.activityType, v.activityDate, v.location, v.voteStartAt, v.voteEndAt, v.activityTime, v.capacity, ov.id
                     """,
             countQuery = """
                     select count(v)
                     from Vote v
                     where v.voteEndAt > :now
+                      and v.voteStartAt <= :openAt
                     """
     )
-    Page<VoteSummaryResponse> findJoinableVoteSummaries(
+    Page<VoteSummaryResponse> findOpenVoteSummaries(
             @Param("now") LocalDateTime now,
+            @Param("openAt") LocalDateTime openAt,
             Pageable pageable
     );
 

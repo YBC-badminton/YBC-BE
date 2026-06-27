@@ -128,16 +128,30 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("진행 중인 투표 목록과 페이지 정보를 함께 조회한다")
-    void getJoinableVotes() throws Exception {
-        Vote joinableVote = vote(
+    @DisplayName("open=true 조회 시 이미 열린 투표와 30분 내 오픈 예정 투표만 함께 조회한다")
+    void getOpenVotes() throws Exception {
+        Vote openedVote = vote(
                 "목요 정기 운동",
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusDays(1),
                 20
         );
-        joinableVote = voteRepository.save(joinableVote);
+        openedVote = voteRepository.save(openedVote);
+        Vote previewVote = voteRepository.save(vote(
+                "곧 열릴 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().plusMinutes(20),
+                LocalDateTime.now().plusHours(3),
+                18
+        ));
+        voteRepository.save(vote(
+                "아직 예약된 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().plusHours(1),
+                LocalDateTime.now().plusHours(4),
+                16
+        ));
         Vote closedVote = voteRepository.save(vote(
                 "지난 번개 운동",
                 ActivityType.FLASH,
@@ -146,23 +160,26 @@ class VoteControllerIntegrationTest {
                 12
         ));
 
-        addAttendance(joinableVote, true, "1001");
-        addAttendance(joinableVote, true, "1002");
-        addGuest(joinableVote, "host1", "게스트");
-        addAttendance(joinableVote, false, "1003");
+        addAttendance(openedVote, true, "1001");
+        addAttendance(openedVote, true, "1002");
+        addGuest(openedVote, "host1", "게스트");
+        addAttendance(openedVote, false, "1003");
         addAttendance(closedVote, true, "2001");
-        jdbcTemplate.update("insert into vote_match_group (vote_id, created_at) values (?, current_timestamp)", joinableVote.getId());
+        jdbcTemplate.update("insert into vote_match_group (vote_id, created_at) values (?, current_timestamp)", openedVote.getId());
 
         mockMvc.perform(get("/votes")
                         .with(jwt())
-                        .param("joinable", "true")
+                        .param("open", "true")
                         .param("page", "0")
                         .param("size", "10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.votes.length()").value(1))
-                .andExpect(jsonPath("$.votes[0].voteId").value(joinableVote.getId()))
+                .andExpect(jsonPath("$.votes.length()").value(2))
+                .andExpect(jsonPath("$.votes[0].voteId").value(openedVote.getId()))
                 .andExpect(jsonPath("$.votes[0].currentParticipantCount").value(2))
-                .andExpect(jsonPath("$.votes[0].matchRegistered").value(true));
+                .andExpect(jsonPath("$.votes[0].matchRegistered").value(true))
+                .andExpect(jsonPath("$.votes[1].voteId").value(previewVote.getId()))
+                .andExpect(jsonPath("$.votes[1].currentParticipantCount").value(0))
+                .andExpect(jsonPath("$.votes[1].matchRegistered").value(false));
     }
 
     @Test
@@ -636,6 +653,28 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("투표 시작 전에는 게스트 참여를 저장할 수 없다")
+    void createGuestThrowsWhenVoteIsNotOpenYet() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "곧 열릴 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().plusMinutes(10),
+                LocalDateTime.now().plusHours(2),
+                20
+        ));
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+
+        mockMvc.perform(post("/votes/{voteId}/guests", vote.getId())
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteGuestRequest("게스트", Gender.FEMALE, "A"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VOTE_NOT_OPEN"));
+    }
+
+    @Test
     @DisplayName("게스트를 추가한 사람은 본인 게스트를 수정할 수 있다")
     void updateGuest() throws Exception {
         Vote vote = voteRepository.save(vote(
@@ -944,6 +983,28 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("투표 시작 전에는 참석 여부를 저장할 수 없다")
+    void saveVoteAttendanceThrowsWhenVoteIsNotOpenYet() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "곧 열릴 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().plusMinutes(10),
+                LocalDateTime.now().plusHours(2),
+                20
+        ));
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+
+        mockMvc.perform(put("/votes/{voteId}/attendance", vote.getId())
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VoteAttendanceRequest(true))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VOTE_NOT_OPEN"));
+    }
+
+    @Test
     @DisplayName("존재하지 않는 투표를 상세 조회하면 예외가 발생한다")
     void getVoteThrowsWhenVoteIsMissing() throws Exception {
         mockMvc.perform(get("/votes/{voteId}", 999L).with(jwt()))
@@ -952,7 +1013,7 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("마감된 투표 목록만 조회한다")
+    @DisplayName("open=false 조회 시 지난 모임만 조회한다")
     void getClosedVotes() throws Exception {
         voteRepository.save(vote(
                 "주말 이벤트 운동",
@@ -968,10 +1029,17 @@ class VoteControllerIntegrationTest {
                 LocalDateTime.now().plusHours(5),
                 18
         ));
+        voteRepository.save(vote(
+                "곧 열릴 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().plusMinutes(20),
+                LocalDateTime.now().plusHours(5),
+                18
+        ));
 
         mockMvc.perform(get("/votes")
                         .with(jwt())
-                        .param("joinable", "false")
+                        .param("open", "false")
                         .param("page", "0")
                         .param("size", "10"))
                 .andExpect(status().isOk())
@@ -1004,7 +1072,7 @@ class VoteControllerIntegrationTest {
     @DisplayName("인증되지 않은 사용자는 투표 목록을 조회할 수 없다")
     void getVotesRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/votes")
-                        .param("joinable", "true")
+                        .param("open", "true")
                         .param("page", "0")
                         .param("size", "10"))
                 .andExpect(status().isUnauthorized())
