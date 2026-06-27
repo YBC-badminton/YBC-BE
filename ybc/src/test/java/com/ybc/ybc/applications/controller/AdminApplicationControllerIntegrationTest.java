@@ -27,6 +27,10 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -66,6 +70,8 @@ class AdminApplicationControllerIntegrationTest {
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalCount").value(0))
+                .andExpect(jsonPath("$.firstPassCount").value(0))
+                .andExpect(jsonPath("$.finalPassCount").value(0))
                 .andExpect(jsonPath("$.applicants").isArray())
                 .andExpect(jsonPath("$.applicants").isEmpty());
     }
@@ -80,6 +86,8 @@ class AdminApplicationControllerIntegrationTest {
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalCount").value(2))
+                .andExpect(jsonPath("$.firstPassCount").value(1))
+                .andExpect(jsonPath("$.finalPassCount").value(0))
                 .andExpect(jsonPath("$.applicants[0].applicationId").value(secondApplication.getId()))
                 .andExpect(jsonPath("$.applicants[0].name").value("이영희"))
                 .andExpect(jsonPath("$.applicants[0].term").value("10기"))
@@ -119,17 +127,25 @@ class AdminApplicationControllerIntegrationTest {
     void getApplicantsFiltersByTermAndMarksReapplicant() throws Exception {
         saveApplication("김철수", "9기", "01012345678", Status.NONE, Gender.MALE, DiscoverySource.INSTAGRAM);
         Application reapplicant = saveApplication("김철수", "10기", "01012345678", Status.FIRST_PASS, Gender.MALE, DiscoverySource.INSTAGRAM);
+        Application finalPassApplicant = saveApplication("이영희", "10기", "010-7777-8888", Status.FINAL_PASS, Gender.FEMALE, DiscoverySource.EVERYTIME);
         saveApplication("박민수", "9기", "010-5555-6666", Status.NONE, Gender.MALE, DiscoverySource.EVERYTIME);
 
         mockMvc.perform(get(ADMIN_APPLICATIONS_API)
                         .param("term", "10기")
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalCount").value(1))
-                .andExpect(jsonPath("$.applicants[0].applicationId").value(reapplicant.getId()))
-                .andExpect(jsonPath("$.applicants[0].term").value("10기"))
-                .andExpect(jsonPath("$.applicants[0].isReapplicant").value(true))
-                .andExpect(jsonPath("$.applicants[0].phone").value("010-1234-5678"));
+                .andExpect(jsonPath("$.totalCount").value(2))
+                .andExpect(jsonPath("$.firstPassCount").value(1))
+                .andExpect(jsonPath("$.finalPassCount").value(1))
+                .andExpect(jsonPath("$.applicants[*].applicationId").value(containsInAnyOrder(
+                        reapplicant.getId().intValue(),
+                        finalPassApplicant.getId().intValue()
+                )))
+                .andExpect(jsonPath("$.applicants[*].term").value(everyItem(is("10기"))))
+                .andExpect(jsonPath("$.applicants[?(@.applicationId == %s)].isReapplicant", reapplicant.getId())
+                        .value(hasItem(true)))
+                .andExpect(jsonPath("$.applicants[?(@.applicationId == %s)].phone", reapplicant.getId())
+                        .value(hasItem("010-1234-5678")));
     }
 
     @Test
