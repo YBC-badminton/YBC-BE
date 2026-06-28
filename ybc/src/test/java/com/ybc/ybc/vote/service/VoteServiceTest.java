@@ -673,13 +673,11 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("투표 히스토리 조회 시 현재 참여 가능한 투표 수와 올해 생성된 투표 수를 반환한다")
+    @DisplayName("투표 히스토리 조회 시 현재 진행 중인 투표 수와 마감된 일반 투표 수를 반환한다")
     void getVoteHistoryReturnsJoinableAndThisYearVoteCounts() {
-        when(voteRepository.countByVoteEndAtAfter(currentTime())).thenReturn(2L);
-        when(voteRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                any(LocalDateTime.class),
-                any(LocalDateTime.class)
-        )).thenReturn(18L);
+        when(voteRepository.countByVoteStartAtLessThanEqualAndVoteEndAtAfter(currentTime(), currentTime())).thenReturn(2L);
+        when(voteRepository.countCompletedVotesExcludingAdditional(currentTime(), Vote.ADDITIONAL_PARTICIPATION_SUFFIX))
+                .thenReturn(18L);
 
         VoteHistoryResponse response = voteService.getVoteHistory();
 
@@ -688,29 +686,16 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("투표 히스토리 조회 시 올해 생성 건수 집계를 위해 올해 시작 시각과 다음 해 시작 시각을 사용한다")
-    void getVoteHistoryUsesThisYearRange() {
-        when(voteRepository.countByVoteEndAtAfter(currentTime())).thenReturn(0L);
-        when(voteRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                any(LocalDateTime.class),
-                any(LocalDateTime.class)
-        )).thenReturn(0L);
+    @DisplayName("투표 히스토리 조회 시 현재 시각과 추가참여 suffix로 집계 조건을 전달한다")
+    void getVoteHistoryUsesCurrentTimeAndAdditionalSuffix() {
+        when(voteRepository.countByVoteStartAtLessThanEqualAndVoteEndAtAfter(currentTime(), currentTime())).thenReturn(0L);
+        when(voteRepository.countCompletedVotesExcludingAdditional(currentTime(), Vote.ADDITIONAL_PARTICIPATION_SUFFIX))
+                .thenReturn(0L);
 
         voteService.getVoteHistory();
 
-        ArgumentCaptor<LocalDateTime> voteEndAtCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-        ArgumentCaptor<LocalDateTime> startCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-        ArgumentCaptor<LocalDateTime> endCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-
-        verify(voteRepository).countByVoteEndAtAfter(voteEndAtCaptor.capture());
-        verify(voteRepository).countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(startCaptor.capture(), endCaptor.capture());
-
-        LocalDateTime now = voteEndAtCaptor.getValue();
-        LocalDateTime startOfYear = startCaptor.getValue();
-        LocalDateTime startOfNextYear = endCaptor.getValue();
-
-        assertThat(startOfYear).isEqualTo(LocalDateTime.of(now.getYear(), 1, 1, 0, 0));
-        assertThat(startOfNextYear).isEqualTo(LocalDateTime.of(now.getYear() + 1, 1, 1, 0, 0));
+        verify(voteRepository).countByVoteStartAtLessThanEqualAndVoteEndAtAfter(currentTime(), currentTime());
+        verify(voteRepository).countCompletedVotesExcludingAdditional(currentTime(), Vote.ADDITIONAL_PARTICIPATION_SUFFIX);
     }
 
     private Vote savedVote(Long id, String title) {

@@ -258,17 +258,15 @@ public class VoteService {
     }
 
     /**
-     * 현재 참여 가능한 투표 수와 올해 생성된 투표 수를 집계하여 응답 DTO로 변환한다.
+     * 현재 진행 중인 투표 수와 마감된 일반 투표 수를 집계하여 응답 DTO로 변환한다.
      */
     public VoteHistoryResponse getVoteHistory() {
         LocalDateTime now = now();
-        LocalDateTime startOfYear = now.toLocalDate()
-                .withDayOfYear(1)
-                .atStartOfDay();
-        LocalDateTime startOfNextYear = startOfYear.plusYears(1);
-
-        long joinableVotes = voteRepository.countByVoteEndAtAfter(now);
-        long thisYearVotes = voteRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(startOfYear, startOfNextYear);
+        long joinableVotes = voteRepository.countByVoteStartAtLessThanEqualAndVoteEndAtAfter(now, now);
+        long thisYearVotes = voteRepository.countCompletedVotesExcludingAdditional(
+                now,
+                Vote.ADDITIONAL_PARTICIPATION_SUFFIX
+        );
 
         return new VoteHistoryResponse(joinableVotes, thisYearVotes);
     }
