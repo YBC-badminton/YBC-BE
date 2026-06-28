@@ -13,7 +13,8 @@ public record EquipmentReviewSummaryResponse(
         int usageMonth,
         String content,
         String memberNickname,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
 ) {
     public static EquipmentReviewSummaryResponse from(EquipmentReview review) {
         return new EquipmentReviewSummaryResponse(
@@ -25,7 +26,8 @@ public record EquipmentReviewSummaryResponse(
                 review.getUsageMonth(),
                 review.getContent(),
                 review.getMember().getNickname(),
-                review.getCreatedAt()
+                review.getCreatedAt(),
+                review.getUpdatedAt()
         );
     }
 }
