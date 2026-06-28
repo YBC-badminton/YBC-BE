@@ -15,9 +15,17 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface VoteRepository extends JpaRepository<Vote, Long> {
-    long countByVoteEndAtAfter(LocalDateTime now);
+    long countByVoteStartAtLessThanEqualAndVoteEndAtAfter(LocalDateTime voteStartAt, LocalDateTime voteEndAt);
 
-    long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime start, LocalDateTime end);
+    @Query("""
+            select count(v)
+            from Vote v
+            where v.voteEndAt <= :now
+              and v.originalVote is null
+              and v.title not like concat('%', :additionalParticipationSuffix)
+            """)
+    long countCompletedVotesExcludingAdditional(@Param("now") LocalDateTime now,
+                                                @Param("additionalParticipationSuffix") String additionalParticipationSuffix);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select v from Vote v where v.id = :voteId")
