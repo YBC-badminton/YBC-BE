@@ -243,6 +243,74 @@ class VoteServiceTest {
     }
 
     @Test
+    @DisplayName("주말 정기 운동은 기본 게스트 quota가 2명이다")
+    void getVoteGuestsUsesWeekendQuotaForRegularVote() {
+        Vote vote = savedVote(1L, "토요 정기 운동");
+        ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 11));
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteIds(anyCollection())).thenReturn(List.of());
+        when(guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(anyCollection())).thenReturn(List.of(
+                guest(vote, savedMember(2L, "2001"), 10L, "게스트1"),
+                guest(vote, savedMember(3L, "2002"), 11L, "게스트2"),
+                guest(vote, savedMember(4L, "2003"), 12L, "게스트3")
+        ));
+
+        VoteGuestListResponse response = voteService.getVoteGuests(1L);
+
+        assertThat(response.confirmedGuestCount()).isEqualTo(2L);
+        assertThat(response.waitingGuestCount()).isEqualTo(1L);
+        assertThat(response.guestQuota()).isEqualTo(2);
+        assertThat(response.guests().get(0).isWaiting()).isFalse();
+        assertThat(response.guests().get(1).isWaiting()).isFalse();
+        assertThat(response.guests().get(2).isWaiting()).isTrue();
+    }
+
+    @Test
+    @DisplayName("번개 운동 게스트는 제한 없이 모두 확정된다")
+    void getVoteGuestsConfirmsAllFlashGuests() {
+        Vote vote = savedVote(1L, "번개 운동");
+        ReflectionTestUtils.setField(vote, "activityType", ActivityType.FLASH);
+        ReflectionTestUtils.setField(vote, "capacity", 1);
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteIds(anyCollection())).thenReturn(List.of());
+        when(guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(anyCollection())).thenReturn(List.of(
+                guest(vote, savedMember(2L, "2001"), 10L, "게스트1"),
+                guest(vote, savedMember(3L, "2002"), 11L, "게스트2"),
+                guest(vote, savedMember(4L, "2003"), 12L, "게스트3")
+        ));
+
+        VoteGuestListResponse response = voteService.getVoteGuests(1L);
+
+        assertThat(response.confirmedGuestCount()).isEqualTo(3L);
+        assertThat(response.waitingGuestCount()).isZero();
+        assertThat(response.guestQuota()).isEqualTo(3);
+        assertThat(response.guests()).allMatch(guestSummary -> !guestSummary.isWaiting());
+    }
+
+    @Test
+    @DisplayName("이벤트 운동 게스트는 모두 대기 상태로 반환한다")
+    void getVoteGuestsMarksAllEventGuestsAsWaiting() {
+        Vote vote = savedVote(1L, "행사 운동");
+        ReflectionTestUtils.setField(vote, "activityType", ActivityType.EVENT);
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteIds(anyCollection())).thenReturn(List.of());
+        when(guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(anyCollection())).thenReturn(List.of(
+                guest(vote, savedMember(2L, "2001"), 10L, "게스트1"),
+                guest(vote, savedMember(3L, "2002"), 11L, "게스트2")
+        ));
+
+        VoteGuestListResponse response = voteService.getVoteGuests(1L);
+
+        assertThat(response.confirmedGuestCount()).isZero();
+        assertThat(response.waitingGuestCount()).isEqualTo(2L);
+        assertThat(response.guestQuota()).isZero();
+        assertThat(response.guests()).allMatch(guestSummary -> guestSummary.isWaiting());
+    }
+
+    @Test
     @DisplayName("현재 로그인한 회원의 투표 참석 여부를 반환한다")
     void getVoteAttendanceReturnsAttendanceStatus() {
         Vote vote = savedVote(1L, "목요 정기 운동");
