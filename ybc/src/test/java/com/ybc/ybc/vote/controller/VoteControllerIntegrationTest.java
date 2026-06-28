@@ -190,56 +190,86 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("비로그인 사용자는 최근 투표 3개 조회 시 참여 인원 수가 숨겨진다")
+    @DisplayName("비로그인 사용자는 진행 중인 투표만 활동 날짜와 타입 우선순위에 따라 최근 3개 조회한다")
     void getRecentVotesHidesParticipantCountsForUnauthenticatedUser() throws Exception {
-        Vote newestVote = voteRepository.save(vote(
-                "가장 최근 투표",
+        voteRepository.save(vote(
+                "미래 투표",
                 ActivityType.REGULAR,
-                LocalDate.of(2026, 4, 13),
-                LocalDateTime.now().minusHours(1),
+                LocalDate.of(2026, 4, 20),
+                LocalDateTime.now().plusHours(1),
                 LocalDateTime.now().plusDays(1),
                 20
         ));
-        Vote secondVote = voteRepository.save(vote(
-                "두 번째 최근 투표",
+        voteRepository.save(vote(
+                "종료된 투표",
                 ActivityType.EVENT,
-                LocalDate.of(2026, 4, 12),
+                LocalDate.of(2026, 4, 19),
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusHours(1),
+                18
+        ));
+        Vote regularVote = voteRepository.save(vote(
+                "정기 운동",
+                ActivityType.REGULAR,
+                LocalDate.of(2026, 4, 13),
+                LocalDateTime.now().minusHours(3),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        Vote eventVote = voteRepository.save(vote(
+                "이벤트",
+                ActivityType.EVENT,
+                LocalDate.of(2026, 4, 13),
                 LocalDateTime.now().minusHours(2),
                 LocalDateTime.now().plusDays(2),
                 18
         ));
-        voteRepository.save(vote(
-                "세 번째 최근 투표",
+        Vote flashVote = voteRepository.save(vote(
+                "번개",
                 ActivityType.FLASH,
-                LocalDate.of(2026, 4, 11),
-                LocalDateTime.now().minusHours(3),
+                LocalDate.of(2026, 4, 13),
+                LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusDays(3),
                 12
         ));
         voteRepository.save(vote(
-                "네 번째 투표",
+                "이전 날짜 투표",
                 ActivityType.FLASH,
-                LocalDate.of(2026, 4, 10),
+                LocalDate.of(2026, 4, 12),
                 LocalDateTime.now().minusHours(4),
                 LocalDateTime.now().plusDays(4),
                 10
         ));
-        addAttendance(newestVote, true, "recent-1001");
-        addAttendance(secondVote, true, "recent-1002");
+        addAttendance(regularVote, true, "recent-1001");
+        addAttendance(eventVote, true, "recent-1002");
+        addAttendance(flashVote, true, "recent-1003");
 
         mockMvc.perform(get("/votes/recent"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(3))
-                .andExpect(jsonPath("$.votes[0].name").value("가장 최근 투표"))
+                .andExpect(jsonPath("$.votes[0].name").value("정기 운동"))
+                .andExpect(jsonPath("$.votes[0].type").value("REGULAR"))
                 .andExpect(jsonPath("$.votes[0].participantCountVisible").value(false))
-                .andExpect(jsonPath("$.votes[0].currentParticipantCount").doesNotExist());
+                .andExpect(jsonPath("$.votes[0].currentParticipantCount").doesNotExist())
+                .andExpect(jsonPath("$.votes[1].name").value("이벤트"))
+                .andExpect(jsonPath("$.votes[1].type").value("EVENT"))
+                .andExpect(jsonPath("$.votes[2].name").value("번개"))
+                .andExpect(jsonPath("$.votes[2].type").value("FLASH"));
     }
 
     @Test
-    @DisplayName("로그인 사용자는 최근 투표 3개 조회 시 참여 인원 수를 볼 수 있다")
+    @DisplayName("로그인 사용자는 진행 중인 최근 투표만 참여 인원 수와 함께 볼 수 있다")
     void getRecentVotesShowsParticipantCountsForAuthenticatedUser() throws Exception {
+        voteRepository.save(vote(
+                "아직 시작 전 투표",
+                ActivityType.EVENT,
+                LocalDate.of(2026, 4, 20),
+                LocalDateTime.now().plusHours(1),
+                LocalDateTime.now().plusDays(1),
+                10
+        ));
         Vote vote = voteRepository.save(vote(
-                "최근 투표",
+                "진행 중 투표",
                 ActivityType.REGULAR,
                 LocalDate.of(2026, 4, 13),
                 LocalDateTime.now().minusHours(1),
@@ -256,7 +286,7 @@ class VoteControllerIntegrationTest {
         mockMvc.perform(get("/votes/recent").with(authenticatedMember(member)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(1))
-                .andExpect(jsonPath("$.votes[0].name").value("최근 투표"))
+                .andExpect(jsonPath("$.votes[0].name").value("진행 중 투표"))
                 .andExpect(jsonPath("$.votes[0].participantCountVisible").value(true))
                 .andExpect(jsonPath("$.votes[0].currentParticipantCount").value(2));
     }
