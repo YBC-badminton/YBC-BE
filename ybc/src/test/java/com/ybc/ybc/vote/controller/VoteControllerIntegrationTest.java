@@ -195,6 +195,7 @@ class VoteControllerIntegrationTest {
         Vote newestVote = voteRepository.save(vote(
                 "가장 최근 투표",
                 ActivityType.REGULAR,
+                LocalDate.of(2026, 4, 13),
                 LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusDays(1),
                 20
@@ -202,6 +203,7 @@ class VoteControllerIntegrationTest {
         Vote secondVote = voteRepository.save(vote(
                 "두 번째 최근 투표",
                 ActivityType.EVENT,
+                LocalDate.of(2026, 4, 12),
                 LocalDateTime.now().minusHours(2),
                 LocalDateTime.now().plusDays(2),
                 18
@@ -209,6 +211,7 @@ class VoteControllerIntegrationTest {
         voteRepository.save(vote(
                 "세 번째 최근 투표",
                 ActivityType.FLASH,
+                LocalDate.of(2026, 4, 11),
                 LocalDateTime.now().minusHours(3),
                 LocalDateTime.now().plusDays(3),
                 12
@@ -216,6 +219,7 @@ class VoteControllerIntegrationTest {
         voteRepository.save(vote(
                 "네 번째 투표",
                 ActivityType.FLASH,
+                LocalDate.of(2026, 4, 10),
                 LocalDateTime.now().minusHours(4),
                 LocalDateTime.now().plusDays(4),
                 10
@@ -226,7 +230,7 @@ class VoteControllerIntegrationTest {
         mockMvc.perform(get("/votes/recent"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(3))
-                .andExpect(jsonPath("$.votes[0].name").value("네 번째 투표"))
+                .andExpect(jsonPath("$.votes[0].name").value("가장 최근 투표"))
                 .andExpect(jsonPath("$.votes[0].participantCountVisible").value(false))
                 .andExpect(jsonPath("$.votes[0].currentParticipantCount").doesNotExist());
     }
@@ -237,6 +241,7 @@ class VoteControllerIntegrationTest {
         Vote vote = voteRepository.save(vote(
                 "최근 투표",
                 ActivityType.REGULAR,
+                LocalDate.of(2026, 4, 13),
                 LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusDays(1),
                 20
@@ -1360,13 +1365,14 @@ class VoteControllerIntegrationTest {
 
     private Vote vote(String title,
                       ActivityType activityType,
+                      LocalDate activityDate,
                       LocalDateTime voteStartAt,
                       LocalDateTime voteEndAt,
                       int capacity) {
         return Vote.builder()
                 .title(title)
                 .activityType(activityType)
-                .activityDate(LocalDate.of(2026, 4, 10))
+                .activityDate(activityDate)
                 .activityTime("19:00")
                 .location("이화체육관")
                 .memo("테스트 모임")
@@ -1374,6 +1380,14 @@ class VoteControllerIntegrationTest {
                 .voteEndAt(voteEndAt)
                 .capacity(capacity)
                 .build();
+    }
+
+    private Vote vote(String title,
+                      ActivityType activityType,
+                      LocalDateTime voteStartAt,
+                      LocalDateTime voteEndAt,
+                      int capacity) {
+        return vote(title, activityType, LocalDate.of(2026, 4, 10), voteStartAt, voteEndAt, capacity);
     }
 
     private void addAttendance(Vote vote,
