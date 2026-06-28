@@ -5,6 +5,7 @@ import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Comparator;
@@ -15,8 +16,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 final class VoteGuestWaitlistResolver {
-    private static final int TUESDAY_GUEST_QUOTA = 3;
-    private static final int SATURDAY_GUEST_QUOTA = 2;
+    private static final int WEEKDAY_GUEST_QUOTA = 3;
+    private static final int WEEKEND_GUEST_QUOTA = 2;
 
     private VoteGuestWaitlistResolver() {
     }
@@ -27,7 +28,21 @@ final class VoteGuestWaitlistResolver {
                                      Collection<Guest> guests,
                                      LocalDateTime now) {
         List<Guest> orderedGuests = sortByGuestApplicationOrder(guests);
-        int guestQuota = resolveGuestQuota(baseVote, relatedVotes, confirmedAttendances, now);
+        if (baseVote.getActivityType() == ActivityType.FLASH) {
+            List<ResolvedGuest> confirmedGuests = orderedGuests.stream()
+                    .map(guest -> new ResolvedGuest(guest, false))
+                    .toList();
+            return new ResolvedGuestList(orderedGuests.size(), orderedGuests.size(), 0L, confirmedGuests);
+        }
+
+        if (baseVote.getActivityType() == ActivityType.EVENT) {
+            List<ResolvedGuest> waitingGuests = orderedGuests.stream()
+                    .map(guest -> new ResolvedGuest(guest, true))
+                    .toList();
+            return new ResolvedGuestList(0, 0L, orderedGuests.size(), waitingGuests);
+        }
+
+        int guestQuota = resolveRegularGuestQuota(baseVote, relatedVotes, confirmedAttendances, now);
         List<ResolvedGuest> resolvedGuests = orderedGuests.stream()
                 .map(guest -> new ResolvedGuest(guest, true))
                 .toList();
@@ -67,26 +82,19 @@ final class VoteGuestWaitlistResolver {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    private static int resolveGuestQuota(Vote baseVote,
-                                         Collection<Vote> relatedVotes,
-                                         Collection<VoteAttendance> confirmedAttendances,
-                                         LocalDateTime now) {
+    private static int resolveRegularGuestQuota(Vote baseVote,
+                                                Collection<Vote> relatedVotes,
+                                                Collection<VoteAttendance> confirmedAttendances,
+                                                LocalDateTime now) {
         Map<Long, Long> confirmedMemberCountByVoteId = confirmedAttendances.stream()
                 .collect(Collectors.groupingBy(
                         attendance -> attendance.getVote().getId(),
                         Collectors.counting()
                 ));
 
-        if (baseVote.getActivityType() != ActivityType.REGULAR) {
-            long confirmedMembers = confirmedMemberCountByVoteId.getOrDefault(baseVote.getId(), 0L);
-            return (int) Math.max((long) baseVote.getCapacity() - confirmedMembers, 0L);
-        }
-
-        int baseGuestQuota = switch (baseVote.getActivityDate().getDayOfWeek()) {
-            case TUESDAY -> TUESDAY_GUEST_QUOTA;
-            case SATURDAY -> SATURDAY_GUEST_QUOTA;
-            default -> 0;
-        };
+        int baseGuestQuota = isWeekend(baseVote.getActivityDate().getDayOfWeek())
+                ? WEEKEND_GUEST_QUOTA
+                : WEEKDAY_GUEST_QUOTA;
         int additionalGuestQuota = relatedVotes.stream()
                 .filter(relatedVote -> !relatedVote.getId().equals(baseVote.getId()))
                 .filter(relatedVote -> !relatedVote.getVoteEndAt().isAfter(now))
@@ -96,6 +104,10 @@ final class VoteGuestWaitlistResolver {
                 ))
                 .sum();
         return baseGuestQuota + additionalGuestQuota;
+    }
+
+    private static boolean isWeekend(DayOfWeek dayOfWeek) {
+        return dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
     }
 
     private static List<Guest> sortByGuestApplicationOrder(Collection<Guest> guests) {

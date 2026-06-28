@@ -339,6 +339,78 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("주말 정기 운동은 게스트 2명까지만 확정된다")
+    void getVoteGuestsUsesWeekendQuotaForRegularVote() throws Exception {
+        Vote vote = vote(
+                "토요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        );
+        ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 11));
+        vote = voteRepository.save(vote);
+        addGuest(vote, "weekend-host1", "게스트1");
+        addGuest(vote, "weekend-host2", "게스트2");
+        addGuest(vote, "weekend-host3", "게스트3");
+
+        mockMvc.perform(get("/votes/{voteId}/guests", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.confirmedGuestCount").value(2))
+                .andExpect(jsonPath("$.waitingGuestCount").value(1))
+                .andExpect(jsonPath("$.guestQuota").value(2))
+                .andExpect(jsonPath("$.guests[0].isWaiting").value(false))
+                .andExpect(jsonPath("$.guests[1].isWaiting").value(false))
+                .andExpect(jsonPath("$.guests[2].isWaiting").value(true));
+    }
+
+    @Test
+    @DisplayName("번개 운동 게스트는 모두 확정된다")
+    void getVoteGuestsConfirmsAllFlashGuests() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "금요 번개 운동",
+                ActivityType.FLASH,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                1
+        ));
+        addGuest(vote, "flash-host1", "게스트1");
+        addGuest(vote, "flash-host2", "게스트2");
+        addGuest(vote, "flash-host3", "게스트3");
+
+        mockMvc.perform(get("/votes/{voteId}/guests", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.confirmedGuestCount").value(3))
+                .andExpect(jsonPath("$.waitingGuestCount").value(0))
+                .andExpect(jsonPath("$.guestQuota").value(3))
+                .andExpect(jsonPath("$.guests[0].isWaiting").value(false))
+                .andExpect(jsonPath("$.guests[1].isWaiting").value(false))
+                .andExpect(jsonPath("$.guests[2].isWaiting").value(false));
+    }
+
+    @Test
+    @DisplayName("이벤트 운동 게스트는 모두 대기 상태다")
+    void getVoteGuestsMarksAllEventGuestsAsWaiting() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "행사 운동",
+                ActivityType.EVENT,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        addGuest(vote, "event-host1", "게스트1");
+        addGuest(vote, "event-host2", "게스트2");
+
+        mockMvc.perform(get("/votes/{voteId}/guests", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.confirmedGuestCount").value(0))
+                .andExpect(jsonPath("$.waitingGuestCount").value(2))
+                .andExpect(jsonPath("$.guestQuota").value(0))
+                .andExpect(jsonPath("$.guests[0].isWaiting").value(true))
+                .andExpect(jsonPath("$.guests[1].isWaiting").value(true));
+    }
+
+    @Test
     @DisplayName("인증된 사용자는 등록된 대진을 조회할 수 있다")
     void getVoteMatch() throws Exception {
         Vote vote = voteRepository.save(vote(
