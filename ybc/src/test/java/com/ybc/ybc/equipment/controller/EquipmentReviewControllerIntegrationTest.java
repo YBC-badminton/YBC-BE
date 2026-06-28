@@ -398,6 +398,7 @@ class EquipmentReviewControllerIntegrationTest {
                 .andExpect(jsonPath("$.reviews[0].usageMonth").value(6))
                 .andExpect(jsonPath("$.reviews[0].memberNickname").value("김민수"))
                 .andExpect(jsonPath("$.reviews[0].createdAt").value("2026-03-15T14:30:00"))
+                .andExpect(jsonPath("$.reviews[0].updatedAt").value("2026-03-15T14:30:00"))
                 .andExpect(jsonPath("$.reviews[1].reviewId").value(reviewTwo.getId()))
                 .andExpect(jsonPath("$.reviews[1].category").value("SHOES"))
                 .andExpect(jsonPath("$.reviews[1].brandName").value("VICTOR"))
@@ -406,6 +407,7 @@ class EquipmentReviewControllerIntegrationTest {
                 .andExpect(jsonPath("$.reviews[1].usageMonth").value(12))
                 .andExpect(jsonPath("$.reviews[1].memberNickname").value("오시온"))
                 .andExpect(jsonPath("$.reviews[1].createdAt").value("2026-03-14T11:20:00"))
+                .andExpect(jsonPath("$.reviews[1].updatedAt").value("2026-03-14T11:20:00"))
                 .andExpect(jsonPath("$.pageInfo.totalElements").value(2))
                 .andExpect(jsonPath("$.pageInfo.totalPages").value(1))
                 .andExpect(jsonPath("$.pageInfo.isLast").value(true));
