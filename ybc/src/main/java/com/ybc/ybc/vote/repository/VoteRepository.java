@@ -112,7 +112,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
             Pageable pageable
     );
 
-    List<Vote> findTop3ByOrderByCreatedAtDescIdDesc();
+    List<Vote> findTop3ByOrderByActivityDateDescCreatedAtDescIdDesc();
 
     List<Vote> findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime now);
 

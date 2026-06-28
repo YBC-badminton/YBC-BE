@@ -169,10 +169,11 @@ class VoteServiceTest {
     @Test
     @DisplayName("로그인 사용자의 최근 투표 3개 조회 시 참여 인원 수를 함께 반환한다")
     void getRecentVotesReturnsParticipantCountsForAuthenticatedUser() {
-        Vote firstVote = savedVote(1L, "첫 번째 투표");
-        Vote secondVote = savedVote(2L, "두 번째 투표");
-        Vote thirdVote = savedVote(3L, "세 번째 투표");
-        when(voteRepository.findTop3ByOrderByCreatedAtDescIdDesc()).thenReturn(List.of(firstVote, secondVote, thirdVote));
+        Vote firstVote = savedVote(1L, "가장 최근 투표", LocalDate.of(2026, 4, 12));
+        Vote secondVote = savedVote(2L, "두 번째 최근 투표", LocalDate.of(2026, 4, 11));
+        Vote thirdVote = savedVote(3L, "세 번째 최근 투표", LocalDate.of(2026, 4, 10));
+        when(voteRepository.findTop3ByOrderByActivityDateDescCreatedAtDescIdDesc())
+                .thenReturn(List.of(firstVote, secondVote, thirdVote));
         when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(3L);
         when(voteAttendanceRepository.countAttendancesByVoteId(2L)).thenReturn(2L);
         when(voteAttendanceRepository.countAttendancesByVoteId(3L)).thenReturn(1L);
@@ -181,22 +182,26 @@ class VoteServiceTest {
 
         assertThat(response.count()).isEqualTo(3);
         assertThat(response.votes()).hasSize(3);
+        assertThat(response.votes().get(0).name()).isEqualTo("가장 최근 투표");
         assertThat(response.votes().get(0).currentParticipantCount()).isEqualTo(3L);
         assertThat(response.votes().get(0).participantCountVisible()).isTrue();
+        assertThat(response.votes().get(1).name()).isEqualTo("두 번째 최근 투표");
         assertThat(response.votes().get(2).currentParticipantCount()).isEqualTo(1L);
     }
 
     @Test
     @DisplayName("비로그인 사용자의 최근 투표 3개 조회 시 참여 인원 수를 숨긴다")
     void getRecentVotesHidesParticipantCountsForUnauthenticatedUser() {
-        Vote firstVote = savedVote(1L, "첫 번째 투표");
-        Vote secondVote = savedVote(2L, "두 번째 투표");
-        when(voteRepository.findTop3ByOrderByCreatedAtDescIdDesc()).thenReturn(List.of(firstVote, secondVote));
+        Vote firstVote = savedVote(1L, "가장 최근 투표", LocalDate.of(2026, 4, 12));
+        Vote secondVote = savedVote(2L, "두 번째 최근 투표", LocalDate.of(2026, 4, 11));
+        when(voteRepository.findTop3ByOrderByActivityDateDescCreatedAtDescIdDesc())
+                .thenReturn(List.of(firstVote, secondVote));
 
         RecentVoteListResponse response = voteService.getRecentVotes(false);
 
         assertThat(response.count()).isEqualTo(2);
         assertThat(response.votes()).hasSize(2);
+        assertThat(response.votes().get(0).name()).isEqualTo("가장 최근 투표");
         assertThat(response.votes().get(0).currentParticipantCount()).isNull();
         assertThat(response.votes().get(0).participantCountVisible()).isFalse();
         verify(voteAttendanceRepository, never()).countAttendancesByVoteId(any(Long.class));
@@ -794,11 +799,15 @@ class VoteServiceTest {
     }
 
     private Vote savedVote(Long id, String title) {
+        return savedVote(id, title, LocalDate.of(2026, 4, 10));
+    }
+
+    private Vote savedVote(Long id, String title, LocalDate activityDate) {
         LocalDateTime now = currentTime();
         Vote vote = Vote.builder()
                 .title(title)
                 .activityType(ActivityType.REGULAR)
-                .activityDate(LocalDate.of(2026, 4, 10))
+                .activityDate(activityDate)
                 .activityTime("19:00")
                 .location("이화체육관")
                 .memo("테스트 모임")
