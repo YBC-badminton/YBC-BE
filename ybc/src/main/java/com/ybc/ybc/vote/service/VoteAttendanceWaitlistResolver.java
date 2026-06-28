@@ -1,5 +1,6 @@
 package com.ybc.ybc.vote.service;
 
+import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 
@@ -78,6 +79,9 @@ final class VoteAttendanceWaitlistResolver {
     }
 
     private static int resolveConfirmedMemberSlots(Vote vote) {
+        if (vote.getActivityType() == ActivityType.FLASH) {
+            return Integer.MAX_VALUE;
+        }
         return Math.max(vote.getCapacity(), 0);
     }
 

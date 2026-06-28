@@ -11,6 +11,8 @@ public record FlashVoteCreateResponse(
         Long voteId,
         ActivityType activityType,
         String title,
+        Long openedByMemberId,
+        String openedByNickname,
         @JsonFormat(pattern = "yyyy-MM-dd")
         LocalDate activityDate,
         String activityTime,
@@ -28,6 +30,8 @@ public record FlashVoteCreateResponse(
                 vote.getId(),
                 vote.getActivityType(),
                 vote.getTitle(),
+                vote.getOpenedByMemberId(),
+                vote.getOpenedByNickname(),
                 vote.getActivityDate(),
                 vote.getActivityTime(),
                 vote.getLocation(),

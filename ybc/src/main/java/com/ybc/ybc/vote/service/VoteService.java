@@ -1,6 +1,7 @@
 package com.ybc.ybc.vote.service;
 
 import com.ybc.ybc.auth.domain.Member;
+import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.auth.service.MemberService;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
@@ -47,6 +48,7 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class VoteService {
     private static final long VOTE_PREVIEW_MINUTES = 30L;
+    private static final int FLASH_VOTE_UNLIMITED_CAPACITY = 0;
 
     private final VoteRepository voteRepository;
     private final VoteAttendanceRepository voteAttendanceRepository;
@@ -58,8 +60,9 @@ public class VoteService {
      * 번개 모임 투표를 생성한다.
      */
     @Transactional
-    public FlashVoteCreateResponse createFlashVote(FlashVoteCreateRequest request) {
-        validateVotePeriod(request.voteStartAt(), request.voteEndAt());
+    public FlashVoteCreateResponse createFlashVote(FlashVoteCreateRequest request, MemberPrincipal memberPrincipal) {
+        LocalDateTime voteStartAt = now();
+        validateVotePeriod(voteStartAt, request.voteEndAt());
 
         Vote savedVote = voteRepository.saveAndFlush(
                 Vote.builder()
@@ -69,9 +72,11 @@ public class VoteService {
                         .activityTime(request.activityTime())
                         .location(request.location())
                         .memo(request.memo())
-                        .voteStartAt(request.voteStartAt())
+                        .voteStartAt(voteStartAt)
                         .voteEndAt(request.voteEndAt())
-                        .capacity(request.capacity())
+                        .capacity(FLASH_VOTE_UNLIMITED_CAPACITY)
+                        .openedByMemberId(memberPrincipal.getId())
+                        .openedByNickname(memberPrincipal.getNickname())
                         .build()
         );
 

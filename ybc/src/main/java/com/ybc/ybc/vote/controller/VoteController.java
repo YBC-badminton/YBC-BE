@@ -45,9 +45,10 @@ public class VoteController {
      * 번개 모임 투표를 생성한다.
      */
     @PostMapping("/flash")
-    public ResponseEntity<FlashVoteCreateResponse> createFlashVote(@Valid @RequestBody FlashVoteCreateRequest request) {
+    public ResponseEntity<FlashVoteCreateResponse> createFlashVote(@AuthenticationPrincipal MemberPrincipal memberPrincipal,
+                                                                   @Valid @RequestBody FlashVoteCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(voteService.createFlashVote(request));
+                .body(voteService.createFlashVote(request, memberPrincipal));
     }
 
     /**

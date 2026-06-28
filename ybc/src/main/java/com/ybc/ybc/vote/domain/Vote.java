@@ -65,6 +65,12 @@ public class Vote {
     @Column(nullable = false)
     private int capacity;
 
+    @Column(name = "opened_by_member_id")
+    private Long openedByMemberId;
+
+    @Column(name = "opened_by_nickname")
+    private String openedByNickname;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "original_vote_id")
     private Vote originalVote;
@@ -82,6 +88,8 @@ public class Vote {
                 LocalDateTime voteStartAt,
                 LocalDateTime voteEndAt,
                 int capacity,
+                Long openedByMemberId,
+                String openedByNickname,
                 Vote originalVote) {
         this.activityType = activityType;
         this.title = title;
@@ -92,6 +100,8 @@ public class Vote {
         this.voteStartAt = voteStartAt;
         this.voteEndAt = voteEndAt;
         this.capacity = capacity;
+        this.openedByMemberId = openedByMemberId;
+        this.openedByNickname = openedByNickname;
         this.originalVote = originalVote;
     }
 
