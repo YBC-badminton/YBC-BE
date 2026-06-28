@@ -167,12 +167,12 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("로그인 사용자의 최근 투표 3개 조회 시 참여 인원 수를 함께 반환한다")
+    @DisplayName("로그인 사용자의 진행 중인 최근 투표 3개 조회 시 참여 인원 수를 함께 반환한다")
     void getRecentVotesReturnsParticipantCountsForAuthenticatedUser() {
         Vote firstVote = savedVote(1L, "가장 최근 투표", LocalDate.of(2026, 4, 12));
         Vote secondVote = savedVote(2L, "두 번째 최근 투표", LocalDate.of(2026, 4, 11));
         Vote thirdVote = savedVote(3L, "세 번째 최근 투표", LocalDate.of(2026, 4, 10));
-        when(voteRepository.findTop3ByOrderByActivityDateDescCreatedAtDescIdDesc())
+        when(voteRepository.findRecentOngoingVotes(eq(currentTime()), any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(List.of(firstVote, secondVote, thirdVote));
         when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(3L);
         when(voteAttendanceRepository.countAttendancesByVoteId(2L)).thenReturn(2L);
@@ -190,11 +190,11 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("비로그인 사용자의 최근 투표 3개 조회 시 참여 인원 수를 숨긴다")
+    @DisplayName("비로그인 사용자의 진행 중인 최근 투표 3개 조회 시 참여 인원 수를 숨긴다")
     void getRecentVotesHidesParticipantCountsForUnauthenticatedUser() {
         Vote firstVote = savedVote(1L, "가장 최근 투표", LocalDate.of(2026, 4, 12));
         Vote secondVote = savedVote(2L, "두 번째 최근 투표", LocalDate.of(2026, 4, 11));
-        when(voteRepository.findTop3ByOrderByActivityDateDescCreatedAtDescIdDesc())
+        when(voteRepository.findRecentOngoingVotes(eq(currentTime()), any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(List.of(firstVote, secondVote));
 
         RecentVoteListResponse response = voteService.getRecentVotes(false);

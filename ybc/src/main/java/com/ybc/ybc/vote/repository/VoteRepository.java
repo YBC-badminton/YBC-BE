@@ -112,7 +112,22 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
             Pageable pageable
     );
 
-    List<Vote> findTop3ByOrderByActivityDateDescCreatedAtDescIdDesc();
+    @Query("""
+            select v
+            from Vote v
+            where v.voteStartAt <= :now
+              and v.voteEndAt > :now
+            order by v.activityDate desc,
+                     case
+                         when v.activityType = com.ybc.ybc.vote.domain.ActivityType.REGULAR then 0
+                         when v.activityType = com.ybc.ybc.vote.domain.ActivityType.EVENT then 1
+                         when v.activityType = com.ybc.ybc.vote.domain.ActivityType.FLASH then 2
+                         else 3
+                     end asc,
+                     v.createdAt desc,
+                     v.id desc
+            """)
+    List<Vote> findRecentOngoingVotes(@Param("now") LocalDateTime now, Pageable pageable);
 
     List<Vote> findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime now);
 
