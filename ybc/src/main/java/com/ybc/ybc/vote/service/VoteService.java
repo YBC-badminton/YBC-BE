@@ -96,10 +96,10 @@ public class VoteService {
     }
 
     /**
-     * 최근 생성된 투표 3개를 조회한다. 비로그인 사용자는 참여 인원 수를 숨긴다.
+     * 활동 날짜가 가장 최근인 투표 3개를 조회한다. 비로그인 사용자는 참여 인원 수를 숨긴다.
      */
     public RecentVoteListResponse getRecentVotes(boolean participantCountVisible) {
-        List<RecentVoteResponse> votes = voteRepository.findTop3ByOrderByCreatedAtDescIdDesc().stream()
+        List<RecentVoteResponse> votes = voteRepository.findTop3ByOrderByActivityDateDescCreatedAtDescIdDesc().stream()
                 .map(vote -> RecentVoteResponse.from(
                         vote,
                         participantCountVisible ? countCurrentParticipantCount(vote.getId()) : null,
