@@ -2,6 +2,7 @@ package com.ybc.ybc.vote.service;
 
 import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.auth.domain.Member;
+import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.service.MemberService;
 import com.ybc.ybc.global.exception.YbcException;
@@ -9,8 +10,10 @@ import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
+import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
+import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
 import com.ybc.ybc.vote.dto.response.RecentVoteListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAbsenteeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
@@ -124,6 +127,46 @@ class VoteServiceTest {
     }
 
     @Test
+    @DisplayName("번개 모임 생성 시 투표 시작 시간을 현재 시각으로 저장하고 정원 없음 기본값을 사용한다")
+    void createFlashVoteUsesCurrentTimeAndUnlimitedCapacity() {
+        FlashVoteCreateRequest request = new FlashVoteCreateRequest(
+                "오늘 번개 운동",
+                LocalDate.of(2026, 4, 10),
+                "19:00 ~ 20:00",
+                "이화체육관",
+                "입장료 3000원, 최소 인원",
+                LocalDateTime.of(2026, 4, 10, 23, 0)
+        );
+        MemberPrincipal memberPrincipal = new MemberPrincipal(
+                1L,
+                "KAKAO",
+                "3001",
+                "3001@example.com",
+                "member-3001"
+        );
+        when(voteRepository.saveAndFlush(any(Vote.class))).thenAnswer(invocation -> {
+            Vote vote = invocation.getArgument(0);
+            ReflectionTestUtils.setField(vote, "id", 1L);
+            ReflectionTestUtils.setField(vote, "createdAt", currentTime());
+            return vote;
+        });
+
+        FlashVoteCreateResponse response = voteService.createFlashVote(request, memberPrincipal);
+
+        ArgumentCaptor<Vote> voteCaptor = ArgumentCaptor.forClass(Vote.class);
+        verify(voteRepository).saveAndFlush(voteCaptor.capture());
+        Vote savedVote = voteCaptor.getValue();
+        assertThat(savedVote.getVoteStartAt()).isEqualTo(currentTime());
+        assertThat(savedVote.getVoteEndAt()).isEqualTo(LocalDateTime.of(2026, 4, 10, 23, 0));
+        assertThat(savedVote.getCapacity()).isZero();
+        assertThat(savedVote.getOpenedByMemberId()).isEqualTo(1L);
+        assertThat(savedVote.getOpenedByNickname()).isEqualTo("member-3001");
+        assertThat(response.voteStartAt()).isEqualTo(currentTime());
+        assertThat(response.openedByMemberId()).isEqualTo(1L);
+        assertThat(response.openedByNickname()).isEqualTo("member-3001");
+    }
+
+    @Test
     @DisplayName("로그인 사용자의 최근 투표 3개 조회 시 참여 인원 수를 함께 반환한다")
     void getRecentVotesReturnsParticipantCountsForAuthenticatedUser() {
         Vote firstVote = savedVote(1L, "첫 번째 투표");
@@ -171,10 +214,28 @@ class VoteServiceTest {
         assertThat(response.voteId()).isEqualTo(1L);
         assertThat(response.name()).isEqualTo("목요 정기 운동");
         assertThat(response.type()).isEqualTo(ActivityType.REGULAR);
+        assertThat(response.openedByMemberId()).isNull();
+        assertThat(response.openedByNickname()).isNull();
         assertThat(response.activityDate()).isEqualTo(LocalDate.of(2026, 4, 10));
         assertThat(response.location()).isEqualTo("이화체육관");
         assertThat(response.memo()).isEqualTo("테스트 모임");
         assertThat(response.currentParticipantCount()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("번개 모임 상세 조회 시 개설자 정보를 함께 반환한다")
+    void getVoteReturnsOpenerForFlashVote() {
+        Vote vote = savedVote(1L, "번개 운동");
+        ReflectionTestUtils.setField(vote, "activityType", ActivityType.FLASH);
+        ReflectionTestUtils.setField(vote, "openedByMemberId", 5L);
+        ReflectionTestUtils.setField(vote, "openedByNickname", "member-5001");
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(2L);
+
+        VoteDetailResponse response = voteService.getVote(1L);
+
+        assertThat(response.openedByMemberId()).isEqualTo(5L);
+        assertThat(response.openedByNickname()).isEqualTo("member-5001");
     }
 
     @Test
@@ -381,6 +442,40 @@ class VoteServiceTest {
         assertThat(response.attendees().get(1).memberId()).isEqualTo(3L);
         assertThat(response.attendees().get(1).nickname()).isEqualTo("member-2002");
         assertThat(response.attendees().get(1).isWaiting()).isTrue();
+    }
+
+    @Test
+    @DisplayName("번개 운동 참석자는 정원값과 무관하게 모두 확정된다")
+    void getVoteAttendeesConfirmsAllFlashAttendees() {
+        Vote vote = savedVote(1L, "번개 운동");
+        ReflectionTestUtils.setField(vote, "activityType", ActivityType.FLASH);
+        ReflectionTestUtils.setField(vote, "capacity", 0);
+        Member firstMember = savedMember(2L, "2001");
+        Member secondMember = savedMember(3L, "2002");
+        ReflectionTestUtils.setField(firstMember, "nickname", "member-2001");
+        ReflectionTestUtils.setField(secondMember, "nickname", "member-2002");
+
+        VoteAttendance firstAttendance = VoteAttendance.builder()
+                .vote(vote)
+                .member(firstMember)
+                .attendanceStatus(true)
+                .build();
+        VoteAttendance secondAttendance = VoteAttendance.builder()
+                .vote(vote)
+                .member(secondMember)
+                .attendanceStatus(true)
+                .build();
+        ReflectionTestUtils.setField(firstAttendance, "attendingAt", LocalDateTime.of(2026, 6, 12, 10, 0));
+        ReflectionTestUtils.setField(secondAttendance, "attendingAt", LocalDateTime.of(2026, 6, 12, 10, 5));
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteId(1L))
+                .thenReturn(List.of(firstAttendance, secondAttendance));
+
+        VoteAttendeeListResponse response = voteService.getVoteAttendees(1L);
+
+        assertThat(response.totalAttendeeCount()).isEqualTo(2L);
+        assertThat(response.attendees()).allMatch(attendee -> !attendee.isWaiting());
     }
 
     @Test

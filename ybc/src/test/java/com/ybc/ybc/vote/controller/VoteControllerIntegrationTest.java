@@ -101,30 +101,37 @@ class VoteControllerIntegrationTest {
         Member member = memberRepository.save(
                 Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
         );
+        LocalDate activityDate = LocalDate.now().plusDays(1);
+        LocalDateTime voteEndAt = LocalDateTime.now().plusHours(5);
 
         mockMvc.perform(post("/votes/flash")
                         .with(authenticatedMember(member))
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new FlashVoteCreateRequest(
                                 "오늘 번개 운동",
-                                LocalDate.of(2026, 4, 10),
-                                "19:00",
+                                activityDate,
+                                "19:00 ~ 20:00",
                                 "이화체육관",
                                 "준비 운동 후 게임",
-                                LocalDateTime.of(2026, 4, 9, 18, 0),
-                                LocalDateTime.of(2026, 4, 9, 23, 0),
-                                20
+                                voteEndAt
                         ))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.activityType").value("FLASH"))
                 .andExpect(jsonPath("$.title").value("오늘 번개 운동"))
-                .andExpect(jsonPath("$.location").value("이화체육관"));
+                .andExpect(jsonPath("$.openedByMemberId").value(member.getId()))
+                .andExpect(jsonPath("$.openedByNickname").value("member-3001"))
+                .andExpect(jsonPath("$.location").value("이화체육관"))
+                .andExpect(jsonPath("$.voteStartAt").exists())
+                .andExpect(jsonPath("$.voteEndAt").value(voteEndAt.withNano(0).toString()));
 
         Vote savedVote = voteRepository.findAll().stream()
                 .filter(vote -> vote.getTitle().equals("오늘 번개 운동"))
                 .findFirst()
                 .orElseThrow();
         assertThat(savedVote.getActivityType()).isEqualTo(ActivityType.FLASH);
+        assertThat(savedVote.getActivityDate()).isEqualTo(activityDate);
+        assertThat(savedVote.getVoteEndAt().withNano(0)).isEqualTo(voteEndAt.withNano(0));
+        assertThat(savedVote.getCapacity()).isZero();
     }
 
     @Test
@@ -267,7 +274,43 @@ class VoteControllerIntegrationTest {
         mockMvc.perform(get("/votes/{voteId}", vote.getId()).with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.voteId").value(vote.getId()))
+                .andExpect(jsonPath("$.openedByMemberId").doesNotExist())
+                .andExpect(jsonPath("$.openedByNickname").doesNotExist())
                 .andExpect(jsonPath("$.currentParticipantCount").value(2));
+    }
+
+    @Test
+    @DisplayName("번개 모임 상세 조회 시 개설자 정보를 함께 조회한다")
+    void getFlashVoteIncludesOpener() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3001", "member-3001", "3001@example.com")
+        );
+        LocalDate activityDate = LocalDate.now().plusDays(1);
+        LocalDateTime voteEndAt = LocalDateTime.now().plusHours(5);
+
+        mockMvc.perform(post("/votes/flash")
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new FlashVoteCreateRequest(
+                                "오늘 번개 운동",
+                                activityDate,
+                                "19:00 ~ 20:00",
+                                "이화체육관",
+                                "준비 운동 후 게임",
+                                voteEndAt
+                        ))))
+                .andExpect(status().isCreated());
+
+        Vote savedVote = voteRepository.findAll().stream()
+                .filter(vote -> vote.getTitle().equals("오늘 번개 운동"))
+                .findFirst()
+                .orElseThrow();
+
+        mockMvc.perform(get("/votes/{voteId}", savedVote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voteId").value(savedVote.getId()))
+                .andExpect(jsonPath("$.openedByMemberId").value(member.getId()))
+                .andExpect(jsonPath("$.openedByNickname").value("member-3001"));
     }
 
     @Test
@@ -1124,17 +1167,18 @@ class VoteControllerIntegrationTest {
     @Test
     @DisplayName("인증되지 않은 사용자는 번개 모임 투표를 생성할 수 없다")
     void createFlashVoteRequiresAuthentication() throws Exception {
+        LocalDate activityDate = LocalDate.now().plusDays(1);
+        LocalDateTime voteEndAt = LocalDateTime.now().plusHours(5);
+
         mockMvc.perform(post("/votes/flash")
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new FlashVoteCreateRequest(
                                 "오늘 번개 운동",
-                                LocalDate.of(2026, 4, 10),
-                                "19:00",
+                                activityDate,
+                                "19:00 ~ 20:00",
                                 "이화체육관",
                                 "준비 운동 후 게임",
-                                LocalDateTime.of(2026, 4, 9, 18, 0),
-                                LocalDateTime.of(2026, 4, 9, 23, 0),
-                                20
+                                voteEndAt
                         ))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
