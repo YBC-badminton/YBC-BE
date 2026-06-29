@@ -158,15 +158,19 @@ public class AdminVoteService {
                 .filter(this::isMatchVisibleActivity)
                 .toList();
         VoteCountBundle voteCountBundle = buildVoteCountBundle(completedVotes);
-        Map<Long, Boolean> matchRegistrationStatus = getMatchRegistrationStatus(completedVotes);
+        Map<Long, Long> matchIdsByVoteId = getMatchIdsByVoteId(completedVotes);
 
         return completedVotes.stream()
-                .map(vote -> AdminCompletedVoteResponse.from(
-                        vote,
-                        voteCountBundle.attendeeCounts().getOrDefault(vote.getId(), 0L),
-                        voteCountBundle.guestCounts().getOrDefault(vote.getId(), 0L),
-                        matchRegistrationStatus.getOrDefault(vote.getId(), false)
-                ))
+                .map(vote -> {
+                    Long matchId = matchIdsByVoteId.get(vote.getId());
+                    return AdminCompletedVoteResponse.from(
+                            vote,
+                            voteCountBundle.attendeeCounts().getOrDefault(vote.getId(), 0L),
+                            voteCountBundle.guestCounts().getOrDefault(vote.getId(), 0L),
+                            matchId != null,
+                            matchId
+                    );
+                })
                 .toList();
     }
 
@@ -273,7 +277,7 @@ public class AdminVoteService {
         return new VoteCountBundle(attendeeCounts, guestCounts);
     }
 
-    private Map<Long, Boolean> getMatchRegistrationStatus(List<Vote> votes) {
+    private Map<Long, Long> getMatchIdsByVoteId(List<Vote> votes) {
         if (votes.isEmpty()) {
             return Map.of();
         }
@@ -284,15 +288,18 @@ public class AdminVoteService {
                         vote -> resolveBaseVote(vote).getId()
                 ));
         Set<Long> baseVoteIds = new LinkedHashSet<>(baseVoteIdByVoteId.values());
-        Set<Long> registeredBaseVoteIds = voteMatchGroupRepository.findAllByVote_IdIn(baseVoteIds).stream()
-                .map(matchGroup -> matchGroup.getVote().getId())
-                .collect(Collectors.toSet());
-
-        return baseVoteIdByVoteId.entrySet().stream()
+        Map<Long, Long> matchIdByBaseVoteId = voteMatchGroupRepository.findAllByVote_IdIn(baseVoteIds).stream()
                 .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> registeredBaseVoteIds.contains(entry.getValue())
+                        matchGroup -> matchGroup.getVote().getId(),
+                        matchGroup -> matchGroup.getId(),
+                        (first, ignored) -> first
                 ));
+
+        Map<Long, Long> matchIdsByVoteId = new java.util.LinkedHashMap<>();
+        baseVoteIdByVoteId.forEach((voteId, baseVoteId) ->
+                matchIdsByVoteId.put(voteId, matchIdByBaseVoteId.get(baseVoteId))
+        );
+        return matchIdsByVoteId;
     }
 
     private AdminVoteListItemResponse toManagementItem(Vote vote) {
