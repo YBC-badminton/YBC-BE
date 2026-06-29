@@ -14,12 +14,14 @@ public record AdminCompletedVoteResponse(
         LocalDate activityDate,
         String location,
         AdminVoteAttendanceResponse attendance,
-        boolean matchRegistered
+        boolean matchRegistered,
+        Long matchId
 ) {
     public static AdminCompletedVoteResponse from(Vote vote,
                                                   long attendeeCount,
                                                   long guestCount,
-                                                  boolean matchRegistered) {
+                                                  boolean matchRegistered,
+                                                  Long matchId) {
         return new AdminCompletedVoteResponse(
                 vote.getId(),
                 vote.getTitle(),
@@ -27,7 +29,8 @@ public record AdminCompletedVoteResponse(
                 vote.getActivityDate(),
                 vote.getLocation(),
                 AdminVoteAttendanceResponse.of(attendeeCount, guestCount),
-                matchRegistered
+                matchRegistered,
+                matchId
         );
     }
 
