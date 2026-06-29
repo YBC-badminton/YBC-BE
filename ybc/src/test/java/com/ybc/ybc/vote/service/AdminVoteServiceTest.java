@@ -298,8 +298,10 @@ class AdminVoteServiceTest {
                 .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 12L)));
         when(guestRepository.countGuestsByVoteIds(List.of(1L)))
                 .thenReturn(List.of(new VoteGuestCountProjection(1L, 2L)));
+        com.ybc.ybc.vote.domain.VoteMatchGroup matchGroup = com.ybc.ybc.vote.domain.VoteMatchGroup.create(includedRegularVote);
+        ReflectionTestUtils.setField(matchGroup, "id", 100L);
         when(voteMatchGroupRepository.findAllByVote_IdIn(Set.of(1L)))
-                .thenReturn(List.of(com.ybc.ybc.vote.domain.VoteMatchGroup.create(includedRegularVote)));
+                .thenReturn(List.of(matchGroup));
 
         List<AdminCompletedVoteResponse> response = adminVoteService.getCompletedVotes();
 
@@ -311,6 +313,47 @@ class AdminVoteServiceTest {
         assertThat(response.get(0).attendance().currentGuests()).isEqualTo(2L);
         assertThat(response.get(0).attendance().totalParticipants()).isEqualTo(12L);
         assertThat(response.get(0).matchRegistered()).isTrue();
+        assertThat(response.get(0).matchId()).isEqualTo(100L);
+    }
+
+    @Test
+    @DisplayName("투표 완료된 운동 리스트 조회 시 추가참여 투표에도 원본 투표의 matchId를 반환한다")
+    void getCompletedVotesReturnsBaseVoteMatchIdForAdditionalVote() {
+        Vote baseVote = vote(1L, "지난 정기 운동",
+                LocalDate.of(2026, 4, 8),
+                LocalDateTime.of(2026, 4, 8, 9, 0),
+                LocalDateTime.of(2026, 4, 8, 12, 0),
+                ActivityType.REGULAR,
+                20);
+        Vote additionalVote = Vote.createAdditionalVote(
+                baseVote,
+                LocalDateTime.of(2026, 4, 8, 12, 0),
+                LocalDateTime.of(2026, 4, 8, 15, 0),
+                5
+        );
+        ReflectionTestUtils.setField(additionalVote, "id", 2L);
+
+        when(voteRepository.findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime.of(2026, 4, 10, 12, 0)))
+                .thenReturn(List.of());
+        when(voteRepository.findAll(any(Sort.class))).thenReturn(List.of(additionalVote, baseVote));
+        when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(2L, 1L)))
+                .thenReturn(List.of());
+        when(guestRepository.countGuestsByVoteIds(List.of(2L, 1L)))
+                .thenReturn(List.of());
+        com.ybc.ybc.vote.domain.VoteMatchGroup matchGroup = com.ybc.ybc.vote.domain.VoteMatchGroup.create(baseVote);
+        ReflectionTestUtils.setField(matchGroup, "id", 200L);
+        when(voteMatchGroupRepository.findAllByVote_IdIn(Set.of(1L)))
+                .thenReturn(List.of(matchGroup));
+
+        List<AdminCompletedVoteResponse> response = adminVoteService.getCompletedVotes();
+
+        assertThat(response).hasSize(2);
+        assertThat(response.get(0).voteId()).isEqualTo(2L);
+        assertThat(response.get(0).matchRegistered()).isTrue();
+        assertThat(response.get(0).matchId()).isEqualTo(200L);
+        assertThat(response.get(1).voteId()).isEqualTo(1L);
+        assertThat(response.get(1).matchRegistered()).isTrue();
+        assertThat(response.get(1).matchId()).isEqualTo(200L);
     }
 
     @Test

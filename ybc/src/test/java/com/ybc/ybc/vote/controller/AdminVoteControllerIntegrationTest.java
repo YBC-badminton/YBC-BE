@@ -308,7 +308,8 @@ class AdminVoteControllerIntegrationTest {
         addGuest(latestCompletedVote, "completed-host1", "게스트1");
         addGuest(latestCompletedVote, "completed-host2", "게스트2");
         addAttendance(secondCompletedVote, true, "completed-2001");
-        voteMatchGroupRepository.saveAndFlush(com.ybc.ybc.vote.domain.VoteMatchGroup.create(latestCompletedVote));
+        com.ybc.ybc.vote.domain.VoteMatchGroup matchGroup =
+                voteMatchGroupRepository.saveAndFlush(com.ybc.ybc.vote.domain.VoteMatchGroup.create(latestCompletedVote));
 
         mockMvc.perform(get(ADMIN_VOTES_API)
                         .param("status", "completed")
@@ -325,11 +326,13 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].attendance.currentGuests").value(2))
                 .andExpect(jsonPath("$[0].attendance.totalParticipants").value(2))
                 .andExpect(jsonPath("$[0].matchRegistered").value(true))
+                .andExpect(jsonPath("$[0].matchId").value(matchGroup.getId()))
                 .andExpect(jsonPath("$[1].voteId").value(secondCompletedVote.getId()))
                 .andExpect(jsonPath("$[1].title").value("목요일 이벤트 운동"))
                 .andExpect(jsonPath("$[1].activityDay").value("목요일"))
                 .andExpect(jsonPath("$[1].attendance.totalParticipants").value(1))
-                .andExpect(jsonPath("$[1].matchRegistered").value(false));
+                .andExpect(jsonPath("$[1].matchRegistered").value(false))
+                .andExpect(jsonPath("$[1].matchId").isEmpty());
     }
 
     @Test
