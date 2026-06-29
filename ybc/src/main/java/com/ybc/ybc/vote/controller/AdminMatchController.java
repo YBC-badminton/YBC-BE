@@ -1,6 +1,7 @@
 package com.ybc.ybc.vote.controller;
 
 import com.ybc.ybc.vote.dto.request.AdminMatchCourtRequest;
+import com.ybc.ybc.vote.dto.response.AdminMatchDetailResponse;
 import com.ybc.ybc.vote.dto.response.AdminMatchRegistrationResponse;
 import com.ybc.ybc.vote.service.AdminMatchService;
 import jakarta.validation.Valid;
@@ -25,7 +26,7 @@ public class AdminMatchController {
      * 대진 조회
      */
     @GetMapping("/{matchId}")
-    public AdminMatchRegistrationResponse getMatch(@PathVariable Long matchId) {
+    public AdminMatchDetailResponse getMatch(@PathVariable Long matchId) {
         return adminMatchService.getMatch(matchId);
     }
 
