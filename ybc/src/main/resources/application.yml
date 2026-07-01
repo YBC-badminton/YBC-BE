@@ -49,3 +49,36 @@ app:
     stub-delay-ms: ${MAIL_STUB_DELAY_MS:0}
     application:
       async-enabled: ${APPLICATION_MAIL_ASYNC_ENABLED:true}
+  monitoring:
+    discord:
+      enabled: ${DISCORD_ALERT_ENABLED:false}
+      webhook-url: ${DISCORD_ALERT_WEBHOOK_URL:}
+      username: ${DISCORD_ALERT_USERNAME:YBC Monitor}
+      mention: ${DISCORD_ALERT_MENTION:}
+    supabase:
+      enabled: ${DB_MONITORING_ENABLED:false}
+      poll-interval-ms: ${DB_MONITORING_POLL_INTERVAL_MS:1800000}
+      initial-delay-ms: ${DB_MONITORING_INITIAL_DELAY_MS:60000}
+      db-size-limit-mb: ${DB_SIZE_LIMIT_MB:500}
+      warning-threshold-percent: ${DB_WARNING_THRESHOLD_PERCENT:70}
+      critical-threshold-percent: ${DB_CRITICAL_THRESHOLD_PERCENT:85}
+      emergency-threshold-percent: ${DB_EMERGENCY_THRESHOLD_PERCENT:95}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms,300ms,500ms,1s,3s

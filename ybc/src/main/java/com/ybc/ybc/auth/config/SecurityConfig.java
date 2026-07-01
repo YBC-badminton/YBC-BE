@@ -44,6 +44,12 @@ public class SecurityConfig {
             "/votes/recent",
             "/error"
     };
+    private static final String[] PUBLIC_ACTUATOR_ENDPOINTS = {
+            "/actuator/health",
+            "/actuator/health/**",
+            "/actuator/info",
+            "/actuator/prometheus"
+    };
 
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final JwtProperties jwtProperties;
@@ -69,6 +75,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(bearerTokenIgnoredRequestMatcher).permitAll()
+                        .requestMatchers(PUBLIC_ACTUATOR_ENDPOINTS).permitAll()
                         .requestMatchers(PUBLIC_AUTH_ENDPOINTS).permitAll()
                         .anyRequest().authenticated()
                 );

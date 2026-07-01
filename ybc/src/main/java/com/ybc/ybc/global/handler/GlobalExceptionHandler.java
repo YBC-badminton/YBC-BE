@@ -3,9 +3,11 @@ package com.ybc.ybc.global.handler;
 import com.ybc.ybc.global.exception.ExceptionResponseFactory;
 import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.global.exception.dto.ExceptionResponse;
+import com.ybc.ybc.global.monitoring.service.ErrorAlertService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +22,10 @@ import java.util.Optional;
 
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+    private final ErrorAlertService errorAlertService;
+
     @ExceptionHandler(YbcException.class)
     public ResponseEntity<ExceptionResponse> handleYbcException(YbcException e, HttpServletRequest request) {
         log.warn("Handled YbcException. method={}, uri={}, code={}",
@@ -28,6 +33,9 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 e.getExceptionCodeName(),
                 e);
+        if (e.getHttpStatusCode().is5xxServerError()) {
+            errorAlertService.sendServerErrorAlert(request, e.getHttpStatusCode(), e.getExceptionCodeName(), e);
+        }
         ExceptionResponse response = ExceptionResponseFactory.from(e, request.getRequestURI());
         return ResponseEntity.status(e.getHttpStatusCode())
                 .body(response);
@@ -76,6 +84,12 @@ public class GlobalExceptionHandler {
                 request.getMethod(),
                 request.getRequestURI(),
                 runtimeException);
+        errorAlertService.sendServerErrorAlert(
+                request,
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "INTERNAL_SERVER_ERROR",
+                runtimeException
+        );
         ExceptionResponse response = ExceptionResponseFactory.internalServerError(request.getRequestURI());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(response);
