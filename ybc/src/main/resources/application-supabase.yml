@@ -19,3 +19,8 @@ spring:
         jdbc:
           lob:
             non_contextual_creation: true
+
+app:
+  monitoring:
+    supabase:
+      enabled: ${DB_MONITORING_ENABLED:true}

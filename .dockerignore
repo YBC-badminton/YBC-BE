@@ -1,0 +1,7 @@
+.git
+.github
+.idea
+
+ybc/.gradle
+ybc/build
+ybc/.idea
