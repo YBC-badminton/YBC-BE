@@ -63,6 +63,9 @@ app:
       warning-threshold-percent: ${DB_WARNING_THRESHOLD_PERCENT:70}
       critical-threshold-percent: ${DB_CRITICAL_THRESHOLD_PERCENT:85}
       emergency-threshold-percent: ${DB_EMERGENCY_THRESHOLD_PERCENT:95}
+    test-endpoint:
+      enabled: ${MONITORING_TEST_ENDPOINT_ENABLED:false}
+      token: ${MONITORING_TEST_ENDPOINT_TOKEN:}
 
 management:
   endpoints:

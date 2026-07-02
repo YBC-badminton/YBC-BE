@@ -5,7 +5,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.monitoring")
 public record MonitoringProperties(
         Discord discord,
-        Supabase supabase
+        Supabase supabase,
+        TestEndpoint testEndpoint
 ) {
     public record Discord(
             boolean enabled,
@@ -23,6 +24,12 @@ public record MonitoringProperties(
             int warningThresholdPercent,
             int criticalThresholdPercent,
             int emergencyThresholdPercent
+    ) {
+    }
+
+    public record TestEndpoint(
+            boolean enabled,
+            String token
     ) {
     }
 }

@@ -131,6 +131,27 @@ public class ErrorAlertService {
         discordWebhookClient.send(message);
     }
 
+    public void sendManualTestAlert(HttpServletRequest request, String triggerSource) {
+        String message = """
+                [YBC Manual Alert Test]
+                Time: %s
+                Profiles: %s
+                Trigger: %s
+                Method: %s
+                URI: %s
+                Remote Addr: %s
+                """.formatted(
+                ZonedDateTime.now(),
+                activeProfiles(),
+                triggerSource,
+                request.getMethod(),
+                request.getRequestURI(),
+                request.getRemoteAddr()
+        );
+
+        discordWebhookClient.send(message);
+    }
+
     private String activeProfiles() {
         String[] activeProfiles = environment.getActiveProfiles();
         if (activeProfiles.length == 0) {
