@@ -50,6 +50,9 @@ public class SecurityConfig {
             "/actuator/info",
             "/actuator/prometheus"
     };
+    private static final String[] PUBLIC_MONITORING_TEST_ENDPOINTS = {
+            "/internal/monitoring/test-alert"
+    };
 
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final JwtProperties jwtProperties;
@@ -76,6 +79,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(bearerTokenIgnoredRequestMatcher).permitAll()
                         .requestMatchers(PUBLIC_ACTUATOR_ENDPOINTS).permitAll()
+                        .requestMatchers(PUBLIC_MONITORING_TEST_ENDPOINTS).permitAll()
                         .requestMatchers(PUBLIC_AUTH_ENDPOINTS).permitAll()
                         .anyRequest().authenticated()
                 );
