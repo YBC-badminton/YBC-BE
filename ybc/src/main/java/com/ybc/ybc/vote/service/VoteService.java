@@ -96,12 +96,13 @@ public class VoteService {
     }
 
     /**
-     * 현재 진행 중인 투표를 활동 날짜 오름차순으로 최대 3개 조회한다.
+     * 현재 진행 중인 투표를 오늘 기준 가장 가까운 활동 날짜 순으로 최대 3개 조회한다.
      * 같은 날짜라면 정기 운동, 이벤트, 번개 순으로 우선 노출한다.
      * 비로그인 사용자는 참여 인원 수를 숨긴다.
      */
     public RecentVoteListResponse getRecentVotes(boolean participantCountVisible) {
-        List<RecentVoteResponse> votes = voteRepository.findRecentOngoingVotes(now(), PageRequest.of(0, 3)).stream()
+        LocalDateTime now = now();
+        List<RecentVoteResponse> votes = voteRepository.findRecentOngoingVotes(now, now.toLocalDate(), PageRequest.of(0, 3)).stream()
                 .map(vote -> RecentVoteResponse.from(
                         vote,
                         participantCountVisible ? countCurrentParticipantCount(vote.getId()) : null,
