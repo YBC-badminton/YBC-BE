@@ -172,7 +172,9 @@ class VoteServiceTest {
         Vote firstVote = savedVote(1L, "가장 최근 투표", LocalDate.of(2026, 4, 12));
         Vote secondVote = savedVote(2L, "두 번째 최근 투표", LocalDate.of(2026, 4, 11));
         Vote thirdVote = savedVote(3L, "세 번째 최근 투표", LocalDate.of(2026, 4, 10));
-        when(voteRepository.findRecentOngoingVotes(eq(currentTime()), any(org.springframework.data.domain.Pageable.class)))
+        LocalDateTime now = currentTime();
+        LocalDate today = now.toLocalDate();
+        when(voteRepository.findRecentOngoingVotes(eq(now), eq(today), any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(List.of(firstVote, secondVote, thirdVote));
         when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(3L);
         when(voteAttendanceRepository.countAttendancesByVoteId(2L)).thenReturn(2L);
@@ -194,7 +196,9 @@ class VoteServiceTest {
     void getRecentVotesHidesParticipantCountsForUnauthenticatedUser() {
         Vote firstVote = savedVote(1L, "가장 최근 투표", LocalDate.of(2026, 4, 12));
         Vote secondVote = savedVote(2L, "두 번째 최근 투표", LocalDate.of(2026, 4, 11));
-        when(voteRepository.findRecentOngoingVotes(eq(currentTime()), any(org.springframework.data.domain.Pageable.class)))
+        LocalDateTime now = currentTime();
+        LocalDate today = now.toLocalDate();
+        when(voteRepository.findRecentOngoingVotes(eq(now), eq(today), any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(List.of(firstVote, secondVote));
 
         RecentVoteListResponse response = voteService.getRecentVotes(false);
