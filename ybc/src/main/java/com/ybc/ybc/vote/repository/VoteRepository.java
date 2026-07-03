@@ -117,7 +117,9 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
             from Vote v
             where v.voteStartAt <= :now
               and v.voteEndAt > :now
-            order by v.activityDate asc,
+            order by case when v.activityDate < :today then 1 else 0 end asc,
+                     case when v.activityDate >= :today then v.activityDate end asc,
+                     case when v.activityDate < :today then v.activityDate end desc,
                      case
                          when v.activityType = com.ybc.ybc.vote.domain.ActivityType.REGULAR then 0
                          when v.activityType = com.ybc.ybc.vote.domain.ActivityType.EVENT then 1
@@ -127,7 +129,9 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                      v.createdAt desc,
                      v.id desc
             """)
-    List<Vote> findRecentOngoingVotes(@Param("now") LocalDateTime now, Pageable pageable);
+    List<Vote> findRecentOngoingVotes(@Param("now") LocalDateTime now,
+                                      @Param("today") LocalDate today,
+                                      Pageable pageable);
 
     List<Vote> findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime now);
 
