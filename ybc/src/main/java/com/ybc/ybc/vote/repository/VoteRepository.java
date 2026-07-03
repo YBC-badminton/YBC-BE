@@ -117,7 +117,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
             from Vote v
             where v.voteStartAt <= :now
               and v.voteEndAt > :now
-            order by v.activityDate desc,
+            order by v.activityDate asc,
                      case
                          when v.activityType = com.ybc.ybc.vote.domain.ActivityType.REGULAR then 0
                          when v.activityType = com.ybc.ybc.vote.domain.ActivityType.EVENT then 1
