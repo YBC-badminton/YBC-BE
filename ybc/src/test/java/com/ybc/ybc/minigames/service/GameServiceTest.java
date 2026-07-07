@@ -18,6 +18,7 @@ import com.ybc.ybc.minigames.dto.response.MiniGameScoreUpdateResponse;
 import com.ybc.ybc.minigames.repository.MiniGameRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -25,27 +26,44 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class GameServiceTest {
+    private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
+    private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-07-14T03:00:00Z"), KOREA);
+
     @Mock
     private MiniGameRepository miniGameRepository;
 
     @Mock
     private MemberService memberService;
 
+    @Mock
+    private Clock clock;
+
     @InjectMocks
     private GameService gameService;
+
+    @BeforeEach
+    void setUpClock() {
+        lenient().when(clock.instant()).thenReturn(FIXED_CLOCK.instant());
+        lenient().when(clock.getZone()).thenReturn(FIXED_CLOCK.getZone());
+    }
 
     @Test
     @DisplayName("미니 게임 생성 시 로그인 회원을 작성자로 저장한다")
@@ -343,6 +361,20 @@ class GameServiceTest {
                 )
         )).isInstanceOf(YbcException.class)
                 .hasMessage("종료된 미니 게임만 수정할 수 있습니다.");
+    }
+
+    @Test
+    @DisplayName("7일이 지난 미니 게임 정리 시 게임 날짜와 생성일 기준 삭제 조건을 사용한다")
+    void deleteExpiredMiniGamesUsesSevenDayCutoff() {
+        when(miniGameRepository.deleteExpiredMiniGames(any(LocalDate.class), any(LocalDateTime.class))).thenReturn(2);
+
+        int deletedCount = gameService.deleteExpiredMiniGames();
+
+        assertThat(deletedCount).isEqualTo(2);
+        verify(miniGameRepository).deleteExpiredMiniGames(
+                LocalDate.of(2026, 7, 7),
+                LocalDateTime.of(2026, 7, 7, 12, 0)
+        );
     }
 
     private Member createMember(Long id, String socialId, String nickname) {

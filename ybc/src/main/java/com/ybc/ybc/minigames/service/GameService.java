@@ -18,12 +18,17 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class GameService {
     private final MiniGameRepository miniGameRepository;
     private final MemberService memberService;
+    private final Clock clock;
 
     @Transactional
     public MiniGameCreateResponse createMiniGame(Long memberId, MiniGameCreateRequest request) {
@@ -80,6 +85,13 @@ public class GameService {
                 request.team2Score()
         );
         return MiniGameFinishedUpdateResponse.from(miniGame);
+    }
+
+    @Transactional
+    public int deleteExpiredMiniGames() {
+        LocalDate gameDateCutoff = LocalDate.now(clock).minusDays(7);
+        LocalDateTime createdAtCutoff = LocalDateTime.now(clock).minusDays(7);
+        return miniGameRepository.deleteExpiredMiniGames(gameDateCutoff, createdAtCutoff);
     }
 
     private MiniGame getMiniGameById(Long gameId) {
