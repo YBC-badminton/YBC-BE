@@ -53,6 +53,12 @@ public class SecurityConfig {
     private static final String[] PUBLIC_MONITORING_TEST_ENDPOINTS = {
             "/internal/monitoring/test-alert"
     };
+    private static final String[] PUBLIC_SWAGGER_ENDPOINTS = {
+            "/swagger-ui.html",
+            "/swagger-ui/**",
+            "/v3/api-docs",
+            "/v3/api-docs/**"
+    };
 
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final JwtProperties jwtProperties;
@@ -80,6 +86,7 @@ public class SecurityConfig {
                         .requestMatchers(bearerTokenIgnoredRequestMatcher).permitAll()
                         .requestMatchers(PUBLIC_ACTUATOR_ENDPOINTS).permitAll()
                         .requestMatchers(PUBLIC_MONITORING_TEST_ENDPOINTS).permitAll()
+                        .requestMatchers(PUBLIC_SWAGGER_ENDPOINTS).permitAll()
                         .requestMatchers(PUBLIC_AUTH_ENDPOINTS).permitAll()
                         .anyRequest().authenticated()
                 );
