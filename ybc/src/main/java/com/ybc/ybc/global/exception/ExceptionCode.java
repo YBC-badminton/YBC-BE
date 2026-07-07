@@ -38,7 +38,15 @@ public enum ExceptionCode {
     INVALID_FRONTEND_REDIRECT_URI(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_FRONTEND_REDIRECT_URI, "허용되지 않은 프론트엔드 리다이렉트 주소입니다."),
     INVALID_EQUIPMENT_REVIEW_RATING(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_EQUIPMENT_REVIEW_RATING, "장비 후기 평점은 1점부터 5점까지만 가능합니다."),
     INVALID_EQUIPMENT_USAGE_MONTH(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_EQUIPMENT_USAGE_MONTH, "장비 사용 기간은 1개월 이상이어야 합니다."),
-    INVALID_REVIEW_SORT(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_REVIEW_SORT, "후기 정렬 조건은 asc 또는 desc만 가능합니다.");
+    INVALID_REVIEW_SORT(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_REVIEW_SORT, "후기 정렬 조건은 asc 또는 desc만 가능합니다."),
+    MINI_GAME_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.MINI_GAME_NOT_FOUND, "존재하지 않는 미니 게임입니다."),
+    INVALID_MINI_GAME_TARGET_SCORE(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MINI_GAME_TARGET_SCORE, "타겟 스코어는 11점, 21점, 25점만 가능합니다."),
+    INVALID_MINI_GAME_SCORE(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MINI_GAME_SCORE, "팀 점수는 0점 이상 타겟 스코어 이하여야 합니다."),
+    MINI_GAME_ALREADY_FINISHED(HttpStatus.BAD_REQUEST, ClientExceptionCode.MINI_GAME_ALREADY_FINISHED, "이미 종료된 미니 게임입니다."),
+    MINI_GAME_NOT_FINISHED(HttpStatus.BAD_REQUEST, ClientExceptionCode.MINI_GAME_NOT_FINISHED, "종료된 미니 게임만 수정할 수 있습니다."),
+    INVALID_MINI_GAME_WINNER_TEAM(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MINI_GAME_WINNER_TEAM, "우승팀 정보가 최종 점수와 일치하지 않습니다."),
+    INVALID_MINI_GAME_TIME(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MINI_GAME_TIME, "경기 시작 시간과 종료 시간을 다시 확인해 주세요."),
+    MINI_GAME_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.MINI_GAME_UPDATE_FORBIDDEN, "해당 미니 게임을 수정할 권한이 없습니다.");
 
     private final HttpStatus httpStatus;
     private final ClientExceptionCode clientExceptionCode;
