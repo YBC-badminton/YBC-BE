@@ -13,9 +13,10 @@ public record ClubMemberResponse(
         Gender gender,
         String age,
         String term,
-        boolean isMapoResident
+        boolean isMapoResident,
+        boolean isAdmin
 ) {
-    public static ClubMemberResponse from(ClubMember clubMember) {
+    public static ClubMemberResponse from(ClubMember clubMember, boolean isAdmin) {
         return new ClubMemberResponse(
                 clubMember.getId(),
                 clubMember.getName(),
@@ -25,7 +26,8 @@ public record ClubMemberResponse(
                 clubMember.getGender(),
                 clubMember.getAge(),
                 clubMember.getTerm(),
-                clubMember.isMapoResident()
+                clubMember.isMapoResident(),
+                isAdmin
         );
     }
 }

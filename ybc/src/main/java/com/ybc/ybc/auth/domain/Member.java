@@ -84,6 +84,10 @@ public class Member extends BaseEntity {
         this.lastLoginAt = LocalDateTime.now();
     }
 
+    public void updateAdmin(boolean admin) {
+        this.admin = admin;
+    }
+
     @PrePersist
     protected void onCreate() {
         if (this.lastLoginAt == null) {
