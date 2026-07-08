@@ -31,6 +31,7 @@ public enum ExceptionCode {
     INVALID_INTERVIEW_STATUS(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_INTERVIEW_STATUS, "면접 상태값이 올바르지 않습니다."),
     RECRUITMENT_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.RECRUITMENT_NOT_FOUND, "존재하지 않는 모집 기수입니다."),
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.MEMBER_NOT_FOUND, "존재하지 않는 부원입니다."),
+    MEMBER_ACCOUNT_NOT_FOUND(HttpStatus.BAD_REQUEST, ClientExceptionCode.MEMBER_ACCOUNT_NOT_FOUND, "운영진 권한을 설정할 회원 계정을 찾을 수 없습니다."),
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.REVIEW_NOT_FOUND, "존재하지 않는 장비 후기입니다."),
     REVIEW_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.REVIEW_UPDATE_FORBIDDEN, "해당 장비 후기를 수정할 권한이 없습니다."),
     REVIEW_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.REVIEW_DELETE_FORBIDDEN, "해당 장비 후기를 삭제할 권한이 없습니다."),

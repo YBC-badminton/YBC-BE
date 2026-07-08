@@ -8,6 +8,9 @@ import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.applications.domain.InterviewTime;
 import com.ybc.ybc.applications.domain.Status;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
+import com.ybc.ybc.auth.domain.Member;
+import com.ybc.ybc.auth.domain.SocialProvider;
+import com.ybc.ybc.auth.repository.MemberRepository;
 import com.ybc.ybc.members.domain.ClubMember;
 import com.ybc.ybc.members.repository.ClubMemberRepository;
 import com.ybc.ybc.support.TestMailConfig;
@@ -52,6 +55,9 @@ class AdminMemberControllerIntegrationTest {
     @Autowired
     private ApplicationRepository applicationRepository;
 
+    @Autowired
+    private MemberRepository memberRepository;
+
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
             .build();
@@ -60,12 +66,14 @@ class AdminMemberControllerIntegrationTest {
     void setUp() {
         clubMemberRepository.deleteAll();
         applicationRepository.deleteAll();
+        memberRepository.deleteAll();
     }
 
     @Test
     @DisplayName("인증된 사용자는 부원 명단을 조회할 수 있다")
     void getMembersReturnsSummaryAndMembersWhenAuthenticated() throws Exception {
-        ClubMember firstMember = saveMember("홍길동", "한국대학교", "010-1234-5678", "03", "2기", true);
+        saveAuthMember("2001", "hong@example.com", true);
+        ClubMember firstMember = saveMember("홍길동", "한국대학교", "010-1234-5678", "03", "2기", true, "hong@example.com");
         ClubMember secondMember = saveMember("강해린", "미래대학교", "010-5555-6666", "05", "7.5기");
         ClubMember thirdMember = saveMember("이마크", "글로벌대학교", "010-7777-8888", "01", "8기");
 
@@ -77,9 +85,11 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.members[0].memberId").value(firstMember.getId()))
                 .andExpect(jsonPath("$.members[0].name").value("홍길동"))
                 .andExpect(jsonPath("$.members[0].isMapoResident").value(true))
+                .andExpect(jsonPath("$.members[0].isAdmin").value(true))
                 .andExpect(jsonPath("$.members[1].memberId").value(secondMember.getId()))
                 .andExpect(jsonPath("$.members[1].term").value("7.5기"))
                 .andExpect(jsonPath("$.members[1].isMapoResident").value(false))
+                .andExpect(jsonPath("$.members[1].isAdmin").value(false))
                 .andExpect(jsonPath("$.members[2].memberId").value(thirdMember.getId()))
                 .andExpect(jsonPath("$.members[2].court").doesNotExist());
     }
@@ -98,7 +108,8 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.members[0].name").value("김철수"))
                 .andExpect(jsonPath("$.members[0].age").value(expectedBirthYear(24)))
                 .andExpect(jsonPath("$.members[0].term").value("미정"))
-                .andExpect(jsonPath("$.members[0].isMapoResident").value(false));
+                .andExpect(jsonPath("$.members[0].isMapoResident").value(false))
+                .andExpect(jsonPath("$.members[0].isAdmin").value(false));
 
         assertThat(clubMemberRepository.findByApplicationId(application.getId())).isPresent();
     }
@@ -114,7 +125,8 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.mapoResidentCount").value(1))
                 .andExpect(jsonPath("$.members[0].name").value("김철수"))
-                .andExpect(jsonPath("$.members[0].isMapoResident").value(true));
+                .andExpect(jsonPath("$.members[0].isMapoResident").value(true))
+                .andExpect(jsonPath("$.members[0].isAdmin").value(false));
 
         ClubMember clubMember = clubMemberRepository.findByApplicationId(application.getId()).orElseThrow();
         assertThat(clubMember.isMapoResident()).isTrue();
@@ -124,6 +136,7 @@ class AdminMemberControllerIntegrationTest {
     @DisplayName("인증된 사용자는 PATCH로 부원 정보를 수정할 수 있다")
     void updateMemberReturnsUpdatedMemberWhenAuthenticated() throws Exception {
         ClubMember member = saveMember("홍길동", "한국대학교", "010-0000-0000", "03", "2기");
+        Member authMember = saveAuthMember("3001", "hong@example.com", false);
 
         mockMvc.perform(patch(ADMIN_MEMBERS_API + "/{memberId}", member.getId())
                         .with(authorizedUser())
@@ -136,7 +149,8 @@ class AdminMemberControllerIntegrationTest {
                                 "term", "10기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",
-                                "gender", "MALE"
+                                "gender", "MALE",
+                                "isAdmin", true
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.memberId").value(member.getId()))
@@ -146,12 +160,15 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.age").value("02"))
                 .andExpect(jsonPath("$.term").value("10기"))
                 .andExpect(jsonPath("$.isMapoResident").value(true))
+                .andExpect(jsonPath("$.isAdmin").value(true))
                 .andExpect(jsonPath("$.court").doesNotExist());
 
         ClubMember updatedMember = clubMemberRepository.findById(member.getId()).orElseThrow();
         assertThat(updatedMember.getPhone()).isEqualTo("010-1234-5678");
         assertThat(updatedMember.getAge()).isEqualTo("02");
         assertThat(updatedMember.isMapoResident()).isTrue();
+        assertThat(updatedMember.getMemberId()).isEqualTo(authMember.getId());
+        assertThat(memberRepository.findById(authMember.getId()).orElseThrow().isAdmin()).isTrue();
     }
 
     @Test
@@ -170,7 +187,8 @@ class AdminMemberControllerIntegrationTest {
                                 "term", "10기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",
-                                "gender", "MALE"
+                                "gender", "MALE",
+                                "isAdmin", true
                         ))))
                 .andExpect(status().isMethodNotAllowed());
     }
@@ -178,7 +196,8 @@ class AdminMemberControllerIntegrationTest {
     @Test
     @DisplayName("인증된 사용자는 이름으로 부원을 검색할 수 있다")
     void searchMemberReturnsMemberWhenAuthenticated() throws Exception {
-        ClubMember member = saveMember("홍길동", "한국대학교", "010-1234-5678", "03", "2기");
+        saveAuthMember("2002", "hong@example.com", true);
+        ClubMember member = saveMember("홍길동", "한국대학교", "010-1234-5678", "03", "2기", false, "hong@example.com");
 
         mockMvc.perform(get(ADMIN_MEMBERS_API + "/search")
                         .param("name", "홍길동")
@@ -186,12 +205,15 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.memberId").value(member.getId()))
                 .andExpect(jsonPath("$.name").value("홍길동"))
-                .andExpect(jsonPath("$.phone").value("010-1234-5678"));
+                .andExpect(jsonPath("$.phone").value("010-1234-5678"))
+                .andExpect(jsonPath("$.isAdmin").value(true));
     }
 
     @Test
     @DisplayName("인증된 사용자는 부원을 추가할 수 있다")
     void createMemberReturnsCreatedMemberWhenAuthenticated() throws Exception {
+        Member authMember = saveAuthMember("2003", "hong@example.com", false);
+
         mockMvc.perform(post(ADMIN_MEMBERS_API)
                         .with(authorizedUser())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -203,7 +225,8 @@ class AdminMemberControllerIntegrationTest {
                                 "term", "2기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",
-                                "gender", "MALE"
+                                "gender", "MALE",
+                                "isAdmin", true
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.memberId").isNumber())
@@ -212,9 +235,35 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.gender").value("MALE"))
                 .andExpect(jsonPath("$.age").value("03"))
                 .andExpect(jsonPath("$.isMapoResident").value(true))
+                .andExpect(jsonPath("$.isAdmin").value(true))
                 .andExpect(jsonPath("$.court").doesNotExist());
 
         assertThat(clubMemberRepository.findAll()).hasSize(1);
+        ClubMember savedMember = clubMemberRepository.findAll().get(0);
+        assertThat(savedMember.getMemberId()).isEqualTo(authMember.getId());
+        assertThat(memberRepository.findById(authMember.getId()).orElseThrow().isAdmin()).isTrue();
+    }
+
+    @Test
+    @DisplayName("회원 계정이 없으면 운영진 권한을 가진 부원을 추가할 수 없다")
+    void createMemberReturnsBadRequestWhenAdminAccountIsMissing() throws Exception {
+        mockMvc.perform(post(ADMIN_MEMBERS_API)
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "name", "홍길동",
+                                "university", "한국대학교",
+                                "phone", "010-1234-5678",
+                                "age", "03",
+                                "term", "2기",
+                                "isMapoResident", true,
+                                "email", "hong@example.com",
+                                "gender", "MALE",
+                                "isAdmin", true
+                        ))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("MEMBER_ACCOUNT_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("운영진 권한을 설정할 회원 계정을 찾을 수 없습니다."));
     }
 
     @Test
@@ -251,6 +300,7 @@ class AdminMemberControllerIntegrationTest {
                                 "phone", "010-1234-5678",
                                 "age", "03",
                                 "term", "2기",
+                                "isAdmin", false,
                                 "gender", "MALE"
                         ))))
                 .andExpect(status().isBadRequest())
@@ -280,9 +330,25 @@ class AdminMemberControllerIntegrationTest {
                                   String age,
                                   String term,
                                   boolean isMapoResident) {
-        ClubMember clubMember = ClubMember.create(name, university, phone, age, term, isMapoResident, null, null);
+        return saveMember(name, university, phone, age, term, isMapoResident, null);
+    }
+
+    private ClubMember saveMember(String name,
+                                  String university,
+                                  String phone,
+                                  String age,
+                                  String term,
+                                  boolean isMapoResident,
+                                  String email) {
+        ClubMember clubMember = ClubMember.create(name, university, phone, age, term, isMapoResident, email, null);
         ClubMember savedMember = clubMemberRepository.saveAndFlush(clubMember);
         return clubMemberRepository.findById(savedMember.getId()).orElseThrow();
+    }
+
+    private Member saveAuthMember(String socialId, String email, boolean isAdmin) {
+        return memberRepository.saveAndFlush(
+                Member.createSocialMember(SocialProvider.KAKAO, socialId, "운영진", email, isAdmin)
+        );
     }
 
     private Application saveApplication(String name, Status status, int age) {
