@@ -603,10 +603,12 @@ class VoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.attendees[0].attendeeNumber").value(1))
                 .andExpect(jsonPath("$.attendees[0].nickname").value("member-3001"))
                 .andExpect(jsonPath("$.attendees[0].memberId").isNumber())
+                .andExpect(jsonPath("$.attendees[0].votedAt").exists())
                 .andExpect(jsonPath("$.attendees[0].isWaiting").value(false))
                 .andExpect(jsonPath("$.attendees[1].attendeeNumber").value(2))
                 .andExpect(jsonPath("$.attendees[1].nickname").value("member-3002"))
                 .andExpect(jsonPath("$.attendees[1].memberId").isNumber())
+                .andExpect(jsonPath("$.attendees[1].votedAt").exists())
                 .andExpect(jsonPath("$.attendees[1].isWaiting").value(true));
     }
 
@@ -630,8 +632,10 @@ class VoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.absentees.length()").value(2))
                 .andExpect(jsonPath("$.absentees[0].nickname").value("member-3001"))
                 .andExpect(jsonPath("$.absentees[0].memberId").isNumber())
+                .andExpect(jsonPath("$.absentees[0].votedAt").exists())
                 .andExpect(jsonPath("$.absentees[1].nickname").value("member-3002"))
-                .andExpect(jsonPath("$.absentees[1].memberId").isNumber());
+                .andExpect(jsonPath("$.absentees[1].memberId").isNumber())
+                .andExpect(jsonPath("$.absentees[1].votedAt").exists());
     }
 
     @Test
