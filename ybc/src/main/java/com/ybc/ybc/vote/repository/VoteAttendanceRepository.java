@@ -25,7 +25,15 @@ public interface VoteAttendanceRepository extends JpaRepository<VoteAttendance, 
 
     List<VoteAttendance> findAllByVote_IdAndAttendanceStatusTrueOrderByIdAsc(Long voteId);
 
-    List<VoteAttendance> findAllByVote_IdAndAttendanceStatusFalseOrderByIdAsc(Long voteId);
+    @Query("""
+            select va
+            from VoteAttendance va
+            join fetch va.member
+            where va.vote.id = :voteId
+              and va.attendanceStatus = false
+            order by va.id
+            """)
+    List<VoteAttendance> findAllInactiveWithMemberByVoteId(@Param("voteId") Long voteId);
 
     void deleteAllByVote_Id(Long voteId);
 

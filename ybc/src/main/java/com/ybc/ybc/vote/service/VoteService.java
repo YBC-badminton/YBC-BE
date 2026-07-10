@@ -191,7 +191,7 @@ public class VoteService {
     public VoteAbsenteeListResponse getVoteAbsentees(Long voteId) {
         getVoteEntity(voteId);
         return VoteAbsenteeListResponse.from(
-                voteAttendanceRepository.findAllByVote_IdAndAttendanceStatusFalseOrderByIdAsc(voteId)
+                voteAttendanceRepository.findAllInactiveWithMemberByVoteId(voteId)
         );
     }
 

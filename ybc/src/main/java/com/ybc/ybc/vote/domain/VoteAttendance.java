@@ -43,6 +43,9 @@ public class VoteAttendance {
     @Column(name = "attending_at")
     private LocalDateTime attendingAt;
 
+    @Column(name = "voted_at")
+    private LocalDateTime votedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -59,14 +62,19 @@ public class VoteAttendance {
         if (this.attendanceStatus == attendanceStatus) {
             return;
         }
+        LocalDateTime now = LocalDateTime.now();
         this.attendanceStatus = attendanceStatus;
-        this.attendingAt = attendanceStatus ? LocalDateTime.now() : null;
+        this.votedAt = now;
+        this.attendingAt = attendanceStatus ? now : null;
     }
 
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
+        }
+        if (votedAt == null) {
+            votedAt = createdAt;
         }
         if (attendanceStatus && attendingAt == null) {
             attendingAt = createdAt;
