@@ -15,7 +15,8 @@ public class CorsConfig {
             "http://127.0.0.1:3000",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
-            "https://ybc-fe.vercel.app"
+            "https://ybc-fe.vercel.app",
+            "https://ybcbadminton.co.kr"
     );
     private static final List<String> ALLOWED_METHODS = List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
     private static final List<String> ALLOWED_HEADERS = List.of("*");
