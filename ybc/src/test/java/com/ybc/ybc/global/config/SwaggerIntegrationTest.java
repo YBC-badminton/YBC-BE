@@ -27,6 +27,7 @@ class SwaggerIntegrationTest {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.openapi").isNotEmpty())
-                .andExpect(jsonPath("$.info.title").value("YBC API"));
+                .andExpect(jsonPath("$.info.title").value("YBC API"))
+                .andExpect(jsonPath("$.servers[0].url").value("/"));
     }
 }

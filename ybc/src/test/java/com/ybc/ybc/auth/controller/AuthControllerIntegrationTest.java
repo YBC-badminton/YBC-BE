@@ -50,6 +50,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({AuthControllerIntegrationTest.MockConfig.class, TestMailConfig.class})
 class AuthControllerIntegrationTest {
     private static final String LOCAL_FRONTEND_CALLBACK = "http://localhost:3000/auth/kakao/callback";
+    private static final String DEPLOYED_FRONTEND_ORIGIN = "https://ybcbadminton.co.kr";
 
     @Autowired
     private MockMvc mockMvc;
@@ -273,11 +274,11 @@ class AuthControllerIntegrationTest {
     @Test
     void preflightRequestAllowsDeployedFrontendOrigin() throws Exception {
         mockMvc.perform(options("/api/v1/auth/kakao/login")
-                        .header("Origin", "https://ybckk.vercel.app")
+                        .header("Origin", DEPLOYED_FRONTEND_ORIGIN)
                         .header("Access-Control-Request-Method", "POST")
                         .header("Access-Control-Request-Headers", "content-type"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Access-Control-Allow-Origin", "https://ybckk.vercel.app"))
+                .andExpect(header().string("Access-Control-Allow-Origin", DEPLOYED_FRONTEND_ORIGIN))
                 .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
     }
 

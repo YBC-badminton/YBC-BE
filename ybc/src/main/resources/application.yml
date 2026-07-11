@@ -33,7 +33,7 @@ app:
       client-secret: ${KAKAO_CLIENT_SECRET}
       redirect-uri: ${KAKAO_REDIRECT_URI}
       frontend-redirect-uri: ${KAKAO_FRONTEND_REDIRECT_URI}
-      allowed-frontend-redirect-uris: ${KAKAO_ALLOWED_FRONTEND_REDIRECT_URIS:https://ybc-fe.vercel.app/auth/kakao/callback,http://localhost:3000/auth/kakao/callback,http://127.0.0.1:3000/auth/kakao/callback,http://localhost:5173/auth/kakao/callback,http://127.0.0.1:5173/auth/kakao/callback}
+      allowed-frontend-redirect-uris: ${KAKAO_ALLOWED_FRONTEND_REDIRECT_URIS:https://ybc-fe.vercel.app/auth/kakao/callback,https://ybcbadminton.co.kr/auth/kakao/callback,http://localhost:3000/auth/kakao/callback,http://127.0.0.1:3000/auth/kakao/callback,http://localhost:5173/auth/kakao/callback,http://127.0.0.1:5173/auth/kakao/callback}
       authorization-base-url: ${KAKAO_AUTHORIZATION_BASE_URL}
       token-url: ${KAKAO_TOKEN_URL}
       user-info-url: ${KAKAO_USER_INFO_URL}
@@ -85,3 +85,6 @@ management:
         http.server.requests: true
       slo:
         http.server.requests: 100ms,300ms,500ms,1s,3s
+
+server:
+  forward-headers-strategy: framework
