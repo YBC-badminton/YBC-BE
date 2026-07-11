@@ -506,9 +506,13 @@ class VoteServiceTest {
                 .member(secondMember)
                 .attendanceStatus(false)
                 .build();
+        LocalDateTime firstVotedAt = LocalDateTime.of(2026, 4, 10, 10, 0);
+        LocalDateTime secondVotedAt = LocalDateTime.of(2026, 4, 10, 10, 5);
+        ReflectionTestUtils.setField(firstAttendance, "votedAt", firstVotedAt);
+        ReflectionTestUtils.setField(secondAttendance, "votedAt", secondVotedAt);
 
         when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
-        when(voteAttendanceRepository.findAllByVote_IdAndAttendanceStatusFalseOrderByIdAsc(1L))
+        when(voteAttendanceRepository.findAllInactiveWithMemberByVoteId(1L))
                 .thenReturn(List.of(firstAttendance, secondAttendance));
 
         VoteAbsenteeListResponse response = voteService.getVoteAbsentees(1L);
@@ -517,8 +521,10 @@ class VoteServiceTest {
         assertThat(response.absentees()).hasSize(2);
         assertThat(response.absentees().get(0).memberId()).isEqualTo(2L);
         assertThat(response.absentees().get(0).nickname()).isEqualTo("member-2001");
+        assertThat(response.absentees().get(0).votedAt()).isEqualTo(firstVotedAt);
         assertThat(response.absentees().get(1).memberId()).isEqualTo(3L);
         assertThat(response.absentees().get(1).nickname()).isEqualTo("member-2002");
+        assertThat(response.absentees().get(1).votedAt()).isEqualTo(secondVotedAt);
     }
 
     @Test

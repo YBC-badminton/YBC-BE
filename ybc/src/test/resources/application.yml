@@ -24,6 +24,7 @@ app:
       frontend-redirect-uri: https://ybc-fe.vercel.app/auth/kakao/callback
       allowed-frontend-redirect-uris:
         - https://ybc-fe.vercel.app/auth/kakao/callback
+        - https://ybcbadminton.co.kr/auth/kakao/callback
         - http://localhost:3000/auth/kakao/callback
         - http://127.0.0.1:3000/auth/kakao/callback
         - http://localhost:5173/auth/kakao/callback
