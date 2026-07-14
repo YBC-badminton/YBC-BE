@@ -35,6 +35,7 @@ public enum ExceptionCode {
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.REVIEW_NOT_FOUND, "존재하지 않는 장비 후기입니다."),
     FAQ_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.FAQ_NOT_FOUND, "존재하지 않는 FAQ입니다."),
     FAQ_INFO_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.FAQ_INFO_NOT_FOUND, "FAQ 정보를 찾을 수 없습니다."),
+    PRIVACY_POLICY_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.PRIVACY_POLICY_NOT_FOUND, "개인정보 처리방침을 찾을 수 없습니다."),
     REVIEW_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.REVIEW_UPDATE_FORBIDDEN, "해당 장비 후기를 수정할 권한이 없습니다."),
     REVIEW_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.REVIEW_DELETE_FORBIDDEN, "해당 장비 후기를 삭제할 권한이 없습니다."),
     INVALID_RECRUITMENT_SCHEDULE(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_RECRUITMENT_SCHEDULE, "모집 일정 순서가 올바르지 않습니다."),

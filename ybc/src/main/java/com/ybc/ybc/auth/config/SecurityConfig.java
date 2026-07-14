@@ -40,6 +40,7 @@ public class SecurityConfig {
             "/api/v1/auth/kakao/callback",
             "/api/v1/auth/refresh",
             "/faqs",
+            "/privacy-policy",
             "/recruitments/message",
             "/recruitments/interview-times",
             "/votes/recent",
