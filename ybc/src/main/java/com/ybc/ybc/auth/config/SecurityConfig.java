@@ -35,6 +35,7 @@ import java.util.Base64;
 @RequiredArgsConstructor
 public class SecurityConfig {
     private static final String[] PUBLIC_AUTH_ENDPOINTS = {
+            "/",
             "/api/v1/auth/kakao/login-url",
             "/api/v1/auth/kakao/login",
             "/api/v1/auth/kakao/callback",

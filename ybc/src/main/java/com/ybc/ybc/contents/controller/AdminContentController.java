@@ -1,8 +1,11 @@
 package com.ybc.ybc.contents.controller;
 
 import com.ybc.ybc.auth.domain.MemberPrincipal;
+import com.ybc.ybc.contents.dto.request.HomeContentUpdateRequest;
 import com.ybc.ybc.contents.dto.request.PrivacyPolicyUpdateRequest;
+import com.ybc.ybc.contents.dto.response.HomeContentResponse;
 import com.ybc.ybc.contents.dto.response.PrivacyPolicyResponse;
+import com.ybc.ybc.contents.service.HomeContentService;
 import com.ybc.ybc.contents.service.PrivacyPolicyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -14,11 +17,20 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/admin/content/privacy-policy")
-public class AdminPrivacyPolicyController {
+@RequestMapping("/admin/content")
+public class AdminContentController {
+    private final HomeContentService homeContentService;
     private final PrivacyPolicyService privacyPolicyService;
 
-    @PatchMapping
+    @PatchMapping("/home")
+    public ResponseEntity<HomeContentResponse> updateHomeContent(
+            @AuthenticationPrincipal MemberPrincipal memberPrincipal,
+            @RequestBody(required = false) HomeContentUpdateRequest request
+    ) {
+        return ResponseEntity.ok(homeContentService.updateHomeContent(memberPrincipal.getId(), request));
+    }
+
+    @PatchMapping("/privacy-policy")
     public ResponseEntity<PrivacyPolicyResponse> updatePrivacyPolicy(
             @AuthenticationPrincipal MemberPrincipal memberPrincipal,
             @RequestBody(required = false) PrivacyPolicyUpdateRequest request
