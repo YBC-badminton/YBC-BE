@@ -1,5 +1,7 @@
 package com.ybc.ybc.images.service;
 
+import com.ybc.ybc.auth.domain.Member;
+import com.ybc.ybc.auth.service.MemberService;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.images.config.GcsImageStorageProperties;
@@ -43,12 +45,14 @@ public class AdminImageService {
             "gif", "image/gif"
     );
 
+    private final MemberService memberService;
     private final AdminImageRepository adminImageRepository;
     private final ImageStorageClient imageStorageClient;
     private final GcsImageStorageProperties properties;
 
     @Transactional
-    public ImageUploadResponse uploadImage(MultipartFile file, String existingImageUrl) {
+    public ImageUploadResponse uploadImage(Long memberId, MultipartFile file, String existingImageUrl) {
+        validateAdmin(memberId);
         validateFile(file);
 
         String extension = resolveExtension(file);
@@ -67,10 +71,18 @@ public class AdminImageService {
     }
 
     @Transactional
-    public void deleteImage(Long imageId) {
+    public void deleteImage(Long memberId, Long imageId) {
+        validateAdmin(memberId);
         AdminImage adminImage = getImageById(imageId);
         imageStorageClient.delete(adminImage.getObjectName());
         adminImageRepository.delete(adminImage);
+    }
+
+    private void validateAdmin(Long memberId) {
+        Member member = memberService.getMemberById(memberId);
+        if (!member.isAdmin()) {
+            throw new YbcException(ExceptionCode.UNAUTHORIZED_USER);
+        }
     }
 
     private void validateFile(MultipartFile file) {

@@ -1,5 +1,8 @@
 package com.ybc.ybc.images.service;
 
+import com.ybc.ybc.auth.domain.Member;
+import com.ybc.ybc.auth.domain.SocialProvider;
+import com.ybc.ybc.auth.service.MemberService;
 import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.images.config.GcsImageStorageProperties;
 import com.ybc.ybc.images.domain.AdminImage;
@@ -20,12 +23,19 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AdminImageServiceTest {
+    private static final Long ADMIN_MEMBER_ID = 1L;
+    private static final Long NON_ADMIN_MEMBER_ID = 2L;
+
+    @Mock
+    private MemberService memberService;
+
     @Mock
     private AdminImageRepository adminImageRepository;
 
@@ -44,7 +54,10 @@ class AdminImageServiceTest {
                 "images",
                 6
         );
-        adminImageService = new AdminImageService(adminImageRepository, imageStorageClient, properties);
+        adminImageService = new AdminImageService(memberService, adminImageRepository, imageStorageClient, properties);
+
+        lenient().when(memberService.getMemberById(ADMIN_MEMBER_ID)).thenReturn(adminMember());
+        lenient().when(memberService.getMemberById(NON_ADMIN_MEMBER_ID)).thenReturn(nonAdminMember());
     }
 
     @Test
@@ -62,7 +75,7 @@ class AdminImageServiceTest {
                         "https://storage.googleapis.com/test-bucket/images/uploaded.jpg"
                 )));
 
-        ImageUploadResponse response = adminImageService.uploadImage(file, null);
+        ImageUploadResponse response = adminImageService.uploadImage(ADMIN_MEMBER_ID, file, null);
 
         assertThat(response.imageUrl()).isEqualTo("https://storage.googleapis.com/test-bucket/images/uploaded.jpg");
 
@@ -75,9 +88,21 @@ class AdminImageServiceTest {
     @Test
     @DisplayName("이미지 파일이 없으면 업로드할 수 없다")
     void uploadImageThrowsWhenFileIsMissing() {
-        assertThatThrownBy(() -> adminImageService.uploadImage(null, null))
+        assertThatThrownBy(() -> adminImageService.uploadImage(ADMIN_MEMBER_ID, null, null))
                 .isInstanceOf(YbcException.class)
                 .hasMessage("이미지 파일은 필수입니다.");
+    }
+
+    @Test
+    @DisplayName("관리자가 아니면 이미지를 업로드할 수 없다")
+    void uploadImageThrowsWhenMemberIsNotAdmin() {
+        MockMultipartFile file = new MockMultipartFile("file", "main.jpg", "image/jpeg", "image-data".getBytes());
+
+        assertThatThrownBy(() -> adminImageService.uploadImage(NON_ADMIN_MEMBER_ID, file, null))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("접근 권한이 없는 회원입니다.");
+
+        verify(imageStorageClient, never()).upload(any(), any(), any());
     }
 
     @Test
@@ -85,7 +110,7 @@ class AdminImageServiceTest {
     void uploadImageThrowsWhenFileTypeIsUnsupported() {
         MockMultipartFile file = new MockMultipartFile("file", "notes.txt", "text/plain", "not-image".getBytes());
 
-        assertThatThrownBy(() -> adminImageService.uploadImage(file, null))
+        assertThatThrownBy(() -> adminImageService.uploadImage(ADMIN_MEMBER_ID, file, null))
                 .isInstanceOf(YbcException.class)
                 .hasMessage("지원하지 않는 파일 형식입니다.");
 
@@ -102,7 +127,7 @@ class AdminImageServiceTest {
                 new byte[10 * 1024 * 1024 + 1]
         );
 
-        assertThatThrownBy(() -> adminImageService.uploadImage(file, null))
+        assertThatThrownBy(() -> adminImageService.uploadImage(ADMIN_MEMBER_ID, file, null))
                 .isInstanceOf(YbcException.class)
                 .hasMessage("이미지 파일은 10MB 이하여야 합니다.");
 
@@ -128,7 +153,7 @@ class AdminImageServiceTest {
                         "https://storage.googleapis.com/test-bucket/images/new-image.png"
                 )));
 
-        adminImageService.uploadImage(file, existingImageUrl);
+        adminImageService.uploadImage(ADMIN_MEMBER_ID, file, existingImageUrl);
 
         verify(imageStorageClient).delete("images/old-image.png");
         verify(adminImageRepository).delete(existingImage);
@@ -158,7 +183,7 @@ class AdminImageServiceTest {
                         AdminImage.create("images/newest.webp", "https://storage.googleapis.com/test-bucket/images/newest.webp")
                 ));
 
-        adminImageService.uploadImage(file, null);
+        adminImageService.uploadImage(ADMIN_MEMBER_ID, file, null);
 
         verify(imageStorageClient).delete("images/oldest.jpg");
         verify(adminImageRepository).delete(oldestImage);
@@ -174,10 +199,18 @@ class AdminImageServiceTest {
 
         when(adminImageRepository.findById(1L)).thenReturn(Optional.of(adminImage));
 
-        adminImageService.deleteImage(1L);
+        adminImageService.deleteImage(ADMIN_MEMBER_ID, 1L);
 
         verify(imageStorageClient).delete("images/main.jpg");
         verify(adminImageRepository).delete(adminImage);
+    }
+
+    @Test
+    @DisplayName("관리자가 아니면 이미지를 삭제할 수 없다")
+    void deleteImageThrowsWhenMemberIsNotAdmin() {
+        assertThatThrownBy(() -> adminImageService.deleteImage(NON_ADMIN_MEMBER_ID, 1L))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("접근 권한이 없는 회원입니다.");
     }
 
     @Test
@@ -185,8 +218,28 @@ class AdminImageServiceTest {
     void deleteImageThrowsWhenImageIsMissing() {
         when(adminImageRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> adminImageService.deleteImage(999L))
+        assertThatThrownBy(() -> adminImageService.deleteImage(ADMIN_MEMBER_ID, 999L))
                 .isInstanceOf(YbcException.class)
                 .hasMessage("이미지를 찾을 수 없습니다.");
+    }
+
+    private Member adminMember() {
+        return Member.createSocialMember(
+                SocialProvider.KAKAO,
+                "123456789",
+                "관리자",
+                "admin@example.com",
+                true
+        );
+    }
+
+    private Member nonAdminMember() {
+        return Member.createSocialMember(
+                SocialProvider.KAKAO,
+                "987654321",
+                "일반회원",
+                "user@example.com",
+                false
+        );
     }
 }

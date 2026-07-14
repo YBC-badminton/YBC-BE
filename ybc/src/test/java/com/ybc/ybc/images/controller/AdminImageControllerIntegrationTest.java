@@ -3,6 +3,11 @@ package com.ybc.ybc.images.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.ybc.ybc.auth.domain.Member;
+import com.ybc.ybc.auth.domain.MemberPrincipal;
+import com.ybc.ybc.auth.domain.SocialProvider;
+import com.ybc.ybc.auth.dto.MemberSummary;
+import com.ybc.ybc.auth.repository.MemberRepository;
 import com.ybc.ybc.images.repository.AdminImageRepository;
 import com.ybc.ybc.images.service.ImageStorageClient;
 import com.ybc.ybc.support.TestMailConfig;
@@ -17,9 +22,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
@@ -28,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.startsWith;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -53,16 +59,37 @@ class AdminImageControllerIntegrationTest {
     private AdminImageRepository adminImageRepository;
 
     @Autowired
+    private MemberRepository memberRepository;
+
+    @Autowired
     private InMemoryImageStorageClient imageStorageClient;
 
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
             .build();
 
+    private Member adminMember;
+    private Member nonAdminMember;
+
     @BeforeEach
     void setUp() {
         adminImageRepository.deleteAll();
+        memberRepository.deleteAll();
         imageStorageClient.clear();
+        adminMember = memberRepository.save(Member.createSocialMember(
+                SocialProvider.KAKAO,
+                "123456789",
+                "admin",
+                "admin@example.com",
+                true
+        ));
+        nonAdminMember = memberRepository.save(Member.createSocialMember(
+                SocialProvider.KAKAO,
+                "987654321",
+                "user",
+                "user@example.com",
+                false
+        ));
     }
 
     @Test
@@ -98,6 +125,24 @@ class AdminImageControllerIntegrationTest {
         mockMvc.perform(multipart(ADMIN_IMAGES_API).file(file))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("관리자가 아닌 사용자가 이미지를 업로드하면 401을 반환한다")
+    void uploadImageReturnsUnauthorizedWhenUserIsNotAdmin() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "main.jpg",
+                "image/jpeg",
+                "image-data".getBytes(StandardCharsets.UTF_8)
+        );
+
+        mockMvc.perform(multipart(ADMIN_IMAGES_API)
+                        .file(file)
+                        .with(authorizedNonAdminUser()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"))
+                .andExpect(jsonPath("$.message").value("접근 권한이 없는 회원입니다."));
     }
 
     @Test
@@ -215,6 +260,30 @@ class AdminImageControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("관리자가 아닌 사용자는 이미지를 삭제할 수 없다")
+    void deleteImageReturnsUnauthorizedWhenUserIsNotAdmin() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "main.jpg",
+                "image/jpeg",
+                "image-data".getBytes(StandardCharsets.UTF_8)
+        );
+
+        mockMvc.perform(multipart(ADMIN_IMAGES_API)
+                        .file(file)
+                        .with(authorizedUser()))
+                .andExpect(status().isOk());
+
+        Long imageId = adminImageRepository.findAll().get(0).getId();
+
+        mockMvc.perform(delete(ADMIN_IMAGES_API + "/{imageId}", imageId)
+                        .with(authorizedNonAdminUser()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"))
+                .andExpect(jsonPath("$.message").value("접근 권한이 없는 회원입니다."));
+    }
+
+    @Test
     @DisplayName("인증 정보가 없으면 이미지 삭제는 401을 반환한다")
     void deleteImageReturnsUnauthorizedWithoutAccessToken() throws Exception {
         mockMvc.perform(delete(ADMIN_IMAGES_API + "/{imageId}", 1L))
@@ -232,14 +301,21 @@ class AdminImageControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value("이미지를 찾을 수 없습니다."));
     }
 
-    private JwtRequestPostProcessor authorizedUser() {
-        return jwt().jwt(jwt -> jwt
-                .subject("1")
-                .claim("tokenType", "access")
-                .claim("provider", "KAKAO")
-                .claim("socialId", "123456789")
-                .claim("email", "admin@example.com")
-                .claim("nickname", "admin"));
+    private RequestPostProcessor authorizedUser() {
+        return authenticatedMember(adminMember);
+    }
+
+    private RequestPostProcessor authorizedNonAdminUser() {
+        return authenticatedMember(nonAdminMember);
+    }
+
+    private RequestPostProcessor authenticatedMember(Member member) {
+        MemberPrincipal principal = MemberPrincipal.from(MemberSummary.from(member));
+        return authentication(UsernamePasswordAuthenticationToken.authenticated(
+                principal,
+                null,
+                principal.getAuthorities()
+        ));
     }
 
     @TestConfiguration
