@@ -27,6 +27,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AdminImageService {
+    private static final long MAX_IMAGE_FILE_SIZE_BYTES = 10L * 1024 * 1024;
     private static final Map<String, String> EXTENSION_BY_CONTENT_TYPE = Map.of(
             "image/jpeg", "jpg",
             "image/jpg", "jpg",
@@ -75,6 +76,10 @@ public class AdminImageService {
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new YbcException(ExceptionCode.IMAGE_FILE_REQUIRED);
+        }
+
+        if (file.getSize() > MAX_IMAGE_FILE_SIZE_BYTES) {
+            throw new YbcException(ExceptionCode.IMAGE_FILE_TOO_LARGE);
         }
     }
 

@@ -93,6 +93,23 @@ class AdminImageServiceTest {
     }
 
     @Test
+    @DisplayName("이미지 용량이 10MB를 초과하면 업로드할 수 없다")
+    void uploadImageThrowsWhenFileSizeIsTooLarge() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "main.jpg",
+                "image/jpeg",
+                new byte[10 * 1024 * 1024 + 1]
+        );
+
+        assertThatThrownBy(() -> adminImageService.uploadImage(file, null))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("이미지 파일은 10MB 이하여야 합니다.");
+
+        verify(imageStorageClient, never()).upload(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("기존 이미지 URL이 전달되면 새 이미지 업로드 후 기존 이미지를 삭제한다")
     void uploadImageDeletesExistingImageWhenImageUrlProvided() {
         MockMultipartFile file = new MockMultipartFile("file", "main.png", "image/png", "image-data".getBytes());

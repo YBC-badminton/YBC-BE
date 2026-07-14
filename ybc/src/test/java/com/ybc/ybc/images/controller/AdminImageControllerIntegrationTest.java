@@ -129,6 +129,24 @@ class AdminImageControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("이미지 용량이 10MB를 초과하면 400을 반환한다")
+    void uploadImageReturnsBadRequestWhenFileSizeIsTooLarge() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "main.jpg",
+                "image/jpeg",
+                new byte[10 * 1024 * 1024 + 1]
+        );
+
+        mockMvc.perform(multipart(ADMIN_IMAGES_API)
+                        .file(file)
+                        .with(authorizedUser()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("IMAGE_FILE_TOO_LARGE"))
+                .andExpect(jsonPath("$.message").value("이미지 파일은 10MB 이하여야 합니다."));
+    }
+
+    @Test
     @DisplayName("기존 이미지 URL을 함께 보내면 새 이미지 업로드 후 기존 이미지를 삭제한다")
     void uploadImageDeletesExistingImageWhenImageUrlIsProvided() throws Exception {
         MockMultipartFile firstFile = new MockMultipartFile(
