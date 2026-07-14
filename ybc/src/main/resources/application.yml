@@ -14,6 +14,10 @@ spring:
   data:
     redis:
       url: ${SPRING_DATA_REDIS_URL:redis://localhost:6379}
+  servlet:
+    multipart:
+      max-file-size: ${IMAGE_MAX_FILE_SIZE:10MB}
+      max-request-size: ${IMAGE_MAX_FILE_SIZE:10MB}
   mail:
     host: ${MAIL_HOST}
     port: ${MAIL_PORT}
@@ -49,6 +53,13 @@ app:
     stub-delay-ms: ${MAIL_STUB_DELAY_MS:0}
     application:
       async-enabled: ${APPLICATION_MAIL_ASYNC_ENABLED:true}
+  storage:
+    gcs:
+      bucket: ${GCP_STORAGE_BUCKET_NAME:}
+      project-id: ${GCP_PROJECT_ID:}
+      credentials-json: ${GCP_STORAGE_CREDENTIAL_JSON:}
+      folder: ${GCS_FOLDER:images}
+      max-image-count: ${GCS_MAX_IMAGE_COUNT:10}
   monitoring:
     discord:
       enabled: ${DISCORD_ALERT_ENABLED:false}
