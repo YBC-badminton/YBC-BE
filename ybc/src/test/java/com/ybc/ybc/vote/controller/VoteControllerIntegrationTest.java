@@ -592,7 +592,7 @@ class VoteControllerIntegrationTest {
                 LocalDateTime.now().plusDays(1),
                 1
         ));
-        addAttendance(vote, true, "3001");
+        addAttendance(vote, true, "3001", true);
         addAttendance(vote, true, "3002");
         addAttendance(vote, false, "3003");
 
@@ -605,11 +605,13 @@ class VoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.attendees[0].memberId").isNumber())
                 .andExpect(jsonPath("$.attendees[0].votedAt").exists())
                 .andExpect(jsonPath("$.attendees[0].isWaiting").value(false))
+                .andExpect(jsonPath("$.attendees[0].isAdmin").value(true))
                 .andExpect(jsonPath("$.attendees[1].attendeeNumber").value(2))
                 .andExpect(jsonPath("$.attendees[1].nickname").value("member-3002"))
                 .andExpect(jsonPath("$.attendees[1].memberId").isNumber())
                 .andExpect(jsonPath("$.attendees[1].votedAt").exists())
-                .andExpect(jsonPath("$.attendees[1].isWaiting").value(true));
+                .andExpect(jsonPath("$.attendees[1].isWaiting").value(true))
+                .andExpect(jsonPath("$.attendees[1].isAdmin").value(false));
     }
 
     @Test
@@ -1420,7 +1422,14 @@ class VoteControllerIntegrationTest {
     private void addAttendance(Vote vote,
                                boolean attendanceStatus,
                                String socialId) {
-        saveAttendance(vote, attendanceStatus, socialId);
+        saveAttendance(vote, attendanceStatus, socialId, false);
+    }
+
+    private void addAttendance(Vote vote,
+                               boolean attendanceStatus,
+                               String socialId,
+                               boolean isAdmin) {
+        saveAttendance(vote, attendanceStatus, socialId, isAdmin);
     }
 
     private void addGuest(Vote vote, String socialId, String guestName) {
@@ -1439,8 +1448,21 @@ class VoteControllerIntegrationTest {
     private VoteAttendance saveAttendance(Vote vote,
                                           boolean attendanceStatus,
                                           String socialId) {
+        return saveAttendance(vote, attendanceStatus, socialId, false);
+    }
+
+    private VoteAttendance saveAttendance(Vote vote,
+                                          boolean attendanceStatus,
+                                          String socialId,
+                                          boolean isAdmin) {
         Member member = memberRepository.save(
-                Member.createSocialMember(SocialProvider.KAKAO, socialId, "member-" + socialId, socialId + "@example.com")
+                Member.createSocialMember(
+                        SocialProvider.KAKAO,
+                        socialId,
+                        "member-" + socialId,
+                        socialId + "@example.com",
+                        isAdmin
+                )
         );
         return voteAttendanceRepository.saveAndFlush(
                 VoteAttendance.builder()
