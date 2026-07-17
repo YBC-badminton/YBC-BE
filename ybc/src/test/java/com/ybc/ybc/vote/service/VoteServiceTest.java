@@ -417,7 +417,7 @@ class VoteServiceTest {
     void getVoteAttendeesReturnsAttendeeList() {
         Vote vote = savedVote(1L, "목요 정기 운동");
         ReflectionTestUtils.setField(vote, "capacity", 1);
-        Member firstMember = savedMember(2L, "2001");
+        Member firstMember = savedMember(2L, "2001", true);
         Member secondMember = savedMember(3L, "2002");
         ReflectionTestUtils.setField(firstMember, "nickname", "member-2001");
         ReflectionTestUtils.setField(secondMember, "nickname", "member-2002");
@@ -447,10 +447,12 @@ class VoteServiceTest {
         assertThat(response.attendees().get(0).memberId()).isEqualTo(2L);
         assertThat(response.attendees().get(0).nickname()).isEqualTo("member-2001");
         assertThat(response.attendees().get(0).isWaiting()).isFalse();
+        assertThat(response.attendees().get(0).isAdmin()).isTrue();
         assertThat(response.attendees().get(1).attendeeNumber()).isEqualTo(2);
         assertThat(response.attendees().get(1).memberId()).isEqualTo(3L);
         assertThat(response.attendees().get(1).nickname()).isEqualTo("member-2002");
         assertThat(response.attendees().get(1).isWaiting()).isTrue();
+        assertThat(response.attendees().get(1).isAdmin()).isFalse();
     }
 
     @Test
@@ -830,7 +832,17 @@ class VoteServiceTest {
     }
 
     private Member savedMember(Long id, String socialId) {
-        Member member = Member.createSocialMember(SocialProvider.KAKAO, socialId, "member-" + socialId, socialId + "@example.com");
+        return savedMember(id, socialId, false);
+    }
+
+    private Member savedMember(Long id, String socialId, boolean isAdmin) {
+        Member member = Member.createSocialMember(
+                SocialProvider.KAKAO,
+                socialId,
+                "member-" + socialId,
+                socialId + "@example.com",
+                isAdmin
+        );
         ReflectionTestUtils.setField(member, "id", id);
         return member;
     }
