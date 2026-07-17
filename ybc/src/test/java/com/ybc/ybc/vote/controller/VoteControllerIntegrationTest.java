@@ -624,7 +624,7 @@ class VoteControllerIntegrationTest {
                 LocalDateTime.now().plusDays(1),
                 20
         ));
-        addAttendance(vote, false, "3001");
+        addAttendance(vote, false, "3001", true);
         addAttendance(vote, false, "3002");
         addAttendance(vote, true, "3003");
 
@@ -635,9 +635,11 @@ class VoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.absentees[0].nickname").value("member-3001"))
                 .andExpect(jsonPath("$.absentees[0].memberId").isNumber())
                 .andExpect(jsonPath("$.absentees[0].votedAt").exists())
+                .andExpect(jsonPath("$.absentees[0].isAdmin").value(true))
                 .andExpect(jsonPath("$.absentees[1].nickname").value("member-3002"))
                 .andExpect(jsonPath("$.absentees[1].memberId").isNumber())
-                .andExpect(jsonPath("$.absentees[1].votedAt").exists());
+                .andExpect(jsonPath("$.absentees[1].votedAt").exists())
+                .andExpect(jsonPath("$.absentees[1].isAdmin").value(false));
     }
 
     @Test

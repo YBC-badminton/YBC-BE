@@ -8,14 +8,16 @@ public record VoteAbsenteeResponse(
         Long memberId,
         String nickname,
         LocalDateTime votedAt,
-        boolean isWaiting
+        boolean isWaiting,
+        boolean isAdmin
 ) {
     public static VoteAbsenteeResponse from(VoteAttendance voteAttendance) {
         return new VoteAbsenteeResponse(
                 voteAttendance.getMember().getId(),
                 voteAttendance.getMember().getNickname(),
                 resolveVotedAt(voteAttendance),
-                false
+                false,
+                voteAttendance.getMember().isAdmin()
         );
     }
 
