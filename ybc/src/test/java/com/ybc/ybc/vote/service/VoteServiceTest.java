@@ -493,7 +493,7 @@ class VoteServiceTest {
     @DisplayName("특정 투표에서 참석 상태가 false인 회원 목록과 총원을 반환한다")
     void getVoteAbsenteesReturnsAbsenteeList() {
         Vote vote = savedVote(1L, "목요 정기 운동");
-        Member firstMember = savedMember(2L, "2001");
+        Member firstMember = savedMember(2L, "2001", true);
         Member secondMember = savedMember(3L, "2002");
         ReflectionTestUtils.setField(firstMember, "nickname", "member-2001");
         ReflectionTestUtils.setField(secondMember, "nickname", "member-2002");
@@ -524,9 +524,11 @@ class VoteServiceTest {
         assertThat(response.absentees().get(0).memberId()).isEqualTo(2L);
         assertThat(response.absentees().get(0).nickname()).isEqualTo("member-2001");
         assertThat(response.absentees().get(0).votedAt()).isEqualTo(firstVotedAt);
+        assertThat(response.absentees().get(0).isAdmin()).isTrue();
         assertThat(response.absentees().get(1).memberId()).isEqualTo(3L);
         assertThat(response.absentees().get(1).nickname()).isEqualTo("member-2002");
         assertThat(response.absentees().get(1).votedAt()).isEqualTo(secondVotedAt);
+        assertThat(response.absentees().get(1).isAdmin()).isFalse();
     }
 
     @Test
