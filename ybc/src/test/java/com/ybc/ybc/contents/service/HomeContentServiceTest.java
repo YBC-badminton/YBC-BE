@@ -8,6 +8,7 @@ import com.ybc.ybc.contents.dto.request.HomeContentUpdateRequest;
 import com.ybc.ybc.contents.dto.response.HomeContentResponse;
 import com.ybc.ybc.contents.repository.HomeContentRepository;
 import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.images.service.ManagedImageCleanupService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -38,6 +40,9 @@ class HomeContentServiceTest {
 
     @Mock
     private HomeContentRepository homeContentRepository;
+
+    @Mock
+    private ManagedImageCleanupService managedImageCleanupService;
 
     @InjectMocks
     private HomeContentService homeContentService;
@@ -79,6 +84,10 @@ class HomeContentServiceTest {
         assertThat(captor.getValue().getActivityImageUrl()).isEqualTo("https://storage.googleapis.com/ybc/images/main.jpg");
         assertThat(captor.getValue().getRegularMeetingCount()).isEqualTo(2);
         assertThat(captor.getValue().getMemberCount()).isEqualTo(45);
+        verify(managedImageCleanupService).deleteUnusedImages(
+                Set.of(),
+                Set.of("https://storage.googleapis.com/ybc/images/main.jpg")
+        );
     }
 
     @Test
@@ -110,6 +119,10 @@ class HomeContentServiceTest {
         assertThat(existingHomeContent.getRegularMeetingCount()).isEqualTo(2);
         assertThat(existingHomeContent.getMemberCount()).isEqualTo(45);
         assertThat(response.clubIntroduction()).isEqualTo("수정된 소개글입니다.");
+        verify(managedImageCleanupService).deleteUnusedImages(
+                Set.of("https://storage.googleapis.com/ybc/images/old-main.jpg"),
+                Set.of("https://storage.googleapis.com/ybc/images/new-main.jpg")
+        );
     }
 
     @Test
