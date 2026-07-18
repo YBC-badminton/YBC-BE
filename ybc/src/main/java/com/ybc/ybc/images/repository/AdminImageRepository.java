@@ -9,5 +9,7 @@ import java.util.Optional;
 public interface AdminImageRepository extends JpaRepository<AdminImage, Long> {
     Optional<AdminImage> findByObjectName(String objectName);
 
+    Optional<AdminImage> findByImageUrl(String imageUrl);
+
     List<AdminImage> findAllByOrderByCreatedAtAsc();
 }

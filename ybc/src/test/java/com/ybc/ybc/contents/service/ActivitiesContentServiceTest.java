@@ -8,6 +8,7 @@ import com.ybc.ybc.contents.dto.request.ActivitiesContentUpdateRequest;
 import com.ybc.ybc.contents.dto.response.ActivitiesContentResponse;
 import com.ybc.ybc.contents.repository.ActivitiesContentRepository;
 import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.images.service.ManagedImageCleanupService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,6 +41,9 @@ class ActivitiesContentServiceTest {
 
     @Mock
     private ActivitiesContentRepository activitiesContentRepository;
+
+    @Mock
+    private ManagedImageCleanupService managedImageCleanupService;
 
     @InjectMocks
     private ActivitiesContentService activitiesContentService;
@@ -77,6 +82,16 @@ class ActivitiesContentServiceTest {
         assertThat(captor.getValue().getMainTitle()).isEqualTo("YBC의 지난 활동");
         assertThat(captor.getValue().getEvents()).hasSize(2);
         assertThat(captor.getValue().getAfterPartyDescriptions()).containsExactly("운동 후 식사", "친목 활동", "뒤풀이 진행");
+        verify(managedImageCleanupService).deleteUnusedImages(
+                Set.of(),
+                Set.of(
+                        "https://storage.googleapis.com/ybc/images/regular1.jpg",
+                        "https://storage.googleapis.com/ybc/images/regular2.jpg",
+                        "https://storage.googleapis.com/ybc/images/event1.jpg",
+                        "https://storage.googleapis.com/ybc/images/event2.jpg",
+                        "https://storage.googleapis.com/ybc/images/after-party.jpg"
+                )
+        );
     }
 
     @Test
@@ -113,6 +128,20 @@ class ActivitiesContentServiceTest {
         assertThat(existingActivitiesContent.getEvents()).hasSize(2);
         assertThat(existingActivitiesContent.getAfterPartyDescriptions()).containsExactly("운동 후 식사", "친목 활동", "뒤풀이 진행");
         assertThat(response.events().get(0).title()).isEqualTo("리그전");
+        verify(managedImageCleanupService).deleteUnusedImages(
+                Set.of(
+                        "https://storage.googleapis.com/ybc/images/old-regular1.jpg",
+                        "https://storage.googleapis.com/ybc/images/old-regular2.jpg",
+                        "https://storage.googleapis.com/ybc/images/old-after-party.jpg"
+                ),
+                Set.of(
+                        "https://storage.googleapis.com/ybc/images/regular1.jpg",
+                        "https://storage.googleapis.com/ybc/images/regular2.jpg",
+                        "https://storage.googleapis.com/ybc/images/event1.jpg",
+                        "https://storage.googleapis.com/ybc/images/event2.jpg",
+                        "https://storage.googleapis.com/ybc/images/after-party.jpg"
+                )
+        );
     }
 
     @Test
