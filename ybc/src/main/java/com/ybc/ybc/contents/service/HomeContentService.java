@@ -8,10 +8,14 @@ import com.ybc.ybc.contents.dto.response.HomeContentResponse;
 import com.ybc.ybc.contents.repository.HomeContentRepository;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.images.service.ManagedImageCleanupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +23,7 @@ import org.springframework.util.StringUtils;
 public class HomeContentService {
     private final MemberService memberService;
     private final HomeContentRepository homeContentRepository;
+    private final ManagedImageCleanupService managedImageCleanupService;
 
     public HomeContentResponse getHomeContent() {
         return HomeContentResponse.from(getHomeContentEntity());
@@ -29,15 +34,20 @@ public class HomeContentService {
         validateAdmin(memberId);
         validateRequest(request);
 
-        HomeContent homeContent = homeContentRepository.findFirstByOrderByIdAsc()
-                .map(existingHomeContent -> {
-                    existingHomeContent.update(
+        Optional<HomeContent> existingHomeContent = homeContentRepository.findFirstByOrderByIdAsc();
+        Set<String> previousImageUrls = existingHomeContent
+                .map(this::extractImageUrls)
+                .orElseGet(Set::of);
+
+        HomeContent homeContent = existingHomeContent
+                .map(savedHomeContent -> {
+                    savedHomeContent.update(
                             request.clubIntroduction(),
                             request.activityImageUrl(),
                             request.regularMeetingCount(),
                             request.memberCount()
                     );
-                    return existingHomeContent;
+                    return savedHomeContent;
                 })
                 .orElseGet(() -> HomeContent.create(
                         request.clubIntroduction(),
@@ -47,6 +57,7 @@ public class HomeContentService {
                 ));
 
         HomeContent savedHomeContent = homeContentRepository.saveAndFlush(homeContent);
+        managedImageCleanupService.deleteUnusedImages(previousImageUrls, extractImageUrls(savedHomeContent));
         return HomeContentResponse.from(savedHomeContent);
     }
 
@@ -70,5 +81,9 @@ public class HomeContentService {
     private HomeContent getHomeContentEntity() {
         return homeContentRepository.findFirstByOrderByIdAsc()
                 .orElseThrow(() -> new YbcException(ExceptionCode.HOME_CONTENT_NOT_FOUND));
+    }
+
+    private Set<String> extractImageUrls(HomeContent homeContent) {
+        return Set.of(homeContent.getActivityImageUrl());
     }
 }

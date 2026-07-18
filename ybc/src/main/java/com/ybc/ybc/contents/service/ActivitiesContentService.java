@@ -9,12 +9,16 @@ import com.ybc.ybc.contents.dto.response.ActivitiesContentResponse;
 import com.ybc.ybc.contents.repository.ActivitiesContentRepository;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.images.service.ManagedImageCleanupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +30,7 @@ public class ActivitiesContentService {
 
     private final MemberService memberService;
     private final ActivitiesContentRepository activitiesContentRepository;
+    private final ManagedImageCleanupService managedImageCleanupService;
 
     public ActivitiesContentResponse getActivitiesContent() {
         return ActivitiesContentResponse.from(getActivitiesContentEntity());
@@ -40,9 +45,14 @@ public class ActivitiesContentService {
                 .map(event -> ActivitiesEvent.create(event.title(), event.description(), event.imageUrl()))
                 .toList();
 
-        ActivitiesContent activitiesContent = activitiesContentRepository.findFirstByOrderByIdAsc()
-                .map(existingActivitiesContent -> {
-                    existingActivitiesContent.update(
+        Optional<ActivitiesContent> existingActivitiesContent = activitiesContentRepository.findFirstByOrderByIdAsc();
+        Set<String> previousImageUrls = existingActivitiesContent
+                .map(this::extractImageUrls)
+                .orElseGet(Set::of);
+
+        ActivitiesContent activitiesContent = existingActivitiesContent
+                .map(savedActivitiesContent -> {
+                    savedActivitiesContent.update(
                             request.mainTitle(),
                             request.subDescription(),
                             request.regularMeeting().description(),
@@ -51,7 +61,7 @@ public class ActivitiesContentService {
                             request.afterParties().description(),
                             request.afterParties().imageUrl()
                     );
-                    return existingActivitiesContent;
+                    return savedActivitiesContent;
                 })
                 .orElseGet(() -> ActivitiesContent.create(
                         request.mainTitle(),
@@ -64,6 +74,7 @@ public class ActivitiesContentService {
                 ));
 
         ActivitiesContent savedActivitiesContent = activitiesContentRepository.saveAndFlush(activitiesContent);
+        managedImageCleanupService.deleteUnusedImages(previousImageUrls, extractImageUrls(savedActivitiesContent));
         return ActivitiesContentResponse.from(savedActivitiesContent);
     }
 
@@ -115,5 +126,14 @@ public class ActivitiesContentService {
     private ActivitiesContent getActivitiesContentEntity() {
         return activitiesContentRepository.findFirstByOrderByIdAsc()
                 .orElseThrow(() -> new YbcException(ExceptionCode.ACTIVITIES_CONTENT_NOT_FOUND));
+    }
+
+    private Set<String> extractImageUrls(ActivitiesContent activitiesContent) {
+        Set<String> imageUrls = new HashSet<>(activitiesContent.getRegularMeetingImageUrls());
+        activitiesContent.getEvents().stream()
+                .map(ActivitiesEvent::getImageUrl)
+                .forEach(imageUrls::add);
+        imageUrls.add(activitiesContent.getAfterPartyImageUrl());
+        return imageUrls;
     }
 }
