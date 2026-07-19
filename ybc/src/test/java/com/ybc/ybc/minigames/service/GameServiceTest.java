@@ -14,6 +14,7 @@ import com.ybc.ybc.minigames.dto.request.MiniGameScoreUpdateRequest;
 import com.ybc.ybc.minigames.dto.response.MiniGameCreateResponse;
 import com.ybc.ybc.minigames.dto.response.MiniGameEndResponse;
 import com.ybc.ybc.minigames.dto.response.MiniGameFinishedUpdateResponse;
+import com.ybc.ybc.minigames.dto.response.MiniGameListResponse;
 import com.ybc.ybc.minigames.dto.response.MiniGameScoreUpdateResponse;
 import com.ybc.ybc.minigames.repository.MiniGameRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +33,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -115,6 +117,63 @@ class GameServiceTest {
                 .isInstanceOf(YbcException.class)
                 .hasMessage("타겟 스코어는 11점, 21점, 25점만 가능합니다.");
         verifyNoInteractions(miniGameRepository);
+    }
+
+    @Test
+    @DisplayName("미니 게임 조회 시 종료된 경기 기록을 최신 순으로 반환한다")
+    void getGamesReturnsFinishedGames() {
+        MiniGame latestGame = MiniGame.create(
+                "7월 첫째 주 미니게임",
+                "김민수",
+                "이서연",
+                "박지훈",
+                "최유진",
+                25,
+                createMember(1L, "3001", "김민수")
+        );
+        latestGame.finish(
+                LocalDate.of(2026, 7, 19),
+                LocalTime.of(14, 0),
+                LocalTime.of(14, 25),
+                25,
+                23,
+                MiniGameWinnerTeam.TEAM1
+        );
+        ReflectionTestUtils.setField(latestGame, "id", 1L);
+
+        MiniGame previousGame = MiniGame.create(
+                "초급 복식 경기",
+                "정우성",
+                "한지민",
+                "김도현",
+                "이수빈",
+                21,
+                createMember(2L, "3002", "정우성")
+        );
+        previousGame.finish(
+                LocalDate.of(2026, 7, 18),
+                LocalTime.of(15, 10),
+                LocalTime.of(15, 35),
+                18,
+                21,
+                MiniGameWinnerTeam.TEAM2
+        );
+        ReflectionTestUtils.setField(previousGame, "id", 2L);
+
+        when(miniGameRepository.findAllByStatusOrderByGameDateDescStartTimeDescIdDesc(MiniGameStatus.FINISHED))
+                .thenReturn(List.of(latestGame, previousGame));
+
+        MiniGameListResponse response = gameService.getGames();
+
+        assertThat(response.games()).hasSize(2);
+        assertThat(response.games().get(0).gameId()).isEqualTo(1L);
+        assertThat(response.games().get(0).title()).isEqualTo("7월 첫째 주 미니게임");
+        assertThat(response.games().get(0).winnerTeam()).isEqualTo(MiniGameWinnerTeam.TEAM1);
+        assertThat(response.games().get(0).startTime()).isEqualTo(LocalDateTime.of(2026, 7, 19, 14, 0));
+        assertThat(response.games().get(0).endTime()).isEqualTo(LocalDateTime.of(2026, 7, 19, 14, 25));
+        assertThat(response.games().get(1).gameId()).isEqualTo(2L);
+        assertThat(response.games().get(1).winnerTeam()).isEqualTo(MiniGameWinnerTeam.TEAM2);
+        verify(miniGameRepository).findAllByStatusOrderByGameDateDescStartTimeDescIdDesc(MiniGameStatus.FINISHED);
     }
 
     @Test
