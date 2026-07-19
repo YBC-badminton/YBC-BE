@@ -8,12 +8,14 @@ import com.ybc.ybc.minigames.dto.request.MiniGameScoreUpdateRequest;
 import com.ybc.ybc.minigames.dto.response.MiniGameCreateResponse;
 import com.ybc.ybc.minigames.dto.response.MiniGameEndResponse;
 import com.ybc.ybc.minigames.dto.response.MiniGameFinishedUpdateResponse;
+import com.ybc.ybc.minigames.dto.response.MiniGameListResponse;
 import com.ybc.ybc.minigames.dto.response.MiniGameScoreUpdateResponse;
 import com.ybc.ybc.minigames.service.GameService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,6 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/games")
 public class GameController {
     private final GameService gameService;
+
+    @GetMapping
+    public ResponseEntity<MiniGameListResponse> getGames() {
+        return ResponseEntity.ok(gameService.getGames());
+    }
 
     // 미니 게임 생성
     @PostMapping

@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -46,6 +47,92 @@ class GameControllerIntegrationTest {
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
             .build();
+
+    @Test
+    @DisplayName("인증된 사용자는 종료된 미니 게임 기록을 최신 순으로 조회할 수 있다")
+    void getGames() throws Exception {
+        Member member = saveMember("3001", "김민수");
+
+        MiniGame latestGame = miniGameRepository.save(
+                MiniGame.create(
+                        "7월 첫째 주 미니게임",
+                        "김민수",
+                        "이서연",
+                        "박지훈",
+                        "최유진",
+                        25,
+                        member
+                )
+        );
+        latestGame.finish(
+                java.time.LocalDate.of(2026, 7, 19),
+                java.time.LocalTime.of(14, 0),
+                java.time.LocalTime.of(14, 25),
+                25,
+                23,
+                MiniGameWinnerTeam.TEAM1
+        );
+
+        MiniGame previousGame = miniGameRepository.save(
+                MiniGame.create(
+                        "초급 복식 경기",
+                        "정우성",
+                        "한지민",
+                        "김도현",
+                        "이수빈",
+                        21,
+                        member
+                )
+        );
+        previousGame.finish(
+                java.time.LocalDate.of(2026, 7, 18),
+                java.time.LocalTime.of(15, 10),
+                java.time.LocalTime.of(15, 35),
+                18,
+                21,
+                MiniGameWinnerTeam.TEAM2
+        );
+
+        miniGameRepository.save(
+                MiniGame.create(
+                        "진행 중 미니게임",
+                        "A",
+                        "B",
+                        "C",
+                        "D",
+                        21,
+                        member
+                )
+        );
+
+        mockMvc.perform(get("/games")
+                        .with(authorizedUser(member)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.games.length()").value(2))
+                .andExpect(jsonPath("$.games[0].gameId").value(latestGame.getId()))
+                .andExpect(jsonPath("$.games[0].title").value("7월 첫째 주 미니게임"))
+                .andExpect(jsonPath("$.games[0].team1Member1").value("김민수"))
+                .andExpect(jsonPath("$.games[0].team1Member2").value("이서연"))
+                .andExpect(jsonPath("$.games[0].team2Member1").value("박지훈"))
+                .andExpect(jsonPath("$.games[0].team2Member2").value("최유진"))
+                .andExpect(jsonPath("$.games[0].team1Score").value(25))
+                .andExpect(jsonPath("$.games[0].team2Score").value(23))
+                .andExpect(jsonPath("$.games[0].winnerTeam").value("TEAM1"))
+                .andExpect(jsonPath("$.games[0].startTime").value("2026-07-19T14:00:00"))
+                .andExpect(jsonPath("$.games[0].endTime").value("2026-07-19T14:25:00"))
+                .andExpect(jsonPath("$.games[1].gameId").value(previousGame.getId()))
+                .andExpect(jsonPath("$.games[1].winnerTeam").value("TEAM2"))
+                .andExpect(jsonPath("$.games[1].startTime").value("2026-07-18T15:10:00"))
+                .andExpect(jsonPath("$.games[1].endTime").value("2026-07-18T15:35:00"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 미니 게임 기록을 조회할 수 없다")
+    void getGamesRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/games"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
 
     @Test
     @DisplayName("카카오 로그인 회원은 미니 게임을 생성할 수 있다")

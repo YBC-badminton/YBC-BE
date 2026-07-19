@@ -3,6 +3,7 @@ package com.ybc.ybc.minigames.service;
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.service.MemberService;
 import com.ybc.ybc.minigames.domain.MiniGame;
+import com.ybc.ybc.minigames.domain.MiniGameStatus;
 import com.ybc.ybc.minigames.dto.request.MiniGameCreateRequest;
 import com.ybc.ybc.minigames.dto.request.MiniGameEndRequest;
 import com.ybc.ybc.minigames.dto.request.MiniGameFinishedUpdateRequest;
@@ -10,7 +11,9 @@ import com.ybc.ybc.minigames.dto.request.MiniGameScoreUpdateRequest;
 import com.ybc.ybc.minigames.dto.response.MiniGameCreateResponse;
 import com.ybc.ybc.minigames.dto.response.MiniGameEndResponse;
 import com.ybc.ybc.minigames.dto.response.MiniGameFinishedUpdateResponse;
+import com.ybc.ybc.minigames.dto.response.MiniGameListResponse;
 import com.ybc.ybc.minigames.dto.response.MiniGameScoreUpdateResponse;
+import com.ybc.ybc.minigames.dto.response.MiniGameSummaryResponse;
 import com.ybc.ybc.minigames.repository.MiniGameRepository;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
@@ -21,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +33,15 @@ public class GameService {
     private final MiniGameRepository miniGameRepository;
     private final MemberService memberService;
     private final Clock clock;
+
+    public MiniGameListResponse getGames() {
+        List<MiniGameSummaryResponse> games = miniGameRepository
+                .findAllByStatusOrderByGameDateDescStartTimeDescIdDesc(MiniGameStatus.FINISHED)
+                .stream()
+                .map(MiniGameSummaryResponse::from)
+                .toList();
+        return MiniGameListResponse.from(games);
+    }
 
     @Transactional
     public MiniGameCreateResponse createMiniGame(Long memberId, MiniGameCreateRequest request) {
