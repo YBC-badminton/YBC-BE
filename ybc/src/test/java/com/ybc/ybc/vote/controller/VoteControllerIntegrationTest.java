@@ -135,44 +135,86 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("open=true 조회 시 이미 열린 투표와 30분 내 오픈 예정 투표만 함께 조회한다")
+    @DisplayName("번개 모임 투표는 투표 종료 시간이 현재보다 이전이어도 생성할 수 있다")
+    void createFlashVoteAllowsPastVoteEndAt() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3002", "member-3002", "3002@example.com")
+        );
+        LocalDate activityDate = LocalDate.now().plusDays(1);
+        LocalDateTime voteEndAt = LocalDateTime.now().minusHours(1);
+
+        mockMvc.perform(post("/votes/flash")
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new FlashVoteCreateRequest(
+                                "마감된 번개 운동",
+                                activityDate,
+                                "21:00 ~ 22:00",
+                                "이화체육관",
+                                "마감 시간 테스트",
+                                voteEndAt
+                        ))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.activityType").value("FLASH"))
+                .andExpect(jsonPath("$.title").value("마감된 번개 운동"))
+                .andExpect(jsonPath("$.voteEndAt").exists());
+
+        Vote savedVote = voteRepository.findAll().stream()
+                .filter(vote -> vote.getTitle().equals("마감된 번개 운동"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(savedVote.getVoteEndAt().withNano(0)).isEqualTo(voteEndAt.withNano(0));
+    }
+
+    @Test
+    @DisplayName("open=true 조회 시 activityDate 오름차순, 같은 날짜면 생성 시각 오름차순으로 조회한다")
     void getOpenVotes() throws Exception {
-        Vote openedVote = vote(
-                "목요 정기 운동",
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = LocalDate.now();
+
+        Vote firstCreatedSameDateVote = vote(
+                "같은 날짜 먼저 생성된 투표",
                 ActivityType.REGULAR,
-                LocalDateTime.now().minusHours(1),
-                LocalDateTime.now().plusDays(1),
+                today.plusDays(1),
+                now.plusMinutes(20),
+                now.plusHours(3),
                 20
         );
-        openedVote = voteRepository.save(openedVote);
-        Vote previewVote = voteRepository.save(vote(
-                "곧 열릴 정기 운동",
+        firstCreatedSameDateVote = voteRepository.save(firstCreatedSameDateVote);
+        Vote laterCreatedSameDateVote = voteRepository.save(vote(
+                "같은 날짜 나중에 생성된 투표",
                 ActivityType.REGULAR,
-                LocalDateTime.now().plusMinutes(20),
-                LocalDateTime.now().plusHours(3),
+                today.plusDays(1),
+                now.minusHours(1),
+                now.plusDays(1),
                 18
         ));
-        voteRepository.save(vote(
-                "아직 예약된 정기 운동",
+        Vote laterActivityVote = voteRepository.save(vote(
+                "더 늦은 활동 날짜 투표",
                 ActivityType.REGULAR,
-                LocalDateTime.now().plusHours(1),
-                LocalDateTime.now().plusHours(4),
+                today.plusDays(2),
+                now.minusMinutes(30),
+                now.plusHours(5),
                 16
         ));
         Vote closedVote = voteRepository.save(vote(
                 "지난 번개 운동",
                 ActivityType.FLASH,
-                LocalDateTime.now().minusDays(2),
-                LocalDateTime.now().minusDays(1),
+                now.minusDays(2),
+                now.minusDays(1),
                 12
         ));
 
-        addAttendance(openedVote, true, "1001");
-        addAttendance(openedVote, true, "1002");
-        addGuest(openedVote, "host1", "게스트");
-        addAttendance(openedVote, false, "1003");
+        updateCreatedAt(firstCreatedSameDateVote.getId(), now.minusDays(3));
+        updateCreatedAt(laterCreatedSameDateVote.getId(), now.minusDays(2));
+        updateCreatedAt(laterActivityVote.getId(), now.minusDays(4));
+
+        addAttendance(laterCreatedSameDateVote, true, "1001");
+        addAttendance(laterCreatedSameDateVote, true, "1002");
+        addGuest(laterCreatedSameDateVote, "host1", "게스트");
+        addAttendance(laterCreatedSameDateVote, false, "1003");
         addAttendance(closedVote, true, "2001");
-        jdbcTemplate.update("insert into vote_match_group (vote_id, created_at) values (?, current_timestamp)", openedVote.getId());
+        jdbcTemplate.update("insert into vote_match_group (vote_id, created_at) values (?, current_timestamp)", laterCreatedSameDateVote.getId());
 
         mockMvc.perform(get("/votes")
                         .with(jwt())
@@ -180,13 +222,16 @@ class VoteControllerIntegrationTest {
                         .param("page", "0")
                         .param("size", "10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.votes.length()").value(2))
-                .andExpect(jsonPath("$.votes[0].voteId").value(openedVote.getId()))
-                .andExpect(jsonPath("$.votes[0].currentParticipantCount").value(2))
-                .andExpect(jsonPath("$.votes[0].matchRegistered").value(true))
-                .andExpect(jsonPath("$.votes[1].voteId").value(previewVote.getId()))
-                .andExpect(jsonPath("$.votes[1].currentParticipantCount").value(0))
-                .andExpect(jsonPath("$.votes[1].matchRegistered").value(false));
+                .andExpect(jsonPath("$.votes.length()").value(3))
+                .andExpect(jsonPath("$.votes[0].voteId").value(firstCreatedSameDateVote.getId()))
+                .andExpect(jsonPath("$.votes[0].currentParticipantCount").value(0))
+                .andExpect(jsonPath("$.votes[0].matchRegistered").value(false))
+                .andExpect(jsonPath("$.votes[1].voteId").value(laterCreatedSameDateVote.getId()))
+                .andExpect(jsonPath("$.votes[1].currentParticipantCount").value(2))
+                .andExpect(jsonPath("$.votes[1].matchRegistered").value(true))
+                .andExpect(jsonPath("$.votes[2].voteId").value(laterActivityVote.getId()))
+                .andExpect(jsonPath("$.votes[2].currentParticipantCount").value(0))
+                .andExpect(jsonPath("$.votes[2].matchRegistered").value(false));
     }
 
     @Test

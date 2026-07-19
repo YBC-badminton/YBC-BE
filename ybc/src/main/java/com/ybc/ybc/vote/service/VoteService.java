@@ -62,7 +62,6 @@ public class VoteService {
     @Transactional
     public FlashVoteCreateResponse createFlashVote(FlashVoteCreateRequest request, MemberPrincipal memberPrincipal) {
         LocalDateTime voteStartAt = now();
-        validateVotePeriod(voteStartAt, request.voteEndAt());
 
         Vote savedVote = voteRepository.saveAndFlush(
                 Vote.builder()
@@ -398,12 +397,6 @@ public class VoteService {
         return votes.stream()
                 .map(Vote::getId)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-    }
-
-    private void validateVotePeriod(LocalDateTime voteStartAt, LocalDateTime voteEndAt) {
-        if (!voteEndAt.isAfter(voteStartAt)) {
-            throw new YbcException(ExceptionCode.INVALID_VOTE_PERIOD);
-        }
     }
 
     private Vote resolveBaseVote(Vote vote) {
