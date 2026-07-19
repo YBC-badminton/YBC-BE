@@ -167,6 +167,41 @@ class VoteServiceTest {
     }
 
     @Test
+    @DisplayName("번개 모임 생성 시 투표 마감 시간이 현재보다 이전이어도 생성할 수 있다")
+    void createFlashVoteAllowsPastVoteEndAt() {
+        FlashVoteCreateRequest request = new FlashVoteCreateRequest(
+                "이미 마감된 번개 운동",
+                LocalDate.of(2026, 4, 10),
+                "19:00 ~ 20:00",
+                "이화체육관",
+                "마감 시간만 별도로 관리",
+                currentTime().minusMinutes(10)
+        );
+        MemberPrincipal memberPrincipal = new MemberPrincipal(
+                1L,
+                "KAKAO",
+                "3001",
+                "3001@example.com",
+                "member-3001"
+        );
+        when(voteRepository.saveAndFlush(any(Vote.class))).thenAnswer(invocation -> {
+            Vote vote = invocation.getArgument(0);
+            ReflectionTestUtils.setField(vote, "id", 2L);
+            ReflectionTestUtils.setField(vote, "createdAt", currentTime());
+            return vote;
+        });
+
+        FlashVoteCreateResponse response = voteService.createFlashVote(request, memberPrincipal);
+
+        ArgumentCaptor<Vote> voteCaptor = ArgumentCaptor.forClass(Vote.class);
+        verify(voteRepository).saveAndFlush(voteCaptor.capture());
+        Vote savedVote = voteCaptor.getValue();
+        assertThat(savedVote.getVoteStartAt()).isEqualTo(currentTime());
+        assertThat(savedVote.getVoteEndAt()).isEqualTo(currentTime().minusMinutes(10));
+        assertThat(response.voteEndAt()).isEqualTo(currentTime().minusMinutes(10));
+    }
+
+    @Test
     @DisplayName("로그인 사용자의 진행 중인 최근 투표 3개 조회 시 참여 인원 수를 함께 반환한다")
     void getRecentVotesReturnsParticipantCountsForAuthenticatedUser() {
         Vote firstVote = savedVote(1L, "가장 최근 투표", LocalDate.of(2026, 4, 12));
