@@ -5,7 +5,9 @@ import com.ybc.ybc.minigames.domain.MiniGameStatus;
 
 public record MiniGameCreateResponse(
         Long gameId,
+        Long memberId,
         String title,
+        String writer,
         String team1Member1,
         String team1Member2,
         String team2Member1,
@@ -18,7 +20,9 @@ public record MiniGameCreateResponse(
     public static MiniGameCreateResponse from(MiniGame miniGame) {
         return new MiniGameCreateResponse(
                 miniGame.getId(),
+                miniGame.getMember().getId(),
                 miniGame.getTitle(),
+                miniGame.getMember().getNickname(),
                 miniGame.getTeam1Member1(),
                 miniGame.getTeam1Member2(),
                 miniGame.getTeam2Member1(),
