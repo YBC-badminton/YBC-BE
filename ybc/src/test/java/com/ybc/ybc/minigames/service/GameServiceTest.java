@@ -98,6 +98,8 @@ class GameServiceTest {
         assertThat(savedMiniGame.getMember().getId()).isEqualTo(1L);
         assertThat(savedMiniGame.getStatus()).isEqualTo(MiniGameStatus.IN_PROGRESS);
         assertThat(response.gameId()).isEqualTo(1L);
+        assertThat(response.memberId()).isEqualTo(1L);
+        assertThat(response.writer()).isEqualTo("김민수");
         assertThat(response.status()).isEqualTo(MiniGameStatus.IN_PROGRESS);
     }
 
@@ -167,11 +169,15 @@ class GameServiceTest {
 
         assertThat(response.games()).hasSize(2);
         assertThat(response.games().get(0).gameId()).isEqualTo(1L);
+        assertThat(response.games().get(0).memberId()).isEqualTo(1L);
         assertThat(response.games().get(0).title()).isEqualTo("7월 첫째 주 미니게임");
+        assertThat(response.games().get(0).writer()).isEqualTo("김민수");
         assertThat(response.games().get(0).winnerTeam()).isEqualTo(MiniGameWinnerTeam.TEAM1);
         assertThat(response.games().get(0).startTime()).isEqualTo(LocalDateTime.of(2026, 7, 19, 14, 0));
         assertThat(response.games().get(0).endTime()).isEqualTo(LocalDateTime.of(2026, 7, 19, 14, 25));
         assertThat(response.games().get(1).gameId()).isEqualTo(2L);
+        assertThat(response.games().get(1).memberId()).isEqualTo(2L);
+        assertThat(response.games().get(1).writer()).isEqualTo("정우성");
         assertThat(response.games().get(1).winnerTeam()).isEqualTo(MiniGameWinnerTeam.TEAM2);
         verify(miniGameRepository).findAllByStatusOrderByGameDateDescStartTimeDescIdDesc(MiniGameStatus.FINISHED);
     }

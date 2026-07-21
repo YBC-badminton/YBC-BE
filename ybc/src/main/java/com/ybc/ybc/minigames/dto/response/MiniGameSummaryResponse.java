@@ -9,7 +9,9 @@ import java.time.LocalTime;
 
 public record MiniGameSummaryResponse(
         Long gameId,
+        Long memberId,
         String title,
+        String writer,
         String team1Member1,
         String team1Member2,
         String team2Member1,
@@ -23,7 +25,9 @@ public record MiniGameSummaryResponse(
     public static MiniGameSummaryResponse from(MiniGame miniGame) {
         return new MiniGameSummaryResponse(
                 miniGame.getId(),
+                miniGame.getMember().getId(),
                 miniGame.getTitle(),
+                miniGame.getMember().getNickname(),
                 miniGame.getTeam1Member1(),
                 miniGame.getTeam1Member2(),
                 miniGame.getTeam2Member1(),
