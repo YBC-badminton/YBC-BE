@@ -56,7 +56,8 @@ public enum ExceptionCode {
     MINI_GAME_NOT_FINISHED(HttpStatus.BAD_REQUEST, ClientExceptionCode.MINI_GAME_NOT_FINISHED, "종료된 미니 게임만 수정할 수 있습니다."),
     INVALID_MINI_GAME_WINNER_TEAM(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MINI_GAME_WINNER_TEAM, "우승팀 정보가 최종 점수와 일치하지 않습니다."),
     INVALID_MINI_GAME_TIME(HttpStatus.BAD_REQUEST, ClientExceptionCode.INVALID_MINI_GAME_TIME, "경기 시작 시간과 종료 시간을 다시 확인해 주세요."),
-    MINI_GAME_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.MINI_GAME_UPDATE_FORBIDDEN, "해당 미니 게임을 수정할 권한이 없습니다.");
+    MINI_GAME_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.MINI_GAME_UPDATE_FORBIDDEN, "해당 미니 게임을 수정할 권한이 없습니다."),
+    MINI_GAME_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.MINI_GAME_DELETE_FORBIDDEN, "해당 미니 게임을 삭제할 권한이 없습니다.");
 
     private final HttpStatus httpStatus;
     private final ClientExceptionCode clientExceptionCode;
