@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -541,6 +542,63 @@ class GameControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("작성자는 본인이 만든 미니 게임을 삭제할 수 있다")
+    void deleteMiniGame() throws Exception {
+        Member owner = saveMember("3001", "김민수");
+        MiniGame miniGame = miniGameRepository.save(
+                MiniGame.create(
+                        "7월 1주차 미니게임",
+                        "김민수",
+                        "이서연",
+                        "박지훈",
+                        "최유진",
+                        21,
+                        owner
+                )
+        );
+
+        mockMvc.perform(delete("/games/{gameId}", miniGame.getId())
+                        .with(authorizedUser(owner)))
+                .andExpect(status().isNoContent());
+
+        assertThat(miniGameRepository.findById(miniGame.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("작성자가 아니면 미니 게임을 삭제할 수 없다")
+    void deleteMiniGameThrowsWhenRequesterIsNotOwner() throws Exception {
+        Member owner = saveMember("3001", "김민수");
+        Member anotherMember = saveMember("3002", "이서연");
+        MiniGame miniGame = miniGameRepository.save(
+                MiniGame.create(
+                        "7월 1주차 미니게임",
+                        "김민수",
+                        "이서연",
+                        "박지훈",
+                        "최유진",
+                        21,
+                        owner
+                )
+        );
+
+        mockMvc.perform(delete("/games/{gameId}", miniGame.getId())
+                        .with(authorizedUser(anotherMember)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("MINI_GAME_DELETE_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 미니 게임은 삭제할 수 없다")
+    void deleteMiniGameThrowsWhenMiniGameIsMissing() throws Exception {
+        Member member = saveMember("3001", "김민수");
+
+        mockMvc.perform(delete("/games/{gameId}", 999L)
+                        .with(authorizedUser(member)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("MINI_GAME_NOT_FOUND"));
+    }
+
+    @Test
     @DisplayName("인증되지 않은 사용자는 미니 게임 스코어를 수정할 수 없다")
     void updateMiniGameScoreRequiresAuthentication() throws Exception {
         Member owner = saveMember("3001", "김민수");
@@ -562,6 +620,14 @@ class GameControllerIntegrationTest {
                                 "team1Score", 10,
                                 "team2Score", 8
                         ))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 미니 게임을 삭제할 수 없다")
+    void deleteMiniGameRequiresAuthentication() throws Exception {
+        mockMvc.perform(delete("/games/{gameId}", 1L))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
     }

@@ -64,7 +64,7 @@ public class GameService {
     @Transactional
     public MiniGameScoreUpdateResponse updateMiniGameScore(Long gameId, Long memberId, MiniGameScoreUpdateRequest request) {
         MiniGame miniGame = getMiniGameById(gameId);
-        validateOwner(miniGame, memberId);
+        validateOwner(miniGame, memberId, ExceptionCode.MINI_GAME_UPDATE_FORBIDDEN);
         miniGame.updateScore(request.team1Score(), request.team2Score());
         return MiniGameScoreUpdateResponse.from(miniGame);
     }
@@ -72,7 +72,7 @@ public class GameService {
     @Transactional
     public MiniGameEndResponse endMiniGame(Long gameId, Long memberId, MiniGameEndRequest request) {
         MiniGame miniGame = getMiniGameById(gameId);
-        validateOwner(miniGame, memberId);
+        validateOwner(miniGame, memberId, ExceptionCode.MINI_GAME_UPDATE_FORBIDDEN);
         miniGame.finish(
                 request.gameDate(),
                 request.startTime(),
@@ -87,7 +87,7 @@ public class GameService {
     @Transactional
     public MiniGameFinishedUpdateResponse updateFinishedMiniGame(Long gameId, Long memberId, MiniGameFinishedUpdateRequest request) {
         MiniGame miniGame = getMiniGameById(gameId);
-        validateOwner(miniGame, memberId);
+        validateOwner(miniGame, memberId, ExceptionCode.MINI_GAME_UPDATE_FORBIDDEN);
         miniGame.updateFinishedGame(
                 request.title(),
                 request.team1Member1(),
@@ -98,6 +98,13 @@ public class GameService {
                 request.team2Score()
         );
         return MiniGameFinishedUpdateResponse.from(miniGame);
+    }
+
+    @Transactional
+    public void deleteMiniGame(Long gameId, Long memberId) {
+        MiniGame miniGame = getMiniGameById(gameId);
+        validateOwner(miniGame, memberId, ExceptionCode.MINI_GAME_DELETE_FORBIDDEN);
+        miniGameRepository.delete(miniGame);
     }
 
     @Transactional
@@ -112,9 +119,9 @@ public class GameService {
                 .orElseThrow(() -> new YbcException(ExceptionCode.MINI_GAME_NOT_FOUND));
     }
 
-    private void validateOwner(MiniGame miniGame, Long memberId) {
+    private void validateOwner(MiniGame miniGame, Long memberId, ExceptionCode exceptionCode) {
         if (!miniGame.getMember().getId().equals(memberId)) {
-            throw new YbcException(ExceptionCode.MINI_GAME_UPDATE_FORBIDDEN);
+            throw new YbcException(exceptionCode);
         }
     }
 }
