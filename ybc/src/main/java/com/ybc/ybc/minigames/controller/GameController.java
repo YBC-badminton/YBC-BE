@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -71,5 +72,14 @@ public class GameController {
             @Valid @RequestBody MiniGameFinishedUpdateRequest request
     ) {
         return ResponseEntity.ok(gameService.updateFinishedMiniGame(gameId, memberPrincipal.getId(), request));
+    }
+
+    @DeleteMapping("/{gameId}")
+    public ResponseEntity<Void> deleteMiniGame(
+            @PathVariable Long gameId,
+            @AuthenticationPrincipal MemberPrincipal memberPrincipal
+    ) {
+        gameService.deleteMiniGame(gameId, memberPrincipal.getId());
+        return ResponseEntity.noContent().build();
     }
 }

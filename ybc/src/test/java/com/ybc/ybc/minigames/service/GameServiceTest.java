@@ -429,6 +429,54 @@ class GameServiceTest {
     }
 
     @Test
+    @DisplayName("작성자는 본인이 만든 미니 게임을 삭제할 수 있다")
+    void deleteMiniGameDeletesOwnedGame() {
+        MiniGame miniGame = MiniGame.create(
+                "7월 1주차 미니게임",
+                "김민수",
+                "이서연",
+                "박지훈",
+                "최유진",
+                21,
+                createMember(1L, "3001", "김민수")
+        );
+        when(miniGameRepository.findById(1L)).thenReturn(Optional.of(miniGame));
+
+        gameService.deleteMiniGame(1L, 1L);
+
+        verify(miniGameRepository).delete(miniGame);
+    }
+
+    @Test
+    @DisplayName("작성자가 아니면 미니 게임을 삭제할 수 없다")
+    void deleteMiniGameThrowsWhenRequesterIsNotOwner() {
+        MiniGame miniGame = MiniGame.create(
+                "7월 1주차 미니게임",
+                "김민수",
+                "이서연",
+                "박지훈",
+                "최유진",
+                21,
+                createMember(1L, "3001", "김민수")
+        );
+        when(miniGameRepository.findById(1L)).thenReturn(Optional.of(miniGame));
+
+        assertThatThrownBy(() -> gameService.deleteMiniGame(1L, 2L))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("해당 미니 게임을 삭제할 권한이 없습니다.");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 미니 게임은 삭제할 수 없다")
+    void deleteMiniGameThrowsWhenMiniGameIsMissing() {
+        when(miniGameRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> gameService.deleteMiniGame(999L, 1L))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("존재하지 않는 미니 게임입니다.");
+    }
+
+    @Test
     @DisplayName("7일이 지난 미니 게임 정리 시 게임 날짜와 생성일 기준 삭제 조건을 사용한다")
     void deleteExpiredMiniGamesUsesSevenDayCutoff() {
         when(miniGameRepository.deleteExpiredMiniGames(any(LocalDate.class), any(LocalDateTime.class))).thenReturn(2);
