@@ -37,6 +37,10 @@ public class KakaoAuthService {
         return kakaoFrontendRedirectService.resolveFromState(state);
     }
 
+    public String getDefaultFrontendRedirectUri() {
+        return kakaoFrontendRedirectService.resolveFromState(null);
+    }
+
     // 인가 코드로 카카오 회원을 조회하고 우리 서비스 회원으로 저장
     @Transactional
     public KakaoLoginResult loginWithAuthorizationCode(String authorizationCode) {

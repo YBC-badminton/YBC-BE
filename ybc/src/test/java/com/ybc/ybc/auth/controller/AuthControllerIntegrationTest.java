@@ -27,6 +27,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
@@ -258,6 +259,51 @@ class AuthControllerIntegrationTest {
                 .isEqualTo("true");
         assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("isAdmin"))
                 .isEqualTo("false");
+    }
+
+    @Test
+    void kakaoCallbackRedirectsToFrontendWithErrorQueryWhenClubMemberEmailDoesNotExist() throws Exception {
+        when(kakaoApiClient.fetchUserProfile("auth-code"))
+                .thenReturn(new KakaoUserProfile("123456789", "외부인", "outsider@example.com"));
+
+        String location = mockMvc.perform(get("/api/v1/auth/kakao/callback")
+                        .param("code", "auth-code"))
+                .andExpect(status().isFound())
+                .andReturn()
+                .getResponse()
+                .getHeader("Location");
+
+        assertThat(location).startsWith("https://ybc-fe.vercel.app/auth/kakao/callback");
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("error"))
+                .isEqualTo("CLUB_MEMBER_LOGIN_FORBIDDEN");
+        assertThat(URLDecoder.decode(
+                UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("message"),
+                StandardCharsets.UTF_8
+        ))
+                .isEqualTo("동아리 부원만 로그인할 수 있습니다.");
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("status"))
+                .isEqualTo("403");
+    }
+
+    @Test
+    void kakaoCallbackRedirectsToDefaultFrontendWithErrorQueryWhenStateIsInvalid() throws Exception {
+        String invalidState = Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString("https://evil.example.com/auth/kakao/callback".getBytes(StandardCharsets.UTF_8));
+
+        String location = mockMvc.perform(get("/api/v1/auth/kakao/callback")
+                        .param("code", "auth-code")
+                        .param("state", invalidState))
+                .andExpect(status().isFound())
+                .andReturn()
+                .getResponse()
+                .getHeader("Location");
+
+        assertThat(location).startsWith("https://ybc-fe.vercel.app/auth/kakao/callback");
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("error"))
+                .isEqualTo("INVALID_FRONTEND_REDIRECT_URI");
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("status"))
+                .isEqualTo("400");
     }
 
     @Test
