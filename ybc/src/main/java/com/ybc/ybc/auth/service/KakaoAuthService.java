@@ -8,9 +8,14 @@ import com.ybc.ybc.auth.dto.MemberSummary;
 import com.ybc.ybc.auth.repository.MemberRepository;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.members.domain.ClubMember;
+import com.ybc.ybc.members.repository.ClubMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +25,7 @@ public class KakaoAuthService {
     private final KakaoLoginUrlProvider kakaoLoginUrlProvider;
     private final KakaoFrontendRedirectService kakaoFrontendRedirectService;
     private final MemberRepository memberRepository;
+    private final ClubMemberRepository clubMemberRepository;
 
     // 카카오 로그인 인가 URL 생성
     public String getKakaoLoginUrl(String frontendRedirectUri) {
@@ -35,6 +41,13 @@ public class KakaoAuthService {
     @Transactional
     public KakaoLoginResult loginWithAuthorizationCode(String authorizationCode) {
         KakaoUserProfile kakaoUserProfile = kakaoApiClient.fetchUserProfile(authorizationCode);
+        String normalizedEmail = normalizeEmail(kakaoUserProfile.email());
+        if (normalizedEmail == null) {
+            throw new YbcException(ExceptionCode.KAKAO_EMAIL_REQUIRED);
+        }
+
+        ClubMember clubMember = clubMemberRepository.findFirstByNormalizedEmail(normalizedEmail)
+                .orElseThrow(() -> new YbcException(ExceptionCode.CLUB_MEMBER_LOGIN_FORBIDDEN));
         Member member = memberRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, kakaoUserProfile.socialId())
                 .orElse(null);
         boolean firstLogin = member == null;
@@ -54,6 +67,7 @@ public class KakaoAuthService {
         );
 
         Member savedMember = memberRepository.save(member);
+        clubMember.linkMember(savedMember.getId());
         return new KakaoLoginResult(firstLogin, MemberSummary.from(savedMember));
     }
 
@@ -62,5 +76,12 @@ public class KakaoAuthService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new YbcException(ExceptionCode.UNAUTHORIZED_USER));
         return MemberSummary.from(member);
+    }
+
+    private String normalizeEmail(String email) {
+        if (!StringUtils.hasText(email)) {
+            return null;
+        }
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }
