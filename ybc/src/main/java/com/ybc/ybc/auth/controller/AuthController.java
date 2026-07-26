@@ -11,6 +11,7 @@ import com.ybc.ybc.auth.service.AuthFacade;
 import com.ybc.ybc.auth.dto.TokenRefreshRequest;
 import com.ybc.ybc.auth.service.KakaoAuthService;
 import com.ybc.ybc.auth.service.JwtTokenService;
+import com.ybc.ybc.global.exception.YbcException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
@@ -62,12 +63,43 @@ public class AuthController {
     @GetMapping("/kakao/callback")
     public ResponseEntity<Void> kakaoCallback(@RequestParam @NotBlank(message = "인가 코드가 필요합니다.") String code,
                                               @RequestParam(required = false) String state) {
-        KakaoLoginResponse loginResponse = authFacade.loginWithKakao(code);
-        URI redirectUri = UriComponentsBuilder.fromUriString(kakaoAuthService.resolveFrontendRedirectUri(state))
+        String frontendRedirectUri;
+        try {
+            frontendRedirectUri = kakaoAuthService.resolveFrontendRedirectUri(state);
+        } catch (YbcException exception) {
+            return buildErrorRedirectResponse(kakaoAuthService.getDefaultFrontendRedirectUri(), exception);
+        }
+
+        try {
+            KakaoLoginResponse loginResponse = authFacade.loginWithKakao(code);
+            return buildSuccessRedirectResponse(frontendRedirectUri, loginResponse);
+        } catch (YbcException exception) {
+            return buildErrorRedirectResponse(frontendRedirectUri, exception);
+        }
+    }
+
+    private ResponseEntity<Void> buildSuccessRedirectResponse(String frontendRedirectUri,
+                                                              KakaoLoginResponse loginResponse) {
+        URI redirectUri = UriComponentsBuilder.fromUriString(frontendRedirectUri)
                 .queryParam("accessToken", loginResponse.tokens().accessToken())
                 .queryParam("refreshToken", loginResponse.tokens().refreshToken())
                 .queryParam("firstLogin", loginResponse.firstLogin())
                 .queryParam("isAdmin", loginResponse.member().isAdmin())
+                .build()
+                .encode()
+                .toUri();
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(redirectUri)
+                .build();
+    }
+
+    private ResponseEntity<Void> buildErrorRedirectResponse(String frontendRedirectUri,
+                                                            YbcException exception) {
+        URI redirectUri = UriComponentsBuilder.fromUriString(frontendRedirectUri)
+                .queryParam("error", exception.getExceptionCodeName())
+                .queryParam("message", exception.getMessage())
+                .queryParam("status", exception.getHttpStatusCode().value())
                 .build()
                 .encode()
                 .toUri();
