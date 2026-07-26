@@ -5,6 +5,9 @@ import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.dto.KakaoLoginResult;
 import com.ybc.ybc.auth.dto.KakaoUserProfile;
 import com.ybc.ybc.auth.repository.MemberRepository;
+import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.members.domain.ClubMember;
+import com.ybc.ybc.members.repository.ClubMemberRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,6 +18,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -32,18 +36,32 @@ class KakaoAuthServiceTest {
     @Mock
     private MemberRepository memberRepository;
 
+    @Mock
+    private ClubMemberRepository clubMemberRepository;
+
     @InjectMocks
     private KakaoAuthService kakaoAuthService;
 
     @Test
     void loginWithAuthorizationCodeCreatesNewMemberOnFirstLogin() {
+        ClubMember clubMember = ClubMember.create(
+                "양배추",
+                "이화여자대학교",
+                "010-1234-5678",
+                "03",
+                "10기",
+                "ybc@example.com",
+                null
+        );
         KakaoUserProfile kakaoUserProfile = new KakaoUserProfile(
                 "123456789",
                 "양배추",
-                "ybc@example.com"
+                "YBC@example.com"
         );
 
         when(kakaoApiClient.fetchUserProfile("auth-code")).thenReturn(kakaoUserProfile);
+        when(clubMemberRepository.findFirstByNormalizedEmail("ybc@example.com"))
+                .thenReturn(Optional.of(clubMember));
         when(memberRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "123456789"))
                 .thenReturn(Optional.empty());
         when(memberRepository.save(any(Member.class))).thenAnswer(invocation -> {
@@ -59,10 +77,20 @@ class KakaoAuthServiceTest {
         assertThat(result.member().provider()).isEqualTo("KAKAO");
         assertThat(result.member().nickname()).isEqualTo("양배추");
         assertThat(result.member().isAdmin()).isFalse();
+        assertThat(clubMember.getMemberId()).isEqualTo(1L);
     }
 
     @Test
     void loginWithAuthorizationCodeUpdatesExistingMemberProfile() {
+        ClubMember clubMember = ClubMember.create(
+                "운영진닉네임",
+                "이화여자대학교",
+                "010-1234-5678",
+                "03",
+                "10기",
+                "new@example.com",
+                null
+        );
         Member existingMember = Member.createSocialMember(
                 SocialProvider.KAKAO,
                 "123456789",
@@ -79,6 +107,8 @@ class KakaoAuthServiceTest {
         );
 
         when(kakaoApiClient.fetchUserProfile("auth-code")).thenReturn(kakaoUserProfile);
+        when(clubMemberRepository.findFirstByNormalizedEmail("new@example.com"))
+                .thenReturn(Optional.of(clubMember));
         when(memberRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "123456789"))
                 .thenReturn(Optional.of(existingMember));
         when(memberRepository.save(existingMember)).thenReturn(existingMember);
@@ -90,6 +120,29 @@ class KakaoAuthServiceTest {
         assertThat(existingMember.getEmail()).isEqualTo("new@example.com");
         assertThat(result.member().id()).isEqualTo(7L);
         assertThat(result.member().isAdmin()).isTrue();
+        assertThat(clubMember.getMemberId()).isEqualTo(7L);
+    }
+
+    @Test
+    void loginWithAuthorizationCodeThrowsWhenKakaoEmailIsMissing() {
+        when(kakaoApiClient.fetchUserProfile("auth-code"))
+                .thenReturn(new KakaoUserProfile("123456789", "양배추", null));
+
+        assertThatThrownBy(() -> kakaoAuthService.loginWithAuthorizationCode("auth-code"))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("카카오 계정 이메일 정보가 필요합니다.");
+    }
+
+    @Test
+    void loginWithAuthorizationCodeThrowsWhenClubMemberEmailDoesNotExist() {
+        when(kakaoApiClient.fetchUserProfile("auth-code"))
+                .thenReturn(new KakaoUserProfile("123456789", "양배추", "outsider@example.com"));
+        when(clubMemberRepository.findFirstByNormalizedEmail("outsider@example.com"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> kakaoAuthService.loginWithAuthorizationCode("auth-code"))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("동아리 부원만 로그인할 수 있습니다.");
     }
 
     @Test

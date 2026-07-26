@@ -26,4 +26,9 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long> {
             order by cm.id
             """)
     List<ClubMember> findAllByNormalizedEmailInOrderByIdAsc(@Param("emails") Collection<String> emails);
+
+    default Optional<ClubMember> findFirstByNormalizedEmail(String normalizedEmail) {
+        return findAllByNormalizedEmailInOrderByIdAsc(List.of(normalizedEmail)).stream()
+                .findFirst();
+    }
 }

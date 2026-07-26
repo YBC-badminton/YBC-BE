@@ -7,6 +7,8 @@ import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.dto.KakaoUserProfile;
 import com.ybc.ybc.auth.repository.MemberRepository;
+import com.ybc.ybc.members.domain.ClubMember;
+import com.ybc.ybc.members.repository.ClubMemberRepository;
 import com.ybc.ybc.auth.service.KakaoApiClient;
 import com.ybc.ybc.support.TestMailConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +61,9 @@ class AuthControllerIntegrationTest {
     private MemberRepository memberRepository;
 
     @Autowired
+    private ClubMemberRepository clubMemberRepository;
+
+    @Autowired
     private KakaoApiClient kakaoApiClient;
 
     @Autowired
@@ -72,6 +77,7 @@ class AuthControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        clubMemberRepository.deleteAll();
         memberRepository.deleteAll();
         refreshTokenStore.clear();
 
@@ -93,6 +99,8 @@ class AuthControllerIntegrationTest {
 
     @Test
     void loginWithKakaoCreatesMemberAndReturnsTokens() throws Exception {
+        saveClubMember("양배추", "cabbage@example.com");
+
         when(kakaoApiClient.fetchUserProfile("auth-code"))
                 .thenReturn(new KakaoUserProfile("123456789", "양배추", "cabbage@example.com"));
 
@@ -125,6 +133,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void loginWithKakaoReturnsAdminFlagForExistingAdminMember() throws Exception {
+        saveClubMember("운영진닉네임", "staff@example.com");
         Member existingMember = memberRepository.save(Member.createSocialMember(
                 SocialProvider.KAKAO,
                 "123456789",
@@ -143,6 +152,32 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.firstLogin").value(false))
                 .andExpect(jsonPath("$.member.id").value(existingMember.getId()))
                 .andExpect(jsonPath("$.member.isAdmin").value(true));
+    }
+
+    @Test
+    void loginWithKakaoRejectsUserWhenClubMemberEmailDoesNotExist() throws Exception {
+        when(kakaoApiClient.fetchUserProfile("auth-code"))
+                .thenReturn(new KakaoUserProfile("123456789", "외부인", "outsider@example.com"));
+
+        mockMvc.perform(post("/api/v1/auth/kakao/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("code", "auth-code"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("CLUB_MEMBER_LOGIN_FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("동아리 부원만 로그인할 수 있습니다."));
+    }
+
+    @Test
+    void loginWithKakaoRejectsUserWhenKakaoEmailIsMissing() throws Exception {
+        when(kakaoApiClient.fetchUserProfile("auth-code"))
+                .thenReturn(new KakaoUserProfile("123456789", "이메일없음", null));
+
+        mockMvc.perform(post("/api/v1/auth/kakao/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("code", "auth-code"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("KAKAO_EMAIL_REQUIRED"))
+                .andExpect(jsonPath("$.message").value("카카오 계정 이메일 정보가 필요합니다."));
     }
 
     @Test
@@ -174,6 +209,8 @@ class AuthControllerIntegrationTest {
 
     @Test
     void kakaoCallbackRedirectsToFrontendWithTokensInQueryString() throws Exception {
+        saveClubMember("양배추", "cabbage@example.com");
+
         when(kakaoApiClient.fetchUserProfile("auth-code"))
                 .thenReturn(new KakaoUserProfile("123456789", "양배추", "cabbage@example.com"));
 
@@ -197,6 +234,8 @@ class AuthControllerIntegrationTest {
 
     @Test
     void kakaoCallbackRedirectsToRequestedFrontendWithTokensInQueryStringWhenStateProvided() throws Exception {
+        saveClubMember("양배추", "cabbage@example.com");
+
         when(kakaoApiClient.fetchUserProfile("auth-code"))
                 .thenReturn(new KakaoUserProfile("123456789", "양배추", "cabbage@example.com"));
 
@@ -313,6 +352,7 @@ class AuthControllerIntegrationTest {
     }
 
     private LoginContext login(String code, KakaoUserProfile kakaoUserProfile) throws Exception {
+        saveClubMember(kakaoUserProfile.nickname(), kakaoUserProfile.email());
         when(kakaoApiClient.fetchUserProfile(code)).thenReturn(kakaoUserProfile);
 
         String responseBody = mockMvc.perform(post("/api/v1/auth/kakao/login")
@@ -337,6 +377,20 @@ class AuthControllerIntegrationTest {
             String accessToken,
             String refreshToken
     ) {
+    }
+
+    private ClubMember saveClubMember(String name, String email) {
+        return clubMemberRepository.save(
+                ClubMember.create(
+                        name,
+                        "이화여자대학교",
+                        "010-1234-5678",
+                        "03",
+                        "10기",
+                        email,
+                        null
+                )
+        );
     }
 
     @TestConfiguration
