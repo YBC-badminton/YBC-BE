@@ -9,6 +9,8 @@ public enum ExceptionCode {
     ILLEGAL_ARGUMENT(HttpStatus.BAD_REQUEST, ClientExceptionCode.ILLEGAL_ARGUMENT, "필수 파라미터 누락"),
     UNAUTHORIZED_USER(HttpStatus.UNAUTHORIZED, ClientExceptionCode.UNAUTHORIZED_USER, "접근 권한이 없는 회원입니다."),
     KAKAO_AUTH_FAILED(HttpStatus.BAD_GATEWAY, ClientExceptionCode.KAKAO_AUTH_FAILED, "카카오 로그인 처리 중 문제가 발생했습니다."),
+    KAKAO_EMAIL_REQUIRED(HttpStatus.BAD_REQUEST, ClientExceptionCode.KAKAO_EMAIL_REQUIRED, "카카오 계정 이메일 정보가 필요합니다."),
+    CLUB_MEMBER_LOGIN_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.CLUB_MEMBER_LOGIN_FORBIDDEN, "동아리 부원만 로그인할 수 있습니다."),
     INVALID_JWT_TOKEN(HttpStatus.UNAUTHORIZED, ClientExceptionCode.INVALID_JWT_TOKEN, "유효하지 않은 JWT 토큰입니다."),
     REFRESH_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED, ClientExceptionCode.REFRESH_TOKEN_NOT_FOUND, "다시 로그인이 필요합니다."),
     SESSION_FULL(HttpStatus.BAD_REQUEST, ClientExceptionCode.SESSION_FULL, "해당 모임의 정원이 모두 찼습니다."),
