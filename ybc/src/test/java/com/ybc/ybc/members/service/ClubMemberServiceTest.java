@@ -72,7 +72,7 @@ class ClubMemberServiceTest {
     @DisplayName("부원 추가 시 저장된 부원 정보를 반환한다")
     void createMemberSavesAndReturnsMember() {
         ClubMemberCreateRequest request = new ClubMemberCreateRequest(
-                "홍길동", "한국대학교", "010-1234-5678", "03", "2기", true, "hong@example.com", Gender.MALE, true
+                "홍길동", "한국대학교", "010-1234-5678", "03", "2기", true, "hong@example.com", Gender.MALE
         );
         Member authMember = authMember(7L, "hong@example.com", false);
         when(memberRepository.findAllByNormalizedEmailInOrderByIdAsc(any())).thenReturn(List.of(authMember));
@@ -91,23 +91,23 @@ class ClubMemberServiceTest {
         assertThat(memberCaptor.getValue().getGender()).isEqualTo(Gender.MALE);
         assertThat(memberCaptor.getValue().isMapoResident()).isTrue();
         assertThat(memberCaptor.getValue().getMemberId()).isEqualTo(7L);
-        assertThat(authMember.isAdmin()).isTrue();
+        assertThat(authMember.isAdmin()).isFalse();
         assertThat(response.memberId()).isEqualTo(50L);
         assertThat(response.phone()).isEqualTo("010-1234-5678");
-        assertThat(response.isAdmin()).isTrue();
+        assertThat(response.isAdmin()).isFalse();
     }
 
     @Test
     @DisplayName("부원 수정 시 전화번호를 포함한 정보를 변경한다")
     void updateMemberUpdatesProfile() {
         ClubMember member = savedMember(1L, "홍길동", "한국대학교", "010-0000-0000", "03", "2기", false, "hong@example.com");
-        Member authMember = authMember(7L, "hong@example.com", false);
+        Member authMember = authMember(7L, "hong@example.com", true);
         when(clubMemberRepository.findById(1L)).thenReturn(Optional.of(member));
         when(memberRepository.findAllByNormalizedEmailInOrderByIdAsc(any())).thenReturn(List.of(authMember));
 
         ClubMemberResponse response = clubMemberService.updateMember(
                 1L,
-                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "010-1234-5678", "10기", true, "hong@example.com", Gender.MALE, true)
+                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "010-1234-5678", "10기", true, "hong@example.com", Gender.MALE)
         );
 
         assertThat(member.getPhone()).isEqualTo("010-1234-5678");
@@ -133,23 +133,29 @@ class ClubMemberServiceTest {
 
         clubMemberService.updateMember(
                 1L,
-                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "010-1234-5678", "10기", null, "hong@example.com", Gender.MALE, false)
+                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "010-1234-5678", "10기", null, "hong@example.com", Gender.MALE)
         );
 
         assertThat(member.isMapoResident()).isTrue();
     }
 
     @Test
-    @DisplayName("회원 계정이 없으면 운영진 권한을 설정할 수 없다")
-    void createMemberThrowsWhenAdminAccountIsMissing() {
+    @DisplayName("회원 계정이 없어도 부원은 생성할 수 있다")
+    void createMemberCreatesMemberWithoutLinkedAccount() {
         ClubMemberCreateRequest request = new ClubMemberCreateRequest(
-                "홍길동", "한국대학교", "010-1234-5678", "03", "2기", true, "hong@example.com", Gender.MALE, true
+                "홍길동", "한국대학교", "010-1234-5678", "03", "2기", true, "hong@example.com", Gender.MALE
         );
         when(memberRepository.findAllByNormalizedEmailInOrderByIdAsc(any())).thenReturn(List.of());
+        when(clubMemberRepository.save(any(ClubMember.class))).thenAnswer(invocation -> {
+            ClubMember clubMember = invocation.getArgument(0);
+            ReflectionTestUtils.setField(clubMember, "id", 50L);
+            return clubMember;
+        });
 
-        assertThatThrownBy(() -> clubMemberService.createMember(request))
-                .isInstanceOf(YbcException.class)
-                .hasMessage("운영진 권한을 설정할 회원 계정을 찾을 수 없습니다.");
+        ClubMemberResponse response = clubMemberService.createMember(request);
+
+        assertThat(response.memberId()).isEqualTo(50L);
+        assertThat(response.isAdmin()).isFalse();
     }
 
     @Test
@@ -182,7 +188,7 @@ class ClubMemberServiceTest {
 
         assertThatThrownBy(() -> clubMemberService.updateMember(
                 99L,
-                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "010-1234-5678", "10기", null, null, null, false)
+                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "010-1234-5678", "10기", null, null, null)
         ))
                 .isInstanceOf(YbcException.class)
                 .hasMessage("존재하지 않는 부원입니다.");

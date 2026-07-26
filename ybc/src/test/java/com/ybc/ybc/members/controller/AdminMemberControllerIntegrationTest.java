@@ -136,7 +136,7 @@ class AdminMemberControllerIntegrationTest {
     @DisplayName("인증된 사용자는 PATCH로 부원 정보를 수정할 수 있다")
     void updateMemberReturnsUpdatedMemberWhenAuthenticated() throws Exception {
         ClubMember member = saveMember("홍길동", "한국대학교", "010-0000-0000", "03", "2기");
-        Member authMember = saveAuthMember("3001", "hong@example.com", false);
+        Member authMember = saveAuthMember("3001", "hong@example.com", true);
 
         mockMvc.perform(patch(ADMIN_MEMBERS_API + "/{memberId}", member.getId())
                         .with(authorizedUser())
@@ -149,8 +149,7 @@ class AdminMemberControllerIntegrationTest {
                                 "term", "10기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",
-                                "gender", "MALE",
-                                "isAdmin", true
+                                "gender", "MALE"
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.memberId").value(member.getId()))
@@ -187,8 +186,7 @@ class AdminMemberControllerIntegrationTest {
                                 "term", "10기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",
-                                "gender", "MALE",
-                                "isAdmin", true
+                                "gender", "MALE"
                         ))))
                 .andExpect(status().isMethodNotAllowed());
     }
@@ -225,8 +223,7 @@ class AdminMemberControllerIntegrationTest {
                                 "term", "2기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",
-                                "gender", "MALE",
-                                "isAdmin", true
+                                "gender", "MALE"
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.memberId").isNumber())
@@ -235,18 +232,18 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.gender").value("MALE"))
                 .andExpect(jsonPath("$.age").value("03"))
                 .andExpect(jsonPath("$.isMapoResident").value(true))
-                .andExpect(jsonPath("$.isAdmin").value(true))
+                .andExpect(jsonPath("$.isAdmin").value(false))
                 .andExpect(jsonPath("$.court").doesNotExist());
 
         assertThat(clubMemberRepository.findAll()).hasSize(1);
         ClubMember savedMember = clubMemberRepository.findAll().get(0);
         assertThat(savedMember.getMemberId()).isEqualTo(authMember.getId());
-        assertThat(memberRepository.findById(authMember.getId()).orElseThrow().isAdmin()).isTrue();
+        assertThat(memberRepository.findById(authMember.getId()).orElseThrow().isAdmin()).isFalse();
     }
 
     @Test
-    @DisplayName("회원 계정이 없으면 운영진 권한을 가진 부원을 추가할 수 없다")
-    void createMemberReturnsBadRequestWhenAdminAccountIsMissing() throws Exception {
+    @DisplayName("회원 계정이 없어도 부원은 추가할 수 있다")
+    void createMemberReturnsCreatedMemberWhenLinkedAccountIsMissing() throws Exception {
         mockMvc.perform(post(ADMIN_MEMBERS_API)
                         .with(authorizedUser())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -258,12 +255,14 @@ class AdminMemberControllerIntegrationTest {
                                 "term", "2기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",
-                                "gender", "MALE",
-                                "isAdmin", true
+                                "gender", "MALE"
                         ))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("MEMBER_ACCOUNT_NOT_FOUND"))
-                .andExpect(jsonPath("$.message").value("운영진 권한을 설정할 회원 계정을 찾을 수 없습니다."));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("hong@example.com"))
+                .andExpect(jsonPath("$.isAdmin").value(false));
+
+        ClubMember savedMember = clubMemberRepository.findAll().get(0);
+        assertThat(savedMember.getMemberId()).isNull();
     }
 
     @Test
@@ -300,7 +299,6 @@ class AdminMemberControllerIntegrationTest {
                                 "phone", "010-1234-5678",
                                 "age", "03",
                                 "term", "2기",
-                                "isAdmin", false,
                                 "gender", "MALE"
                         ))))
                 .andExpect(status().isBadRequest())
