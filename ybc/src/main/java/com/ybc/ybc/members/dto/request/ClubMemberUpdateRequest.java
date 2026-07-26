@@ -23,16 +23,14 @@ public record ClubMemberUpdateRequest(
         @Email(message = "이메일 형식이 올바르지 않습니다.")
         String email,
         @NotNull(message = "성별을 입력해 주세요.")
-        Gender gender,
-        @NotNull(message = "운영진 여부를 입력해 주세요.")
-        Boolean isAdmin
+        Gender gender
 ) {
     public ClubMemberUpdateRequest(String name,
                                    String age,
                                    String university,
                                    String phone,
                                    String term) {
-        this(name, age, university, phone, term, null, null, null, null);
+        this(name, age, university, phone, term, null, null, null);
     }
 
     public ClubMemberUpdateRequest(String name,
@@ -42,6 +40,6 @@ public record ClubMemberUpdateRequest(
                                    String term,
                                    String email,
                                    Gender gender) {
-        this(name, age, university, phone, term, null, email, gender, null);
+        this(name, age, university, phone, term, null, email, gender);
     }
 }

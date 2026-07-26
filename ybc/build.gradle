@@ -54,3 +54,22 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+tasks.register('voteAttendanceLoadSummary', Test) {
+	group = 'verification'
+	description = 'Prints the vote attendance concurrency summary for portfolio usage.'
+	useJUnitPlatform()
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	filter {
+		includeTestsMatching 'com.ybc.ybc.vote.controller.VoteAttendanceLoadSummaryIntegrationTest'
+	}
+	systemProperty 'org.springframework.boot.logging.LoggingSystem', 'none'
+	systemProperty 'spring.main.banner-mode', 'off'
+	systemProperty 'logging.level.root', System.getProperty('logging.level.root', 'ERROR')
+	testLogging {
+		events 'failed', 'standard_out', 'standard_error'
+		showStandardStreams = true
+	}
+	outputs.upToDateWhen { false }
+}

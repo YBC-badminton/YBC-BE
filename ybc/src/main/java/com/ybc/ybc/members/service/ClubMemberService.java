@@ -64,7 +64,7 @@ public class ClubMemberService {
                 request.email(),
                 request.gender()
         );
-        Member linkedMember = syncAdminStatus(clubMember, request.isAdmin());
+        Member linkedMember = linkLinkedMember(clubMember);
         ClubMember savedClubMember = clubMemberRepository.save(clubMember);
         return ClubMemberResponse.from(savedClubMember, linkedMember != null && linkedMember.isAdmin());
     }
@@ -83,7 +83,7 @@ public class ClubMemberService {
                 request.email(),
                 request.gender()
         );
-        Member linkedMember = syncAdminStatus(clubMember, request.isAdmin());
+        Member linkedMember = linkLinkedMember(clubMember);
         return ClubMemberResponse.from(clubMember, linkedMember != null && linkedMember.isAdmin());
     }
 
@@ -114,20 +114,12 @@ public class ClubMemberService {
                 .orElseThrow(() -> new YbcException(ExceptionCode.MEMBER_NOT_FOUND));
     }
 
-    private Member syncAdminStatus(ClubMember clubMember, boolean isAdmin) {
+    private Member linkLinkedMember(ClubMember clubMember) {
         Member linkedMember = findLinkedMember(clubMember, createMemberLookup(List.of(clubMember)))
                 .orElse(null);
-        if (linkedMember == null) {
-            if (isAdmin) {
-                throw new YbcException(ExceptionCode.MEMBER_ACCOUNT_NOT_FOUND);
-            }
-            return null;
-        }
-
-        if (clubMember.getMemberId() == null) {
+        if (linkedMember != null && clubMember.getMemberId() == null) {
             clubMember.linkMember(linkedMember.getId());
         }
-        linkedMember.updateAdmin(isAdmin);
         return linkedMember;
     }
 
