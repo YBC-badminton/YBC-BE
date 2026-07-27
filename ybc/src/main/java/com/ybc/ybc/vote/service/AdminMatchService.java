@@ -19,6 +19,7 @@ import com.ybc.ybc.vote.dto.request.AdminMatchGenerateCourtAssignmentRequest;
 import com.ybc.ybc.vote.dto.request.AdminMatchGenerateRequest;
 import com.ybc.ybc.vote.dto.request.AdminMatchParticipantRequest;
 import com.ybc.ybc.vote.dto.response.AdminMatchCourtResponse;
+import com.ybc.ybc.vote.dto.response.AdminMatchDetailCourtResponse;
 import com.ybc.ybc.vote.dto.response.AdminMatchDetailCourtMatchResponse;
 import com.ybc.ybc.vote.dto.response.AdminMatchDetailParticipantResponse;
 import com.ybc.ybc.vote.dto.response.AdminMatchDetailResponse;
@@ -942,22 +943,39 @@ public class AdminMatchService {
         return new AdminMatchDetailResponse(
                 matchGroup.getVote().getId(),
                 matchGroup.getId(),
-                toCourtMatchDetailResponses(matches, clubMembersByMemberId)
+                toCourtDetailResponses(matches, clubMembersByMemberId)
         );
     }
 
-    private List<AdminMatchDetailCourtMatchResponse> toCourtMatchDetailResponses(List<VoteMatch> matches,
-                                                                                 Map<Long, ClubMember> clubMembersByMemberId) {
-        Map<CourtGameKey, List<VoteMatch>> matchesByCourtGame = matches.stream()
+    private List<AdminMatchDetailCourtResponse> toCourtDetailResponses(List<VoteMatch> matches,
+                                                                       Map<Long, ClubMember> clubMembersByMemberId) {
+        Map<Integer, List<VoteMatch>> matchesByCourt = matches.stream()
                 .collect(Collectors.groupingBy(
-                        match -> new CourtGameKey(match.getCourtNumber(), match.getMatchNumber()),
+                        VoteMatch::getCourtNumber,
                         LinkedHashMap::new,
                         Collectors.toList()
                 ));
 
-        return matchesByCourtGame.entrySet().stream()
+        return matchesByCourt.entrySet().stream()
+                .map(courtEntry -> new AdminMatchDetailCourtResponse(
+                        courtEntry.getKey(),
+                        toGameDetailResponsesFromMatches(courtEntry.getValue(), clubMembersByMemberId)
+                ))
+                .toList();
+    }
+
+    private List<AdminMatchDetailCourtMatchResponse> toGameDetailResponsesFromMatches(List<VoteMatch> matches,
+                                                                                      Map<Long, ClubMember> clubMembersByMemberId) {
+        Map<Integer, List<VoteMatch>> matchesByGame = matches.stream()
+                .collect(Collectors.groupingBy(
+                        VoteMatch::getMatchNumber,
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ));
+
+        return matchesByGame.entrySet().stream()
                 .map(gameEntry -> new AdminMatchDetailCourtMatchResponse(
-                        gameEntry.getKey().matchNumber(),
+                        gameEntry.getKey(),
                         toParticipantDetailResponsesFromMatches(gameEntry.getValue(), TEAM_ONE, clubMembersByMemberId),
                         toParticipantDetailResponsesFromMatches(gameEntry.getValue(), TEAM_TWO, clubMembersByMemberId)
                 ))
