@@ -5,6 +5,6 @@ import java.util.List;
 public record AdminMatchDetailResponse(
         Long voteId,
         Long matchId,
-        List<AdminMatchDetailCourtMatchResponse> courtMatches
+        List<AdminMatchDetailCourtResponse> matches
 ) {
 }
