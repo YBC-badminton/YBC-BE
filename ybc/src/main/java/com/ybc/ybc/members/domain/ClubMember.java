@@ -58,6 +58,10 @@ public class ClubMember {
     @Column(nullable = false, length = 30)
     private String term;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 1)
+    private ClubMemberCourt court;
+
     @Builder
     private ClubMember(Long applicationId,
                        Long memberId,
@@ -68,7 +72,8 @@ public class ClubMember {
                        Gender gender,
                        Boolean mapoResident,
                        String age,
-                       String term) {
+                       String term,
+                       ClubMemberCourt court) {
         this.applicationId = applicationId;
         this.memberId = memberId;
         this.name = name;
@@ -79,6 +84,7 @@ public class ClubMember {
         this.mapoResident = mapoResident;
         this.age = age;
         this.term = term;
+        this.court = court;
     }
 
     public static ClubMember create(String name,
@@ -107,6 +113,29 @@ public class ClubMember {
                                     Boolean mapoResident,
                                     String email,
                                     Gender gender) {
+        return create(name, university, phone, age, term, mapoResident, email, gender, null);
+    }
+
+    public static ClubMember create(String name,
+                                    String university,
+                                    String phone,
+                                    String age,
+                                    String term,
+                                    String email,
+                                    Gender gender,
+                                    ClubMemberCourt court) {
+        return create(name, university, phone, age, term, false, email, gender, court);
+    }
+
+    public static ClubMember create(String name,
+                                    String university,
+                                    String phone,
+                                    String age,
+                                    String term,
+                                    Boolean mapoResident,
+                                    String email,
+                                    Gender gender,
+                                    ClubMemberCourt court) {
         return ClubMember.builder()
                 .name(name)
                 .university(university)
@@ -116,6 +145,7 @@ public class ClubMember {
                 .mapoResident(mapoResident)
                 .age(age)
                 .term(term)
+                .court(court)
                 .build();
     }
 
@@ -145,6 +175,18 @@ public class ClubMember {
                                                    Boolean mapoResident,
                                                    String email,
                                                    Gender gender) {
+        return createFromApplication(applicationId, name, university, phone, age, mapoResident, email, gender, null);
+    }
+
+    public static ClubMember createFromApplication(Long applicationId,
+                                                   String name,
+                                                   String university,
+                                                   String phone,
+                                                   String age,
+                                                   Boolean mapoResident,
+                                                   String email,
+                                                   Gender gender,
+                                                   ClubMemberCourt court) {
         return ClubMember.builder()
                 .applicationId(applicationId)
                 .name(name)
@@ -155,6 +197,7 @@ public class ClubMember {
                 .mapoResident(mapoResident)
                 .age(age)
                 .term(DEFAULT_TERM)
+                .court(court)
                 .build();
     }
 
@@ -184,6 +227,18 @@ public class ClubMember {
                        Boolean mapoResident,
                        String email,
                        Gender gender) {
+        update(name, age, university, phone, term, mapoResident, email, gender, null);
+    }
+
+    public void update(String name,
+                       String age,
+                       String university,
+                       String phone,
+                       String term,
+                       Boolean mapoResident,
+                       String email,
+                       Gender gender,
+                       ClubMemberCourt court) {
         this.name = name;
         this.age = age;
         this.university = university;
@@ -197,6 +252,9 @@ public class ClubMember {
         }
         if (gender != null) {
             this.gender = gender;
+        }
+        if (court != null) {
+            this.court = court;
         }
     }
 

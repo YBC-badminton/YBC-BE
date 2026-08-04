@@ -12,6 +12,7 @@ import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.repository.MemberRepository;
 import com.ybc.ybc.members.domain.ClubMember;
+import com.ybc.ybc.members.domain.ClubMemberCourt;
 import com.ybc.ybc.members.repository.ClubMemberRepository;
 import com.ybc.ybc.support.TestMailConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,9 +74,9 @@ class AdminMemberControllerIntegrationTest {
     @DisplayName("인증된 사용자는 부원 명단을 조회할 수 있다")
     void getMembersReturnsSummaryAndMembersWhenAuthenticated() throws Exception {
         saveAuthMember("2001", "hong@example.com", true);
-        ClubMember firstMember = saveMember("홍길동", "한국대학교", "010-1234-5678", "03", "2기", true, "hong@example.com");
-        ClubMember secondMember = saveMember("강해린", "미래대학교", "010-5555-6666", "05", "7.5기");
-        ClubMember thirdMember = saveMember("이마크", "글로벌대학교", "010-7777-8888", "01", "8기");
+        ClubMember firstMember = saveMember("홍길동", "한국대학교", "010-1234-5678", "03", "2기", true, "hong@example.com", ClubMemberCourt.S);
+        ClubMember secondMember = saveMember("강해린", "미래대학교", "010-5555-6666", "05", "7.5기", false, null, ClubMemberCourt.A);
+        ClubMember thirdMember = saveMember("이마크", "글로벌대학교", "010-7777-8888", "01", "8기", false, null, ClubMemberCourt.B);
 
         mockMvc.perform(get(ADMIN_MEMBERS_API)
                         .with(authorizedUser()))
@@ -84,14 +85,16 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.summary.mapoResidentCount").value(1))
                 .andExpect(jsonPath("$.members[0].memberId").value(firstMember.getId()))
                 .andExpect(jsonPath("$.members[0].name").value("홍길동"))
+                .andExpect(jsonPath("$.members[0].court").value("S"))
                 .andExpect(jsonPath("$.members[0].isMapoResident").value(true))
                 .andExpect(jsonPath("$.members[0].isAdmin").value(true))
                 .andExpect(jsonPath("$.members[1].memberId").value(secondMember.getId()))
                 .andExpect(jsonPath("$.members[1].term").value("7.5기"))
+                .andExpect(jsonPath("$.members[1].court").value("A"))
                 .andExpect(jsonPath("$.members[1].isMapoResident").value(false))
                 .andExpect(jsonPath("$.members[1].isAdmin").value(false))
                 .andExpect(jsonPath("$.members[2].memberId").value(thirdMember.getId()))
-                .andExpect(jsonPath("$.members[2].court").doesNotExist());
+                .andExpect(jsonPath("$.members[2].court").value("B"));
     }
 
     @Test
@@ -135,7 +138,7 @@ class AdminMemberControllerIntegrationTest {
     @Test
     @DisplayName("인증된 사용자는 PATCH로 부원 정보를 수정할 수 있다")
     void updateMemberReturnsUpdatedMemberWhenAuthenticated() throws Exception {
-        ClubMember member = saveMember("홍길동", "한국대학교", "010-0000-0000", "03", "2기");
+        ClubMember member = saveMember("홍길동", "한국대학교", "010-0000-0000", "03", "2기", false, null, ClubMemberCourt.C);
         Member authMember = saveAuthMember("3001", "hong@example.com", true);
 
         mockMvc.perform(patch(ADMIN_MEMBERS_API + "/{memberId}", member.getId())
@@ -149,7 +152,8 @@ class AdminMemberControllerIntegrationTest {
                                 "term", "10기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",
-                                "gender", "MALE"
+                                "gender", "MALE",
+                                "court", "A"
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.memberId").value(member.getId()))
@@ -158,13 +162,14 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.gender").value("MALE"))
                 .andExpect(jsonPath("$.age").value("02"))
                 .andExpect(jsonPath("$.term").value("10기"))
+                .andExpect(jsonPath("$.court").value("A"))
                 .andExpect(jsonPath("$.isMapoResident").value(true))
-                .andExpect(jsonPath("$.isAdmin").value(true))
-                .andExpect(jsonPath("$.court").doesNotExist());
+                .andExpect(jsonPath("$.isAdmin").value(true));
 
         ClubMember updatedMember = clubMemberRepository.findById(member.getId()).orElseThrow();
         assertThat(updatedMember.getPhone()).isEqualTo("010-1234-5678");
         assertThat(updatedMember.getAge()).isEqualTo("02");
+        assertThat(updatedMember.getCourt()).isEqualTo(ClubMemberCourt.A);
         assertThat(updatedMember.isMapoResident()).isTrue();
         assertThat(updatedMember.getMemberId()).isEqualTo(authMember.getId());
         assertThat(memberRepository.findById(authMember.getId()).orElseThrow().isAdmin()).isTrue();
@@ -186,7 +191,8 @@ class AdminMemberControllerIntegrationTest {
                                 "term", "10기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",
-                                "gender", "MALE"
+                                "gender", "MALE",
+                                "court", "A"
                         ))))
                 .andExpect(status().isMethodNotAllowed());
     }
@@ -195,7 +201,7 @@ class AdminMemberControllerIntegrationTest {
     @DisplayName("인증된 사용자는 이름으로 부원을 검색할 수 있다")
     void searchMemberReturnsMemberWhenAuthenticated() throws Exception {
         saveAuthMember("2002", "hong@example.com", true);
-        ClubMember member = saveMember("홍길동", "한국대학교", "010-1234-5678", "03", "2기", false, "hong@example.com");
+        ClubMember member = saveMember("홍길동", "한국대학교", "010-1234-5678", "03", "2기", false, "hong@example.com", ClubMemberCourt.B);
 
         mockMvc.perform(get(ADMIN_MEMBERS_API + "/search")
                         .param("name", "홍길동")
@@ -204,6 +210,7 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.memberId").value(member.getId()))
                 .andExpect(jsonPath("$.name").value("홍길동"))
                 .andExpect(jsonPath("$.phone").value("010-1234-5678"))
+                .andExpect(jsonPath("$.court").value("B"))
                 .andExpect(jsonPath("$.isAdmin").value(true));
     }
 
@@ -223,7 +230,8 @@ class AdminMemberControllerIntegrationTest {
                                 "term", "2기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",
-                                "gender", "MALE"
+                                "gender", "MALE",
+                                "court", "S"
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.memberId").isNumber())
@@ -231,9 +239,9 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.email").value("hong@example.com"))
                 .andExpect(jsonPath("$.gender").value("MALE"))
                 .andExpect(jsonPath("$.age").value("03"))
+                .andExpect(jsonPath("$.court").value("S"))
                 .andExpect(jsonPath("$.isMapoResident").value(true))
-                .andExpect(jsonPath("$.isAdmin").value(false))
-                .andExpect(jsonPath("$.court").doesNotExist());
+                .andExpect(jsonPath("$.isAdmin").value(false));
 
         assertThat(clubMemberRepository.findAll()).hasSize(1);
         ClubMember savedMember = clubMemberRepository.findAll().get(0);
@@ -255,14 +263,17 @@ class AdminMemberControllerIntegrationTest {
                                 "term", "2기",
                                 "isMapoResident", true,
                                 "email", "hong@example.com",
-                                "gender", "MALE"
+                                "gender", "MALE",
+                                "court", "C"
                         ))))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.court").value("C"))
                 .andExpect(jsonPath("$.email").value("hong@example.com"))
                 .andExpect(jsonPath("$.isAdmin").value(false));
 
         ClubMember savedMember = clubMemberRepository.findAll().get(0);
         assertThat(savedMember.getMemberId()).isNull();
+        assertThat(savedMember.getCourt()).isEqualTo(ClubMemberCourt.C);
     }
 
     @Test
@@ -338,7 +349,18 @@ class AdminMemberControllerIntegrationTest {
                                   String term,
                                   boolean isMapoResident,
                                   String email) {
-        ClubMember clubMember = ClubMember.create(name, university, phone, age, term, isMapoResident, email, null);
+        return saveMember(name, university, phone, age, term, isMapoResident, email, null);
+    }
+
+    private ClubMember saveMember(String name,
+                                  String university,
+                                  String phone,
+                                  String age,
+                                  String term,
+                                  boolean isMapoResident,
+                                  String email,
+                                  ClubMemberCourt court) {
+        ClubMember clubMember = ClubMember.create(name, university, phone, age, term, isMapoResident, email, null, court);
         ClubMember savedMember = clubMemberRepository.saveAndFlush(clubMember);
         return clubMemberRepository.findById(savedMember.getId()).orElseThrow();
     }

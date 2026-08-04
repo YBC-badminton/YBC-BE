@@ -4,6 +4,7 @@ import com.ybc.ybc.applications.domain.Gender;
 
 public record AdminMatchParticipantProfileResponse(
         String name,
-        Gender gender
+        Gender gender,
+        String level
 ) {
 }

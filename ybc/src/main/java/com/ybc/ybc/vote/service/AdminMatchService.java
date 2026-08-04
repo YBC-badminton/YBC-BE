@@ -139,14 +139,16 @@ public class AdminMatchService {
                     attendance.getId(),
                     MatchParticipantType.MEMBER.name(),
                     profile.name(),
-                    profile.gender()
+                    profile.gender(),
+                    profile.level()
             ));
         });
         participantScope.confirmedGuests().forEach(guest -> participants.add(new AdminMatchParticipantResponse(
                 guest.getId(),
                 MatchParticipantType.GUEST.name(),
                 guest.getName(),
-                guest.getGender()
+                guest.getGender(),
+                guest.getLevel()
         )));
 
         return new AdminMatchParticipantListResponse(baseVote.getId(), participants.size(), participants);
@@ -1039,7 +1041,7 @@ public class AdminMatchService {
                                                                       Map<Long, ClubMember> clubMembersByMemberId) {
         if (match.getParticipantType() == MatchParticipantType.GUEST) {
             Guest guest = match.getGuest();
-            return new AdminMatchParticipantProfileResponse(guest.getName(), guest.getGender());
+            return new AdminMatchParticipantProfileResponse(guest.getName(), guest.getGender(), guest.getLevel());
         }
         return toMemberProfile(match.getVoteAttendance(), clubMembersByMemberId);
     }
@@ -1051,6 +1053,7 @@ public class AdminMatchService {
                 getParticipantId(match),
                 profile.name(),
                 profile.gender(),
+                profile.level(),
                 match.getParticipantType()
         );
     }
@@ -1065,13 +1068,17 @@ public class AdminMatchService {
     private AdminMatchParticipantProfileResponse toMemberProfile(VoteAttendance attendance,
                                                                  Map<Long, ClubMember> clubMembersByMemberId) {
         if (attendance.getMember() == null) {
-            return new AdminMatchParticipantProfileResponse("알 수 없음", null);
+            return new AdminMatchParticipantProfileResponse("알 수 없음", null, null);
         }
         ClubMember clubMember = clubMembersByMemberId.get(attendance.getMember().getId());
         if (clubMember != null) {
-            return new AdminMatchParticipantProfileResponse(clubMember.getName(), clubMember.getGender());
+            return new AdminMatchParticipantProfileResponse(
+                    clubMember.getName(),
+                    clubMember.getGender(),
+                    clubMember.getCourt() != null ? clubMember.getCourt().name() : null
+            );
         }
-        return new AdminMatchParticipantProfileResponse(attendance.getMember().getNickname(), null);
+        return new AdminMatchParticipantProfileResponse(attendance.getMember().getNickname(), null, null);
     }
 
     private Map<Long, ClubMember> getClubMembersByMemberIdSafely(Iterable<VoteAttendance> attendances) {
