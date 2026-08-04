@@ -1,6 +1,7 @@
 package com.ybc.ybc.members.dto.request;
 
 import com.ybc.ybc.applications.domain.Gender;
+import com.ybc.ybc.members.domain.ClubMemberCourt;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,14 +24,15 @@ public record ClubMemberCreateRequest(
         @Email(message = "이메일 형식이 올바르지 않습니다.")
         String email,
         @NotNull(message = "성별을 입력해 주세요.")
-        Gender gender
+        Gender gender,
+        ClubMemberCourt court
 ) {
     public ClubMemberCreateRequest(String name,
                                    String university,
                                    String phone,
                                    String age,
                                    String term) {
-        this(name, university, phone, age, term, null, null, null);
+        this(name, university, phone, age, term, null, null, null, null);
     }
 
     public ClubMemberCreateRequest(String name,
@@ -40,6 +42,6 @@ public record ClubMemberCreateRequest(
                                    String term,
                                    String email,
                                    Gender gender) {
-        this(name, university, phone, age, term, null, email, gender);
+        this(name, university, phone, age, term, null, email, gender, null);
     }
 }

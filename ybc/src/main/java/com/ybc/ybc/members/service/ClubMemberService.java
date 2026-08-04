@@ -62,7 +62,8 @@ public class ClubMemberService {
                 request.term(),
                 request.isMapoResident(),
                 request.email(),
-                request.gender()
+                request.gender(),
+                request.court()
         );
         Member linkedMember = linkLinkedMember(clubMember);
         ClubMember savedClubMember = clubMemberRepository.save(clubMember);
@@ -81,7 +82,8 @@ public class ClubMemberService {
                 request.term(),
                 request.isMapoResident(),
                 request.email(),
-                request.gender()
+                request.gender(),
+                request.court()
         );
         Member linkedMember = linkLinkedMember(clubMember);
         return ClubMemberResponse.from(clubMember, linkedMember != null && linkedMember.isAdmin());
