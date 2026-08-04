@@ -125,7 +125,7 @@ class AdminMatchServiceTest {
         assertThat(response.participants().get(0).participantId()).isEqualTo(100L);
         assertThat(response.participants().get(0).name()).isEqualTo("닉네임회원");
         assertThat(response.participants().get(0).gender()).isNull();
-        assertThat(response.participants().get(0).court()).isNull();
+        assertThat(response.participants().get(0).level()).isNull();
     }
 
     @Test

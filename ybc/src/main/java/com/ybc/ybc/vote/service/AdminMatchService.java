@@ -140,7 +140,7 @@ public class AdminMatchService {
                     MatchParticipantType.MEMBER.name(),
                     profile.name(),
                     profile.gender(),
-                    profile.court()
+                    profile.level()
             ));
         });
         participantScope.confirmedGuests().forEach(guest -> participants.add(new AdminMatchParticipantResponse(
@@ -148,7 +148,7 @@ public class AdminMatchService {
                 MatchParticipantType.GUEST.name(),
                 guest.getName(),
                 guest.getGender(),
-                null
+                guest.getLevel()
         )));
 
         return new AdminMatchParticipantListResponse(baseVote.getId(), participants.size(), participants);
@@ -1041,7 +1041,7 @@ public class AdminMatchService {
                                                                       Map<Long, ClubMember> clubMembersByMemberId) {
         if (match.getParticipantType() == MatchParticipantType.GUEST) {
             Guest guest = match.getGuest();
-            return new AdminMatchParticipantProfileResponse(guest.getName(), guest.getGender(), null);
+            return new AdminMatchParticipantProfileResponse(guest.getName(), guest.getGender(), guest.getLevel());
         }
         return toMemberProfile(match.getVoteAttendance(), clubMembersByMemberId);
     }
@@ -1053,7 +1053,7 @@ public class AdminMatchService {
                 getParticipantId(match),
                 profile.name(),
                 profile.gender(),
-                profile.court(),
+                profile.level(),
                 match.getParticipantType()
         );
     }
@@ -1075,7 +1075,7 @@ public class AdminMatchService {
             return new AdminMatchParticipantProfileResponse(
                     clubMember.getName(),
                     clubMember.getGender(),
-                    clubMember.getCourt()
+                    clubMember.getCourt() != null ? clubMember.getCourt().name() : null
             );
         }
         return new AdminMatchParticipantProfileResponse(attendance.getMember().getNickname(), null, null);
