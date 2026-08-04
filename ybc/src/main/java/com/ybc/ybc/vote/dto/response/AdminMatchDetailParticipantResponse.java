@@ -7,6 +7,7 @@ public record AdminMatchDetailParticipantResponse(
         Long participantId,
         String name,
         Gender gender,
+        String level,
         MatchParticipantType participantType
 ) {
 }

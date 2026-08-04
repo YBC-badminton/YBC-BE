@@ -3,6 +3,7 @@ package com.ybc.ybc.members.dto.response;
 import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.global.util.PhoneNumberUtils;
 import com.ybc.ybc.members.domain.ClubMember;
+import com.ybc.ybc.members.domain.ClubMemberCourt;
 
 public record ClubMemberResponse(
         Long memberId,
@@ -13,6 +14,7 @@ public record ClubMemberResponse(
         Gender gender,
         String age,
         String term,
+        ClubMemberCourt court,
         boolean isMapoResident,
         boolean isAdmin
 ) {
@@ -26,6 +28,7 @@ public record ClubMemberResponse(
                 clubMember.getGender(),
                 clubMember.getAge(),
                 clubMember.getTerm(),
+                clubMember.getCourt(),
                 clubMember.isMapoResident(),
                 isAdmin
         );
