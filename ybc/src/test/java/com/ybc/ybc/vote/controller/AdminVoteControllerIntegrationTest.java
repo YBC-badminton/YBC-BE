@@ -12,6 +12,7 @@ import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.repository.MemberRepository;
 import com.ybc.ybc.members.domain.ClubMember;
+import com.ybc.ybc.members.domain.ClubMemberCourt;
 import com.ybc.ybc.members.repository.ClubMemberRepository;
 import com.ybc.ybc.support.TestMailConfig;
 import com.ybc.ybc.vote.domain.ActivityType;
@@ -44,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -348,7 +350,7 @@ class AdminVoteControllerIntegrationTest {
         ));
         VoteAttendance attendance = addAttendance(vote, true, "participant-1001", "카카오닉네임");
         addAttendance(vote, false, "participant-1002", "불참회원");
-        saveClubMember("김철수", "participant-1001@example.com", Gender.MALE);
+        saveClubMember("김철수", "participant-1001@example.com", Gender.MALE, ClubMemberCourt.S);
         addGuest(vote, "participant-host1", "게스트1");
 
         mockMvc.perform(get(ADMIN_VOTES_API + "/{voteId}/matches", vote.getId())
@@ -360,9 +362,11 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.participants[0].participantType").value("MEMBER"))
                 .andExpect(jsonPath("$.participants[0].name").value("김철수"))
                 .andExpect(jsonPath("$.participants[0].gender").value("MALE"))
+                .andExpect(jsonPath("$.participants[0].court").value("S"))
                 .andExpect(jsonPath("$.participants[1].participantType").value("GUEST"))
                 .andExpect(jsonPath("$.participants[1].name").value("게스트1"))
-                .andExpect(jsonPath("$.participants[1].gender").value("FEMALE"));
+                .andExpect(jsonPath("$.participants[1].gender").value("FEMALE"))
+                .andExpect(jsonPath("$.participants[1].court").value(nullValue()));
     }
 
     @Test
@@ -418,7 +422,8 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.participants[0].participantId").value(attendance.getId()))
                 .andExpect(jsonPath("$.participants[0].name").value("김철수"))
-                .andExpect(jsonPath("$.participants[0].gender").value("MALE"));
+                .andExpect(jsonPath("$.participants[0].gender").value("MALE"))
+                .andExpect(jsonPath("$.participants[0].court").value(nullValue()));
     }
 
     @Test
@@ -819,10 +824,10 @@ class AdminVoteControllerIntegrationTest {
                 LocalDateTime.now().minusDays(1),
                 20
         ));
-        VoteAttendance first = addMatchParticipant(vote, "get-match-1001", "김민준", Gender.MALE);
-        VoteAttendance second = addMatchParticipant(vote, "get-match-1002", "이서연", Gender.FEMALE);
-        VoteAttendance third = addMatchParticipant(vote, "get-match-1003", "박지훈", Gender.MALE);
-        VoteAttendance fourth = addMatchParticipant(vote, "get-match-1004", "최하은", Gender.FEMALE);
+        VoteAttendance first = addMatchParticipant(vote, "get-match-1001", "김민준", Gender.MALE, ClubMemberCourt.S);
+        VoteAttendance second = addMatchParticipant(vote, "get-match-1002", "이서연", Gender.FEMALE, ClubMemberCourt.A);
+        VoteAttendance third = addMatchParticipant(vote, "get-match-1003", "박지훈", Gender.MALE, ClubMemberCourt.B);
+        VoteAttendance fourth = addMatchParticipant(vote, "get-match-1004", "최하은", Gender.FEMALE, ClubMemberCourt.C);
         List<Map<String, Object>> requestBody = List.of(Map.of(
                 "courtNumber", 1,
                 "courtMatches", List.of(Map.of(
@@ -850,18 +855,22 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.matches[0].matches[0].team1[0].participantId").value(first.getId()))
                 .andExpect(jsonPath("$.matches[0].matches[0].team1[0].name").value("김민준"))
                 .andExpect(jsonPath("$.matches[0].matches[0].team1[0].gender").value("MALE"))
+                .andExpect(jsonPath("$.matches[0].matches[0].team1[0].court").value("S"))
                 .andExpect(jsonPath("$.matches[0].matches[0].team1[0].participantType").value("MEMBER"))
                 .andExpect(jsonPath("$.matches[0].matches[0].team1[1].participantId").value(second.getId()))
                 .andExpect(jsonPath("$.matches[0].matches[0].team1[1].name").value("이서연"))
                 .andExpect(jsonPath("$.matches[0].matches[0].team1[1].gender").value("FEMALE"))
+                .andExpect(jsonPath("$.matches[0].matches[0].team1[1].court").value("A"))
                 .andExpect(jsonPath("$.matches[0].matches[0].team1[1].participantType").value("MEMBER"))
                 .andExpect(jsonPath("$.matches[0].matches[0].team2[0].participantId").value(third.getId()))
                 .andExpect(jsonPath("$.matches[0].matches[0].team2[0].name").value("박지훈"))
                 .andExpect(jsonPath("$.matches[0].matches[0].team2[0].gender").value("MALE"))
+                .andExpect(jsonPath("$.matches[0].matches[0].team2[0].court").value("B"))
                 .andExpect(jsonPath("$.matches[0].matches[0].team2[0].participantType").value("MEMBER"))
                 .andExpect(jsonPath("$.matches[0].matches[0].team2[1].participantId").value(fourth.getId()))
                 .andExpect(jsonPath("$.matches[0].matches[0].team2[1].name").value("최하은"))
                 .andExpect(jsonPath("$.matches[0].matches[0].team2[1].gender").value("FEMALE"))
+                .andExpect(jsonPath("$.matches[0].matches[0].team2[1].court").value("C"))
                 .andExpect(jsonPath("$.matches[0].matches[0].team2[1].participantType").value("MEMBER"));
     }
 
@@ -876,14 +885,14 @@ class AdminVoteControllerIntegrationTest {
                 LocalDateTime.now().minusDays(1),
                 20
         ));
-        VoteAttendance first = addMatchParticipant(vote, "patch-match-1001", "김민준", Gender.MALE);
-        VoteAttendance second = addMatchParticipant(vote, "patch-match-1002", "이서연", Gender.FEMALE);
-        VoteAttendance third = addMatchParticipant(vote, "patch-match-1003", "박지훈", Gender.MALE);
-        VoteAttendance fourth = addMatchParticipant(vote, "patch-match-1004", "최하은", Gender.FEMALE);
-        VoteAttendance fifth = addMatchParticipant(vote, "patch-match-1005", "정도윤", Gender.MALE);
-        VoteAttendance sixth = addMatchParticipant(vote, "patch-match-1006", "강지우", Gender.FEMALE);
-        VoteAttendance seventh = addMatchParticipant(vote, "patch-match-1007", "조현우", Gender.MALE);
-        VoteAttendance eighth = addMatchParticipant(vote, "patch-match-1008", "윤서아", Gender.FEMALE);
+        VoteAttendance first = addMatchParticipant(vote, "patch-match-1001", "김민준", Gender.MALE, ClubMemberCourt.S);
+        VoteAttendance second = addMatchParticipant(vote, "patch-match-1002", "이서연", Gender.FEMALE, ClubMemberCourt.A);
+        VoteAttendance third = addMatchParticipant(vote, "patch-match-1003", "박지훈", Gender.MALE, ClubMemberCourt.B);
+        VoteAttendance fourth = addMatchParticipant(vote, "patch-match-1004", "최하은", Gender.FEMALE, ClubMemberCourt.C);
+        VoteAttendance fifth = addMatchParticipant(vote, "patch-match-1005", "정도윤", Gender.MALE, ClubMemberCourt.S);
+        VoteAttendance sixth = addMatchParticipant(vote, "patch-match-1006", "강지우", Gender.FEMALE, ClubMemberCourt.A);
+        VoteAttendance seventh = addMatchParticipant(vote, "patch-match-1007", "조현우", Gender.MALE, ClubMemberCourt.B);
+        VoteAttendance eighth = addMatchParticipant(vote, "patch-match-1008", "윤서아", Gender.FEMALE, ClubMemberCourt.C);
         List<Map<String, Object>> originalRequest = List.of(Map.of(
                 "courtNumber", 1,
                 "courtMatches", List.of(
@@ -925,12 +934,18 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.courtCount").value(1))
                 .andExpect(jsonPath("$.matches[0].courtMatches[0].matchNumber").value(1))
                 .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[0].name").value("정도윤"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[0].court").value("S"))
                 .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[1].name").value("강지우"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[1].court").value("A"))
                 .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[0].name").value("조현우"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[0].court").value("B"))
                 .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].name").value("윤서아"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].court").value("C"))
                 .andExpect(jsonPath("$.matches[0].courtMatches[1].matchNumber").value(2))
                 .andExpect(jsonPath("$.matches[0].courtMatches[1].team1[0].name").value("정도윤"))
-                .andExpect(jsonPath("$.matches[0].courtMatches[1].team2[1].name").value("윤서아"));
+                .andExpect(jsonPath("$.matches[0].courtMatches[1].team1[0].court").value("S"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[1].team2[1].name").value("윤서아"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[1].team2[1].court").value("C"));
 
         assertThat(voteMatchRepository.findAll()).hasSize(8);
     }
@@ -946,13 +961,13 @@ class AdminVoteControllerIntegrationTest {
                 LocalDateTime.now().minusDays(1),
                 20
         ));
-        VoteAttendance first = addMatchParticipant(vote, "guest-patch-1001", "김민준", Gender.MALE);
-        VoteAttendance second = addMatchParticipant(vote, "guest-patch-1002", "이서연", Gender.FEMALE);
-        VoteAttendance third = addMatchParticipant(vote, "guest-patch-1003", "박지훈", Gender.MALE);
-        VoteAttendance fourth = addMatchParticipant(vote, "guest-patch-1004", "최하은", Gender.FEMALE);
-        VoteAttendance fifth = addMatchParticipant(vote, "guest-patch-1005", "정도윤", Gender.MALE);
-        VoteAttendance sixth = addMatchParticipant(vote, "guest-patch-1006", "강지우", Gender.FEMALE);
-        VoteAttendance seventh = addMatchParticipant(vote, "guest-patch-1007", "조현우", Gender.MALE);
+        VoteAttendance first = addMatchParticipant(vote, "guest-patch-1001", "김민준", Gender.MALE, ClubMemberCourt.S);
+        VoteAttendance second = addMatchParticipant(vote, "guest-patch-1002", "이서연", Gender.FEMALE, ClubMemberCourt.A);
+        VoteAttendance third = addMatchParticipant(vote, "guest-patch-1003", "박지훈", Gender.MALE, ClubMemberCourt.B);
+        VoteAttendance fourth = addMatchParticipant(vote, "guest-patch-1004", "최하은", Gender.FEMALE, ClubMemberCourt.C);
+        VoteAttendance fifth = addMatchParticipant(vote, "guest-patch-1005", "정도윤", Gender.MALE, ClubMemberCourt.S);
+        VoteAttendance sixth = addMatchParticipant(vote, "guest-patch-1006", "강지우", Gender.FEMALE, ClubMemberCourt.A);
+        VoteAttendance seventh = addMatchParticipant(vote, "guest-patch-1007", "조현우", Gender.MALE, ClubMemberCourt.B);
         Guest guest = addGuest(vote, "guest-patch-host-1001", "게스트1");
         List<Map<String, Object>> originalRequest = List.of(Map.of(
                 "courtNumber", 1,
@@ -984,10 +999,14 @@ class AdminVoteControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(updateRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[0].name").value("정도윤"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[0].court").value("S"))
                 .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[1].name").value("강지우"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team1[1].court").value("A"))
                 .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[0].name").value("조현우"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[0].court").value("B"))
                 .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].name").value("게스트1"))
-                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].gender").value("FEMALE"));
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].gender").value("FEMALE"))
+                .andExpect(jsonPath("$.matches[0].courtMatches[0].team2[1].court").value(nullValue()));
 
         assertThat(voteMatchRepository.findAll()).hasSize(4);
     }
@@ -1252,8 +1271,16 @@ class AdminVoteControllerIntegrationTest {
     }
 
     private VoteAttendance addMatchParticipant(Vote vote, String socialId, String name, Gender gender) {
+        return addMatchParticipant(vote, socialId, name, gender, null);
+    }
+
+    private VoteAttendance addMatchParticipant(Vote vote,
+                                               String socialId,
+                                               String name,
+                                               Gender gender,
+                                               ClubMemberCourt court) {
         VoteAttendance attendance = addAttendance(vote, true, socialId, name);
-        saveClubMember(name, socialId + "@example.com", gender);
+        saveClubMember(name, socialId + "@example.com", gender, court);
         return attendance;
     }
 
@@ -1356,8 +1383,15 @@ class AdminVoteControllerIntegrationTest {
     }
 
     private ClubMember saveClubMember(String name, String email, Gender gender) {
+        return saveClubMember(name, email, gender, null);
+    }
+
+    private ClubMember saveClubMember(String name,
+                                      String email,
+                                      Gender gender,
+                                      ClubMemberCourt court) {
         return clubMemberRepository.saveAndFlush(
-                ClubMember.create(name, "한국대학교", "010-0000-0000", "03", "2기", email, gender)
+                ClubMember.create(name, "한국대학교", "010-0000-0000", "03", "2기", email, gender, court)
         );
     }
 
