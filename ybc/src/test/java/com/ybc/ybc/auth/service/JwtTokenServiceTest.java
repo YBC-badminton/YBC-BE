@@ -78,6 +78,7 @@ class JwtTokenServiceTest {
                 "123456789",
                 "ybc@example.com",
                 "양배추",
+                "10기",
                 false
         );
 
@@ -132,6 +133,7 @@ class JwtTokenServiceTest {
                 "123456789",
                 "ybc@example.com",
                 "양배추",
+                "10기",
                 false
         );
 
