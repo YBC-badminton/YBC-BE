@@ -72,14 +72,16 @@ public class KakaoAuthService {
 
         Member savedMember = memberRepository.save(member);
         clubMember.linkMember(savedMember.getId());
-        return new KakaoLoginResult(firstLogin, MemberSummary.from(savedMember));
+        return new KakaoLoginResult(firstLogin, MemberSummary.from(savedMember, clubMember));
     }
 
     // 회원 ID로 현재 로그인한 회원 정보 조회
     public MemberSummary getCurrentMember(Long memberId) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new YbcException(ExceptionCode.UNAUTHORIZED_USER));
-        return MemberSummary.from(member);
+        ClubMember clubMember = clubMemberRepository.findByMemberId(memberId)
+                .orElse(null);
+        return MemberSummary.from(member, clubMember);
     }
 
     private String normalizeEmail(String email) {

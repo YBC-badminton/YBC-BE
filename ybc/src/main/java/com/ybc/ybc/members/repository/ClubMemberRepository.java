@@ -14,6 +14,8 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long> {
 
     Optional<ClubMember> findByApplicationId(Long applicationId);
 
+    Optional<ClubMember> findByMemberId(Long memberId);
+
     List<ClubMember> findAllByApplicationIdIsNotNull();
 
     List<ClubMember> findAllByMemberIdInOrderByIdAsc(Collection<Long> memberIds);

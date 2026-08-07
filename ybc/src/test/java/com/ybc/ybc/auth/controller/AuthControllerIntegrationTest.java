@@ -115,6 +115,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.tokens.refreshToken").isNotEmpty())
                 .andExpect(jsonPath("$.member.provider").value("KAKAO"))
                 .andExpect(jsonPath("$.member.socialId").value("123456789"))
+                .andExpect(jsonPath("$.member.term").value("10기"))
                 .andExpect(jsonPath("$.member.isAdmin").value(false))
                 .andReturn()
                 .getResponse()
@@ -147,11 +148,12 @@ class AuthControllerIntegrationTest {
                 .thenReturn(new KakaoUserProfile("123456789", "운영진닉네임", "staff@example.com"));
 
         mockMvc.perform(post("/api/v1/auth/kakao/login")
-                        .contentType(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(Map.of("code", "auth-code"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.firstLogin").value(false))
                 .andExpect(jsonPath("$.member.id").value(existingMember.getId()))
+                .andExpect(jsonPath("$.member.term").value("10기"))
                 .andExpect(jsonPath("$.member.isAdmin").value(true));
     }
 
@@ -318,6 +320,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.socialId").value("123456789"))
                 .andExpect(jsonPath("$.nickname").value("양배추"))
                 .andExpect(jsonPath("$.email").value("cabbage@example.com"))
+                .andExpect(jsonPath("$.term").value("10기"))
                 .andExpect(jsonPath("$.isAdmin").value(false));
     }
 
