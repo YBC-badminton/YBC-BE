@@ -32,6 +32,7 @@ class AuthFacadeTest {
                 "123456789",
                 "cabbage@example.com",
                 "양배추",
+                "10기",
                 true
         );
         KakaoLoginResult loginResult = new KakaoLoginResult(true, memberSummary);
@@ -50,6 +51,7 @@ class AuthFacadeTest {
         assertThat(response.firstLogin()).isTrue();
         assertThat(response.member().id()).isEqualTo(1L);
         assertThat(response.member().provider()).isEqualTo("KAKAO");
+        assertThat(response.member().term()).isEqualTo("10기");
         assertThat(response.member().isAdmin()).isTrue();
         assertThat(response.tokens()).isEqualTo(authTokenResponse);
     }

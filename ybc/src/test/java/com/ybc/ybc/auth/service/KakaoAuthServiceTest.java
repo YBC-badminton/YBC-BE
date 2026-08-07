@@ -4,6 +4,7 @@ import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.dto.KakaoLoginResult;
 import com.ybc.ybc.auth.dto.KakaoUserProfile;
+import com.ybc.ybc.auth.dto.MemberSummary;
 import com.ybc.ybc.auth.repository.MemberRepository;
 import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.members.domain.ClubMember;
@@ -20,6 +21,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -76,6 +78,7 @@ class KakaoAuthServiceTest {
         assertThat(result.member().id()).isEqualTo(1L);
         assertThat(result.member().provider()).isEqualTo("KAKAO");
         assertThat(result.member().nickname()).isEqualTo("양배추");
+        assertThat(result.member().term()).isEqualTo("10기");
         assertThat(result.member().isAdmin()).isFalse();
         assertThat(clubMember.getMemberId()).isEqualTo(1L);
     }
@@ -119,8 +122,41 @@ class KakaoAuthServiceTest {
         assertThat(existingMember.getNickname()).isEqualTo("새닉네임");
         assertThat(existingMember.getEmail()).isEqualTo("new@example.com");
         assertThat(result.member().id()).isEqualTo(7L);
+        assertThat(result.member().term()).isEqualTo("10기");
         assertThat(result.member().isAdmin()).isTrue();
         assertThat(clubMember.getMemberId()).isEqualTo(7L);
+    }
+
+    @Test
+    void getCurrentMemberReturnsClubMemberTermAndAdminFlag() {
+        Member member = Member.createSocialMember(
+                SocialProvider.KAKAO,
+                "123456789",
+                "양배추",
+                "ybc@example.com",
+                true
+        );
+        ReflectionTestUtils.setField(member, "id", 1L);
+
+        ClubMember clubMember = ClubMember.create(
+                "양배추",
+                "이화여자대학교",
+                "010-1234-5678",
+                "03",
+                "10기",
+                "ybc@example.com",
+                null
+        );
+
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+        when(clubMemberRepository.findByMemberId(1L)).thenReturn(Optional.of(clubMember));
+
+        MemberSummary result = kakaoAuthService.getCurrentMember(1L);
+
+        assertThat(result.id()).isEqualTo(1L);
+        assertThat(result.term()).isEqualTo("10기");
+        assertThat(result.isAdmin()).isTrue();
+        verify(clubMemberRepository).findByMemberId(1L);
     }
 
     @Test
