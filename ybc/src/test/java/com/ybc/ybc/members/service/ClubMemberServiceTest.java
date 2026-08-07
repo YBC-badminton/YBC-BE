@@ -46,30 +46,34 @@ class ClubMemberServiceTest {
     private ClubMemberService clubMemberService;
 
     @Test
-    @DisplayName("부원 명단 조회 시 요약과 목록을 반환한다")
+    @DisplayName("부원 명단 조회 시 가나다순 정렬로 요약과 목록을 반환한다")
     void getMembersReturnsSummaryAndMembers() {
         ClubMember firstMember = savedMember(1L, "홍길동", "한국대학교", "010-1234-5678", "03", "2기", true, "hong@example.com", ClubMemberCourt.S);
         ClubMember secondMember = savedMember(2L, "강해린", "미래대학교", "010-5555-6666", "05", "7.5기", false, null, ClubMemberCourt.A);
         ClubMember thirdMember = savedMember(15L, "이마크", "글로벌대학교", "010-7777-8888", "01", "8기", false, null, ClubMemberCourt.B);
         when(memberRepository.findAllByNormalizedEmailInOrderByIdAsc(any())).thenReturn(List.of(authMember(101L, "hong@example.com", true)));
-        when(clubMemberRepository.findAll(any(Sort.class))).thenReturn(List.of(firstMember, secondMember, thirdMember));
+        when(clubMemberRepository.findAll(any(Sort.class))).thenReturn(List.of(secondMember, thirdMember, firstMember));
 
         ClubMemberListResponse response = clubMemberService.getMembers();
 
+        ArgumentCaptor<Sort> sortCaptor = ArgumentCaptor.forClass(Sort.class);
         verify(clubMemberSyncService).reconcileFinalPassMembersSafely();
+        verify(clubMemberRepository).findAll(sortCaptor.capture());
         assertThat(response.summary().totalMembers()).isEqualTo(3);
         assertThat(response.summary().mapoResidentCount()).isEqualTo(1);
         assertThat(response.members()).hasSize(3);
-        assertThat(response.members().get(0).memberId()).isEqualTo(1L);
-        assertThat(response.members().get(1).name()).isEqualTo("강해린");
-        assertThat(response.members().get(2).term()).isEqualTo("8기");
-        assertThat(response.members().get(0).court()).isEqualTo(ClubMemberCourt.S);
-        assertThat(response.members().get(1).court()).isEqualTo(ClubMemberCourt.A);
-        assertThat(response.members().get(2).court()).isEqualTo(ClubMemberCourt.B);
-        assertThat(response.members().get(0).isMapoResident()).isTrue();
-        assertThat(response.members().get(1).isMapoResident()).isFalse();
-        assertThat(response.members().get(0).isAdmin()).isTrue();
-        assertThat(response.members().get(1).isAdmin()).isFalse();
+        assertThat(sortCaptor.getValue()).isEqualTo(Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
+        assertThat(response.members().get(0).memberId()).isEqualTo(2L);
+        assertThat(response.members().get(0).name()).isEqualTo("강해린");
+        assertThat(response.members().get(1).name()).isEqualTo("이마크");
+        assertThat(response.members().get(2).term()).isEqualTo("2기");
+        assertThat(response.members().get(0).court()).isEqualTo(ClubMemberCourt.A);
+        assertThat(response.members().get(1).court()).isEqualTo(ClubMemberCourt.B);
+        assertThat(response.members().get(2).court()).isEqualTo(ClubMemberCourt.S);
+        assertThat(response.members().get(0).isMapoResident()).isFalse();
+        assertThat(response.members().get(2).isMapoResident()).isTrue();
+        assertThat(response.members().get(2).isAdmin()).isTrue();
+        assertThat(response.members().get(0).isAdmin()).isFalse();
     }
 
     @Test
