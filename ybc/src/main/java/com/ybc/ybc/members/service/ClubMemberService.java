@@ -32,13 +32,18 @@ import java.util.stream.StreamSupport;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ClubMemberService {
+    private static final Sort MEMBER_LIST_SORT = Sort.by(
+            Sort.Order.asc("name"),
+            Sort.Order.asc("id")
+    );
+
     private final ClubMemberRepository clubMemberRepository;
     private final ClubMemberSyncService clubMemberSyncService;
     private final MemberRepository memberRepository;
 
     public ClubMemberListResponse getMembers() {
         clubMemberSyncService.reconcileFinalPassMembersSafely();
-        List<ClubMember> members = clubMemberRepository.findAll(Sort.by(Sort.Order.asc("id")));
+        List<ClubMember> members = clubMemberRepository.findAll(MEMBER_LIST_SORT);
         MemberLookup memberLookup = createMemberLookup(members);
         return new ClubMemberListResponse(
                 summarize(members),

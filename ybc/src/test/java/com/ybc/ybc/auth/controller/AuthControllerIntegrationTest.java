@@ -27,7 +27,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
@@ -158,16 +157,30 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    void loginWithKakaoRejectsUserWhenClubMemberEmailDoesNotExist() throws Exception {
+    void loginWithKakaoAllowsUserWhenClubMemberEmailDoesNotExist() throws Exception {
         when(kakaoApiClient.fetchUserProfile("auth-code"))
                 .thenReturn(new KakaoUserProfile("123456789", "외부인", "outsider@example.com"));
 
-        mockMvc.perform(post("/api/v1/auth/kakao/login")
+        String responseBody = mockMvc.perform(post("/api/v1/auth/kakao/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("code", "auth-code"))))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("CLUB_MEMBER_LOGIN_FORBIDDEN"))
-                .andExpect(jsonPath("$.message").value("동아리 부원만 로그인할 수 있습니다."));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstLogin").value(true))
+                .andExpect(jsonPath("$.member.nickname").value("외부인"))
+                .andExpect(jsonPath("$.member.email").value("outsider@example.com"))
+                .andExpect(jsonPath("$.member.isAdmin").value(false))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode json = objectMapper.readTree(responseBody);
+        Long memberId = json.get("member").get("id").asLong();
+        assertThat(json.get("member").get("term").isNull()).isTrue();
+
+        Optional<Member> savedMember = memberRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "123456789");
+        assertThat(savedMember).isPresent();
+        assertThat(savedMember.get().getId()).isEqualTo(memberId);
+        assertThat(savedMember.get().getEmail()).isEqualTo("outsider@example.com");
     }
 
     @Test
@@ -264,7 +277,7 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    void kakaoCallbackRedirectsToFrontendWithErrorQueryWhenClubMemberEmailDoesNotExist() throws Exception {
+    void kakaoCallbackRedirectsToFrontendWithTokensWhenClubMemberEmailDoesNotExist() throws Exception {
         when(kakaoApiClient.fetchUserProfile("auth-code"))
                 .thenReturn(new KakaoUserProfile("123456789", "외부인", "outsider@example.com"));
 
@@ -276,15 +289,14 @@ class AuthControllerIntegrationTest {
                 .getHeader("Location");
 
         assertThat(location).startsWith("https://ybc-fe.vercel.app/auth/kakao/callback");
-        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("error"))
-                .isEqualTo("CLUB_MEMBER_LOGIN_FORBIDDEN");
-        assertThat(URLDecoder.decode(
-                UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("message"),
-                StandardCharsets.UTF_8
-        ))
-                .isEqualTo("동아리 부원만 로그인할 수 있습니다.");
-        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("status"))
-                .isEqualTo("403");
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("accessToken"))
+                .isNotBlank();
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("refreshToken"))
+                .isNotBlank();
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("firstLogin"))
+                .isEqualTo("true");
+        assertThat(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("isAdmin"))
+                .isEqualTo("false");
     }
 
     @Test

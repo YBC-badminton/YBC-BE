@@ -71,7 +71,7 @@ class AdminMemberControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("인증된 사용자는 부원 명단을 조회할 수 있다")
+    @DisplayName("인증된 사용자는 부원 명단을 가나다순으로 조회할 수 있다")
     void getMembersReturnsSummaryAndMembersWhenAuthenticated() throws Exception {
         saveAuthMember("2001", "hong@example.com", true);
         ClubMember firstMember = saveMember("홍길동", "한국대학교", "010-1234-5678", "03", "2기", true, "hong@example.com", ClubMemberCourt.S);
@@ -83,18 +83,20 @@ class AdminMemberControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.totalMembers").value(3))
                 .andExpect(jsonPath("$.summary.mapoResidentCount").value(1))
-                .andExpect(jsonPath("$.members[0].memberId").value(firstMember.getId()))
-                .andExpect(jsonPath("$.members[0].name").value("홍길동"))
-                .andExpect(jsonPath("$.members[0].court").value("S"))
-                .andExpect(jsonPath("$.members[0].isMapoResident").value(true))
-                .andExpect(jsonPath("$.members[0].isAdmin").value(true))
-                .andExpect(jsonPath("$.members[1].memberId").value(secondMember.getId()))
-                .andExpect(jsonPath("$.members[1].term").value("7.5기"))
-                .andExpect(jsonPath("$.members[1].court").value("A"))
-                .andExpect(jsonPath("$.members[1].isMapoResident").value(false))
-                .andExpect(jsonPath("$.members[1].isAdmin").value(false))
-                .andExpect(jsonPath("$.members[2].memberId").value(thirdMember.getId()))
-                .andExpect(jsonPath("$.members[2].court").value("B"));
+                .andExpect(jsonPath("$.members[0].memberId").value(secondMember.getId()))
+                .andExpect(jsonPath("$.members[0].name").value("강해린"))
+                .andExpect(jsonPath("$.members[0].term").value("7.5기"))
+                .andExpect(jsonPath("$.members[0].court").value("A"))
+                .andExpect(jsonPath("$.members[0].isMapoResident").value(false))
+                .andExpect(jsonPath("$.members[0].isAdmin").value(false))
+                .andExpect(jsonPath("$.members[1].memberId").value(thirdMember.getId()))
+                .andExpect(jsonPath("$.members[1].name").value("이마크"))
+                .andExpect(jsonPath("$.members[1].court").value("B"))
+                .andExpect(jsonPath("$.members[2].memberId").value(firstMember.getId()))
+                .andExpect(jsonPath("$.members[2].name").value("홍길동"))
+                .andExpect(jsonPath("$.members[2].court").value("S"))
+                .andExpect(jsonPath("$.members[2].isMapoResident").value(true))
+                .andExpect(jsonPath("$.members[2].isAdmin").value(true));
     }
 
     @Test
