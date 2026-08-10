@@ -170,26 +170,15 @@ class KakaoAuthServiceTest {
     }
 
     @Test
-    void loginWithAuthorizationCodeAllowsUserWhenClubMemberEmailDoesNotExist() {
+    void loginWithAuthorizationCodeThrowsWhenClubMemberEmailDoesNotExist() {
         when(kakaoApiClient.fetchUserProfile("auth-code"))
                 .thenReturn(new KakaoUserProfile("123456789", "양배추", "outsider@example.com"));
         when(clubMemberRepository.findFirstByNormalizedEmail("outsider@example.com"))
                 .thenReturn(Optional.empty());
-        when(memberRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "123456789"))
-                .thenReturn(Optional.empty());
-        when(memberRepository.save(any(Member.class))).thenAnswer(invocation -> {
-            Member member = invocation.getArgument(0);
-            ReflectionTestUtils.setField(member, "id", 3L);
-            return member;
-        });
 
-        KakaoLoginResult result = kakaoAuthService.loginWithAuthorizationCode("auth-code");
-
-        assertThat(result.firstLogin()).isTrue();
-        assertThat(result.member().id()).isEqualTo(3L);
-        assertThat(result.member().email()).isEqualTo("outsider@example.com");
-        assertThat(result.member().term()).isNull();
-        assertThat(result.member().isAdmin()).isFalse();
+        assertThatThrownBy(() -> kakaoAuthService.loginWithAuthorizationCode("auth-code"))
+                .isInstanceOf(YbcException.class)
+                .hasMessage("동아리 부원만 로그인할 수 있습니다.");
     }
 
     @Test

@@ -52,6 +52,10 @@ public class KakaoAuthService {
 
         ClubMember clubMember = clubMemberRepository.findFirstByNormalizedEmail(normalizedEmail)
                 .orElse(null);
+        if (clubMember == null) {
+            throw new YbcException(ExceptionCode.CLUB_MEMBER_LOGIN_FORBIDDEN);
+        }
+
         Member member = memberRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, kakaoUserProfile.socialId())
                 .orElse(null);
         boolean firstLogin = member == null;
@@ -71,9 +75,7 @@ public class KakaoAuthService {
         );
 
         Member savedMember = memberRepository.save(member);
-        if (clubMember != null) {
-            clubMember.linkMember(savedMember.getId());
-        }
+        clubMember.linkMember(savedMember.getId());
         return new KakaoLoginResult(firstLogin, MemberSummary.from(savedMember, clubMember));
     }
 
