@@ -669,22 +669,24 @@ class VoteControllerIntegrationTest {
                 LocalDateTime.now().plusDays(1),
                 20
         ));
-        addAttendance(vote, false, "3001", true);
-        addAttendance(vote, false, "3002");
+        VoteAttendance laterUpdatedAbsentee = saveAttendance(vote, false, "3001", true);
+        VoteAttendance earlierUpdatedAbsentee = saveAttendance(vote, false, "3002");
         addAttendance(vote, true, "3003");
+        updateAttendanceVotedAt(laterUpdatedAbsentee, LocalDateTime.of(2026, 8, 11, 10, 5));
+        updateAttendanceVotedAt(earlierUpdatedAbsentee, LocalDateTime.of(2026, 8, 11, 10, 0));
 
         mockMvc.perform(get("/votes/{voteId}/absentees", vote.getId()).with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalAbsenteeCount").value(2))
                 .andExpect(jsonPath("$.absentees.length()").value(2))
-                .andExpect(jsonPath("$.absentees[0].nickname").value("member-3001"))
+                .andExpect(jsonPath("$.absentees[0].nickname").value("member-3002"))
                 .andExpect(jsonPath("$.absentees[0].memberId").isNumber())
                 .andExpect(jsonPath("$.absentees[0].votedAt").exists())
-                .andExpect(jsonPath("$.absentees[0].isAdmin").value(true))
-                .andExpect(jsonPath("$.absentees[1].nickname").value("member-3002"))
+                .andExpect(jsonPath("$.absentees[0].isAdmin").value(false))
+                .andExpect(jsonPath("$.absentees[1].nickname").value("member-3001"))
                 .andExpect(jsonPath("$.absentees[1].memberId").isNumber())
                 .andExpect(jsonPath("$.absentees[1].votedAt").exists())
-                .andExpect(jsonPath("$.absentees[1].isAdmin").value(false));
+                .andExpect(jsonPath("$.absentees[1].isAdmin").value(true));
     }
 
     @Test
@@ -1485,6 +1487,11 @@ class VoteControllerIntegrationTest {
 
     private void updateCreatedAt(Long voteId, LocalDateTime createdAt) {
         jdbcTemplate.update("update vote set created_at = ? where vote_id = ?", createdAt, voteId);
+    }
+
+    private void updateAttendanceVotedAt(VoteAttendance attendance, LocalDateTime votedAt) {
+        ReflectionTestUtils.setField(attendance, "votedAt", votedAt);
+        voteAttendanceRepository.saveAndFlush(attendance);
     }
 
     private RequestPostProcessor authenticatedMember(Member member) {
