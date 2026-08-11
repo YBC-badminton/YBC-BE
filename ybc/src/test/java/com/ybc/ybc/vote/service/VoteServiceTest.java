@@ -550,7 +550,7 @@ class VoteServiceTest {
 
         when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
         when(voteAttendanceRepository.findAllInactiveWithMemberByVoteId(1L))
-                .thenReturn(List.of(firstAttendance, secondAttendance));
+                .thenReturn(List.of(secondAttendance, firstAttendance));
 
         VoteAbsenteeListResponse response = voteService.getVoteAbsentees(1L);
 
