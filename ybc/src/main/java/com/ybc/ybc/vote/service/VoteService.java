@@ -39,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -189,9 +190,12 @@ public class VoteService {
      */
     public VoteAbsenteeListResponse getVoteAbsentees(Long voteId) {
         getVoteEntity(voteId);
-        return VoteAbsenteeListResponse.from(
-                voteAttendanceRepository.findAllInactiveWithMemberByVoteId(voteId)
-        );
+        List<VoteAttendance> absentees = voteAttendanceRepository.findAllInactiveWithMemberByVoteId(voteId).stream()
+                .sorted(Comparator
+                        .comparing(this::resolveAbsenteeOrderAt)
+                        .thenComparing(VoteAttendance::getId))
+                .toList();
+        return VoteAbsenteeListResponse.from(absentees);
     }
 
     /**
@@ -311,6 +315,13 @@ public class VoteService {
 
     private long countCurrentParticipantCount(Long voteId) {
         return voteAttendanceRepository.countAttendancesByVoteId(voteId);
+    }
+
+    private LocalDateTime resolveAbsenteeOrderAt(VoteAttendance voteAttendance) {
+        if (voteAttendance.getVotedAt() != null) {
+            return voteAttendance.getVotedAt();
+        }
+        return voteAttendance.getCreatedAt();
     }
 
     private void validateVoteIsOpenForParticipation(Vote vote) {
