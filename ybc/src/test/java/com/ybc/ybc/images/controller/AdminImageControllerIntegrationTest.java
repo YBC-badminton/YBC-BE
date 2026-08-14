@@ -51,6 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 class AdminImageControllerIntegrationTest {
     private static final String ADMIN_IMAGES_API = "/admin/images";
+    private static final String IMAGE_CACHE_CONTROL = "public, max-age=2592000";
 
     @Autowired
     private MockMvc mockMvc;
@@ -102,14 +103,20 @@ class AdminImageControllerIntegrationTest {
                 "image-data".getBytes(StandardCharsets.UTF_8)
         );
 
-        mockMvc.perform(multipart(ADMIN_IMAGES_API)
+        String responseBody = mockMvc.perform(multipart(ADMIN_IMAGES_API)
                         .file(file)
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.imageUrl").value(startsWith("https://storage.googleapis.com/test-bucket/images/")));
+                .andExpect(jsonPath("$.imageUrl").value(startsWith("https://storage.googleapis.com/test-bucket/images/")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String imageUrl = objectMapper.readTree(responseBody).get("imageUrl").asText();
 
         assertThat(adminImageRepository.count()).isEqualTo(1);
         assertThat(imageStorageClient.storedObjectCount()).isEqualTo(1);
+        assertThat(imageStorageClient.cacheControlOfUrl(imageUrl)).isEqualTo(IMAGE_CACHE_CONTROL);
     }
 
     @Test
@@ -229,6 +236,7 @@ class AdminImageControllerIntegrationTest {
         String newImageUrl = json.get("imageUrl").asText();
 
         assertThat(adminImageRepository.count()).isEqualTo(1);
+        assertThat(newImageUrl).isNotEqualTo(existingImageUrl);
         assertThat(imageStorageClient.containsUrl(existingImageUrl)).isFalse();
         assertThat(imageStorageClient.containsUrl(newImageUrl)).isTrue();
     }
@@ -335,25 +343,31 @@ class AdminImageControllerIntegrationTest {
     static class InMemoryImageStorageClient implements ImageStorageClient {
         private final String bucket;
         private final Map<String, String> storedImages = new ConcurrentHashMap<>();
+        private final Map<String, String> storedCacheControls = new ConcurrentHashMap<>();
 
         InMemoryImageStorageClient(String bucket) {
             this.bucket = bucket;
         }
 
         @Override
-        public String upload(String objectName, byte[] fileBytes, String contentType) {
+        public String upload(String objectName, byte[] fileBytes, String contentType, String cacheControl) {
             String imageUrl = "https://storage.googleapis.com/" + bucket + "/" + objectName;
             storedImages.put(objectName, imageUrl);
+            storedCacheControls.put(imageUrl, cacheControl);
             return imageUrl;
         }
 
         @Override
         public void delete(String objectName) {
-            storedImages.remove(objectName);
+            String imageUrl = storedImages.remove(objectName);
+            if (imageUrl != null) {
+                storedCacheControls.remove(imageUrl);
+            }
         }
 
         void clear() {
             storedImages.clear();
+            storedCacheControls.clear();
         }
 
         int storedObjectCount() {
@@ -362,6 +376,10 @@ class AdminImageControllerIntegrationTest {
 
         boolean containsUrl(String imageUrl) {
             return storedImages.containsValue(imageUrl);
+        }
+
+        String cacheControlOfUrl(String imageUrl) {
+            return storedCacheControls.get(imageUrl);
         }
     }
 }

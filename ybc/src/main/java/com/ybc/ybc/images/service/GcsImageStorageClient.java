@@ -25,10 +25,11 @@ public class GcsImageStorageClient implements ImageStorageClient {
     private volatile Storage storage;
 
     @Override
-    public String upload(String objectName, byte[] fileBytes, String contentType) {
+    public String upload(String objectName, byte[] fileBytes, String contentType, String cacheControl) {
         try {
             BlobInfo blobInfo = BlobInfo.newBuilder(BlobId.of(properties.bucket(), objectName))
                     .setContentType(contentType)
+                    .setCacheControl(cacheControl)
                     .build();
             getStorage().create(blobInfo, fileBytes);
             return properties.buildPublicUrl(objectName);

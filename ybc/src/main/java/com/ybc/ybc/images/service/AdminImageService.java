@@ -30,6 +30,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class AdminImageService {
     private static final long MAX_IMAGE_FILE_SIZE_BYTES = 10L * 1024 * 1024;
+    private static final String IMAGE_CACHE_CONTROL = "public, max-age=2592000";
     private static final Map<String, String> EXTENSION_BY_CONTENT_TYPE = Map.of(
             "image/jpeg", "jpg",
             "image/jpg", "jpg",
@@ -57,7 +58,12 @@ public class AdminImageService {
 
         String extension = resolveExtension(file);
         String objectName = properties.buildObjectName(UUID.randomUUID() + "." + extension);
-        String imageUrl = imageStorageClient.upload(objectName, readBytes(file), CONTENT_TYPE_BY_EXTENSION.get(extension));
+        String imageUrl = imageStorageClient.upload(
+                objectName,
+                readBytes(file),
+                CONTENT_TYPE_BY_EXTENSION.get(extension),
+                IMAGE_CACHE_CONTROL
+        );
 
         try {
             AdminImage uploadedImage = adminImageRepository.save(AdminImage.create(objectName, imageUrl));
