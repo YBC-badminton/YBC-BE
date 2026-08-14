@@ -32,6 +32,7 @@ import static org.mockito.Mockito.when;
 class AdminImageServiceTest {
     private static final Long ADMIN_MEMBER_ID = 1L;
     private static final Long NON_ADMIN_MEMBER_ID = 2L;
+    private static final String IMAGE_CACHE_CONTROL = "public, max-age=2592000";
 
     @Mock
     private MemberService memberService;
@@ -65,7 +66,7 @@ class AdminImageServiceTest {
     void uploadImageReturnsUploadedImageUrl() {
         MockMultipartFile file = new MockMultipartFile("file", "main.jpg", "image/jpeg", "image-data".getBytes());
 
-        when(imageStorageClient.upload(any(), any(), any()))
+        when(imageStorageClient.upload(any(), any(), any(), any()))
                 .thenReturn("https://storage.googleapis.com/test-bucket/images/uploaded.jpg");
         when(adminImageRepository.save(any(AdminImage.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -83,6 +84,10 @@ class AdminImageServiceTest {
         verify(adminImageRepository).save(savedImageCaptor.capture());
         assertThat(savedImageCaptor.getValue().getObjectName()).startsWith("images/");
         assertThat(savedImageCaptor.getValue().getObjectName()).endsWith(".jpg");
+
+        ArgumentCaptor<String> cacheControlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(imageStorageClient).upload(any(), any(), any(), cacheControlCaptor.capture());
+        assertThat(cacheControlCaptor.getValue()).isEqualTo(IMAGE_CACHE_CONTROL);
     }
 
     @Test
@@ -102,7 +107,7 @@ class AdminImageServiceTest {
                 .isInstanceOf(YbcException.class)
                 .hasMessage("접근 권한이 없는 회원입니다.");
 
-        verify(imageStorageClient, never()).upload(any(), any(), any());
+        verify(imageStorageClient, never()).upload(any(), any(), any(), any());
     }
 
     @Test
@@ -114,7 +119,7 @@ class AdminImageServiceTest {
                 .isInstanceOf(YbcException.class)
                 .hasMessage("지원하지 않는 파일 형식입니다.");
 
-        verify(imageStorageClient, never()).upload(any(), any(), any());
+        verify(imageStorageClient, never()).upload(any(), any(), any(), any());
     }
 
     @Test
@@ -131,7 +136,7 @@ class AdminImageServiceTest {
                 .isInstanceOf(YbcException.class)
                 .hasMessage("이미지 파일은 10MB 이하여야 합니다.");
 
-        verify(imageStorageClient, never()).upload(any(), any(), any());
+        verify(imageStorageClient, never()).upload(any(), any(), any(), any());
     }
 
     @Test
@@ -141,7 +146,7 @@ class AdminImageServiceTest {
         String existingImageUrl = "https://storage.googleapis.com/test-bucket/images/old-image.png";
         AdminImage existingImage = AdminImage.create("images/old-image.png", existingImageUrl);
 
-        when(imageStorageClient.upload(any(), any(), any()))
+        when(imageStorageClient.upload(any(), any(), any(), any()))
                 .thenReturn("https://storage.googleapis.com/test-bucket/images/new-image.png");
         when(adminImageRepository.save(any(AdminImage.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -168,7 +173,7 @@ class AdminImageServiceTest {
                 "https://storage.googleapis.com/test-bucket/images/oldest.jpg"
         );
 
-        when(imageStorageClient.upload(any(), any(), any()))
+        when(imageStorageClient.upload(any(), any(), any(), any()))
                 .thenReturn("https://storage.googleapis.com/test-bucket/images/newest.webp");
         when(adminImageRepository.save(any(AdminImage.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
