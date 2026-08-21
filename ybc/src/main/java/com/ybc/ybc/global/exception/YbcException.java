@@ -9,6 +9,11 @@ public class YbcException extends RuntimeException {
         this.exceptionCode = exceptionCode;
     }
 
+    public YbcException(ExceptionCode exceptionCode, Throwable cause) {
+        super(cause);
+        this.exceptionCode = exceptionCode;
+    }
+
     @Override
     public String getMessage() {
         return exceptionCode.getMessage();

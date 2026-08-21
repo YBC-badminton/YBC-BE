@@ -11,6 +11,7 @@ import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.members.domain.ClubMember;
 import com.ybc.ybc.members.repository.ClubMemberRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -18,6 +19,7 @@ import org.springframework.util.StringUtils;
 import java.util.Locale;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class KakaoAuthService {
@@ -46,13 +48,19 @@ public class KakaoAuthService {
     public KakaoLoginResult loginWithAuthorizationCode(String authorizationCode) {
         KakaoUserProfile kakaoUserProfile = kakaoApiClient.fetchUserProfile(authorizationCode);
         String normalizedEmail = normalizeEmail(kakaoUserProfile.email());
+        String maskedSocialId = maskSocialId(kakaoUserProfile.socialId());
+        String maskedEmail = maskEmail(normalizedEmail);
+
         if (normalizedEmail == null) {
+            log.warn("Kakao login rejected because email is missing. socialId={}", maskedSocialId);
             throw new YbcException(ExceptionCode.KAKAO_EMAIL_REQUIRED);
         }
 
         ClubMember clubMember = clubMemberRepository.findFirstByNormalizedEmail(normalizedEmail)
                 .orElse(null);
         if (clubMember == null) {
+            log.warn("Kakao login rejected because no club member matched email. socialId={}, email={}",
+                    maskedSocialId, maskedEmail);
             throw new YbcException(ExceptionCode.CLUB_MEMBER_LOGIN_FORBIDDEN);
         }
 
@@ -75,6 +83,10 @@ public class KakaoAuthService {
         );
 
         Member savedMember = memberRepository.save(member);
+        if (clubMember.getMemberId() != null && !clubMember.getMemberId().equals(savedMember.getId())) {
+            log.warn("Club member is already linked to a different member id during Kakao login. clubMemberId={}, linkedMemberId={}, savedMemberId={}, socialId={}, email={}",
+                    clubMember.getId(), clubMember.getMemberId(), savedMember.getId(), maskedSocialId, maskedEmail);
+        }
         clubMember.linkMember(savedMember.getId());
         return new KakaoLoginResult(firstLogin, MemberSummary.from(savedMember, clubMember));
     }
@@ -93,5 +105,37 @@ public class KakaoAuthService {
             return null;
         }
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String maskEmail(String email) {
+        if (!StringUtils.hasText(email)) {
+            return "<empty>";
+        }
+
+        int separatorIndex = email.indexOf('@');
+        if (separatorIndex <= 0 || separatorIndex == email.length() - 1) {
+            return maskValue(email);
+        }
+
+        String localPart = email.substring(0, separatorIndex);
+        String domain = email.substring(separatorIndex + 1);
+        return maskValue(localPart) + "@" + domain;
+    }
+
+    private String maskSocialId(String socialId) {
+        if (!StringUtils.hasText(socialId)) {
+            return "<empty>";
+        }
+        return maskValue(socialId);
+    }
+
+    private String maskValue(String value) {
+        if (value.length() <= 2) {
+            return "*".repeat(value.length());
+        }
+        if (value.length() <= 4) {
+            return value.charAt(0) + "**" + value.charAt(value.length() - 1);
+        }
+        return value.substring(0, 2) + "***" + value.substring(value.length() - 2);
     }
 }
