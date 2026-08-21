@@ -13,6 +13,7 @@ public enum ExceptionCode {
     CLUB_MEMBER_LOGIN_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.CLUB_MEMBER_LOGIN_FORBIDDEN, "동아리 부원만 로그인할 수 있습니다."),
     INVALID_JWT_TOKEN(HttpStatus.UNAUTHORIZED, ClientExceptionCode.INVALID_JWT_TOKEN, "유효하지 않은 JWT 토큰입니다."),
     REFRESH_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED, ClientExceptionCode.REFRESH_TOKEN_NOT_FOUND, "다시 로그인이 필요합니다."),
+    REFRESH_TOKEN_STORE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, ClientExceptionCode.REFRESH_TOKEN_STORE_UNAVAILABLE, "인증 세션 저장소에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."),
     SESSION_FULL(HttpStatus.BAD_REQUEST, ClientExceptionCode.SESSION_FULL, "해당 모임의 정원이 모두 찼습니다."),
     VOTE_NOT_OPEN(HttpStatus.BAD_REQUEST, ClientExceptionCode.VOTE_NOT_OPEN, "투표 시작 시간 이후에만 참여할 수 있습니다."),
     VOTE_CLOSED(HttpStatus.BAD_REQUEST, ClientExceptionCode.VOTE_CLOSED, "마감된 투표에는 참여할 수 없습니다."),
