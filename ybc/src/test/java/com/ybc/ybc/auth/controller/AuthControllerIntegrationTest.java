@@ -21,6 +21,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.MediaType;
@@ -343,6 +344,22 @@ class AuthControllerIntegrationTest {
         assertThat(reissuedAccessToken).isNotEqualTo(loginContext.accessToken());
         assertThat(reissuedRefreshToken).isNotEqualTo(loginContext.refreshToken());
         assertThat(refreshTokenStore).containsEntry("auth:refresh:" + loginContext.memberId(), reissuedRefreshToken);
+    }
+
+    @Test
+    void refreshReturnsServiceUnavailableWhenRedisLookupFails() throws Exception {
+        LoginContext loginContext = login("auth-code", new KakaoUserProfile("123456789", "양배추", "cabbage@example.com"));
+
+        ValueOperations<String, String> valueOperations = stringRedisTemplate.opsForValue();
+        when(valueOperations.get(anyString()))
+                .thenThrow(new RedisSystemException("Redis exception", new RuntimeException("connection failed")));
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", loginContext.refreshToken()))))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error").value("REFRESH_TOKEN_STORE_UNAVAILABLE"))
+                .andExpect(jsonPath("$.message").value("인증 세션 저장소에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."));
     }
 
     @Test
