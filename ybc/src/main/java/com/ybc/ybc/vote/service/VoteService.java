@@ -10,6 +10,7 @@ import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
+import com.ybc.ybc.vote.dto.request.FlashVoteUpdateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
@@ -81,6 +82,24 @@ public class VoteService {
         );
 
         return FlashVoteCreateResponse.from(savedVote);
+    }
+
+    /**
+     * 번개 모임 개설자 본인만 본인이 생성한 번개 모임을 수정한다.
+     */
+    @Transactional
+    public void updateFlashVote(Long voteId, Long memberId, FlashVoteUpdateRequest request) {
+        Vote vote = getVoteEntityForUpdate(voteId);
+        validateFlashVote(vote);
+        validateFlashVoteOpener(vote, memberId);
+        vote.updateFlash(
+                request.title(),
+                request.activityDate(),
+                request.activityTime(),
+                request.location(),
+                request.memo(),
+                request.voteEndAt()
+        );
     }
 
     /**
@@ -331,6 +350,18 @@ public class VoteService {
         }
         if (!vote.getVoteEndAt().isAfter(now)) {
             throw new YbcException(ExceptionCode.VOTE_CLOSED);
+        }
+    }
+
+    private void validateFlashVote(Vote vote) {
+        if (vote.getActivityType() != ActivityType.FLASH) {
+            throw new YbcException(ExceptionCode.INVALID_VOTE_ACTIVITY_TYPE);
+        }
+    }
+
+    private void validateFlashVoteOpener(Vote vote, Long memberId) {
+        if (!memberId.equals(vote.getOpenedByMemberId())) {
+            throw new YbcException(ExceptionCode.FLASH_VOTE_UPDATE_FORBIDDEN);
         }
     }
 

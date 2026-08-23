@@ -4,6 +4,7 @@ import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
+import com.ybc.ybc.vote.dto.request.FlashVoteUpdateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
@@ -49,6 +50,17 @@ public class VoteController {
                                                                    @Valid @RequestBody FlashVoteCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(voteService.createFlashVote(request, memberPrincipal));
+    }
+
+    /**
+     * 본인이 생성한 번개 모임 투표만 수정한다.
+     */
+    @PatchMapping("/flash/{voteId}")
+    public ResponseEntity<Void> updateFlashVote(@PathVariable Long voteId,
+                                                @AuthenticationPrincipal MemberPrincipal memberPrincipal,
+                                                @Valid @RequestBody FlashVoteUpdateRequest request) {
+        voteService.updateFlashVote(voteId, memberPrincipal.getId(), request);
+        return ResponseEntity.ok().build();
     }
 
     /**

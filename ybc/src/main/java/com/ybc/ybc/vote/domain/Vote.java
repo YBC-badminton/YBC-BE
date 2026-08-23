@@ -144,6 +144,20 @@ public class Vote {
         this.capacity = capacity;
     }
 
+    public void updateFlash(String title,
+                            LocalDate activityDate,
+                            String activityTime,
+                            String location,
+                            String memo,
+                            LocalDateTime voteEndAt) {
+        this.title = title;
+        this.activityDate = activityDate;
+        this.activityTime = activityTime;
+        this.location = location;
+        this.memo = memo;
+        this.voteEndAt = voteEndAt;
+    }
+
     public boolean isAdditionalParticipationVote() {
         return originalVote != null || hasAdditionalParticipationSuffix();
     }
