@@ -296,6 +296,121 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("번개 모임 개설자는 본인이 생성한 번개 모임을 삭제할 수 있다")
+    void deleteFlashVote() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3008", "member-3008", "3008@example.com")
+        );
+        Vote vote = voteRepository.save(flashVote(
+                "삭제할 번개 운동",
+                member.getId(),
+                "member-3008",
+                LocalDate.now().plusDays(1),
+                LocalDateTime.now().minusMinutes(30),
+                LocalDateTime.now().plusHours(2)
+        ));
+        VoteAttendance attendance = voteAttendanceRepository.save(VoteAttendance.builder()
+                .vote(vote)
+                .member(member)
+                .attendanceStatus(true)
+                .build());
+        Guest guest = guestRepository.save(Guest.builder()
+                .vote(vote)
+                .member(member)
+                .name("게스트")
+                .gender(Gender.FEMALE)
+                .level("A")
+                .build());
+        VoteMatchGroup matchGroup = voteMatchGroupRepository.save(VoteMatchGroup.create(vote));
+        voteMatchRepository.save(VoteMatch.builder()
+                .vote(vote)
+                .matchGroup(matchGroup)
+                .participantType(MatchParticipantType.MEMBER)
+                .voteAttendance(attendance)
+                .courtNumber(1)
+                .matchNumber(1)
+                .teamNumber(1)
+                .build());
+        voteMatchRepository.save(VoteMatch.builder()
+                .vote(vote)
+                .matchGroup(matchGroup)
+                .participantType(MatchParticipantType.GUEST)
+                .guest(guest)
+                .courtNumber(1)
+                .matchNumber(1)
+                .teamNumber(2)
+                .build());
+
+        mockMvc.perform(delete("/votes/flash/{voteId}", vote.getId())
+                        .with(authenticatedMember(member)))
+                .andExpect(status().isNoContent());
+
+        assertThat(voteRepository.findById(vote.getId())).isEmpty();
+        assertThat(voteAttendanceRepository.findAll()).isEmpty();
+        assertThat(guestRepository.findAll()).isEmpty();
+        assertThat(voteMatchGroupRepository.findAll()).isEmpty();
+        assertThat(voteMatchRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("번개 모임 개설자가 아니면 번개 모임을 삭제할 수 없다")
+    void deleteFlashVoteThrowsWhenRequesterIsNotOpener() throws Exception {
+        Member opener = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3009", "member-3009", "3009@example.com")
+        );
+        Member anotherMember = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3010", "member-3010", "3010@example.com")
+        );
+        Vote vote = voteRepository.save(flashVote(
+                "삭제할 번개 운동",
+                opener.getId(),
+                "member-3009",
+                LocalDate.now().plusDays(1),
+                LocalDateTime.now().minusMinutes(30),
+                LocalDateTime.now().plusHours(2)
+        ));
+
+        mockMvc.perform(delete("/votes/flash/{voteId}", vote.getId())
+                        .with(authenticatedMember(anotherMember)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FLASH_VOTE_DELETE_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("번개 모임 삭제 API로 일반 투표를 삭제할 수 없다")
+    void deleteFlashVoteThrowsWhenVoteIsNotFlash() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3011", "member-3011", "3011@example.com")
+        );
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDate.now().plusDays(1),
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusHours(3),
+                20
+        ));
+
+        mockMvc.perform(delete("/votes/flash/{voteId}", vote.getId())
+                        .with(authenticatedMember(member)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_VOTE_ACTIVITY_TYPE"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 번개 모임은 삭제할 수 없다")
+    void deleteFlashVoteThrowsWhenVoteIsMissing() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3012", "member-3012", "3012@example.com")
+        );
+
+        mockMvc.perform(delete("/votes/flash/{voteId}", 999L)
+                        .with(authenticatedMember(member)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("VOTE_NOT_FOUND"));
+    }
+
+    @Test
     @DisplayName("open=true 조회 시 activityDate 오름차순, 같은 날짜면 생성 시각 오름차순으로 조회한다")
     void getOpenVotes() throws Exception {
         LocalDateTime now = LocalDateTime.now();
@@ -1434,6 +1549,14 @@ class VoteControllerIntegrationTest {
                                 "수정 메모",
                                 LocalDateTime.now().plusHours(5)
                         ))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 번개 모임을 삭제할 수 없다")
+    void deleteFlashVoteRequiresAuthentication() throws Exception {
+        mockMvc.perform(delete("/votes/flash/{voteId}", 1L))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
     }

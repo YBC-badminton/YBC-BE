@@ -28,6 +28,8 @@ import com.ybc.ybc.vote.dto.response.VoteListResponse;
 import com.ybc.ybc.vote.dto.response.VoteSummaryResponse;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
+import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
+import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -55,6 +57,8 @@ public class VoteService {
     private final VoteRepository voteRepository;
     private final VoteAttendanceRepository voteAttendanceRepository;
     private final GuestRepository guestRepository;
+    private final VoteMatchRepository voteMatchRepository;
+    private final VoteMatchGroupRepository voteMatchGroupRepository;
     private final MemberService memberService;
     private final Clock clock;
 
@@ -100,6 +104,21 @@ public class VoteService {
                 request.memo(),
                 request.voteEndAt()
         );
+    }
+
+    /**
+     * 번개 모임 개설자 본인만 본인이 생성한 번개 모임을 삭제한다.
+     */
+    @Transactional
+    public void deleteFlashVote(Long voteId, Long memberId) {
+        Vote vote = getVoteEntityForUpdate(voteId);
+        validateFlashVote(vote);
+        validateFlashVoteOpenerForDelete(vote, memberId);
+        voteMatchRepository.deleteAllByVote_Id(voteId);
+        voteMatchGroupRepository.deleteAllByVote_Id(voteId);
+        guestRepository.deleteAllByVote_Id(voteId);
+        voteAttendanceRepository.deleteAllByVote_Id(voteId);
+        voteRepository.delete(vote);
     }
 
     /**
@@ -362,6 +381,12 @@ public class VoteService {
     private void validateFlashVoteOpener(Vote vote, Long memberId) {
         if (!memberId.equals(vote.getOpenedByMemberId())) {
             throw new YbcException(ExceptionCode.FLASH_VOTE_UPDATE_FORBIDDEN);
+        }
+    }
+
+    private void validateFlashVoteOpenerForDelete(Vote vote, Long memberId) {
+        if (!memberId.equals(vote.getOpenedByMemberId())) {
+            throw new YbcException(ExceptionCode.FLASH_VOTE_DELETE_FORBIDDEN);
         }
     }
 
