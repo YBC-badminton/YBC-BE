@@ -11,6 +11,7 @@ import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
+import com.ybc.ybc.vote.dto.request.FlashVoteUpdateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
@@ -199,6 +200,95 @@ class VoteServiceTest {
         assertThat(savedVote.getVoteStartAt()).isEqualTo(currentTime());
         assertThat(savedVote.getVoteEndAt()).isEqualTo(currentTime().minusMinutes(10));
         assertThat(response.voteEndAt()).isEqualTo(currentTime().minusMinutes(10));
+    }
+
+    @Test
+    @DisplayName("번개 모임 개설자는 본인이 생성한 번개 모임을 수정할 수 있다")
+    void updateFlashVoteUpdatesOwnFlashVote() {
+        Vote vote = savedVote(1L, "기존 번개 운동");
+        ReflectionTestUtils.setField(vote, "activityType", ActivityType.FLASH);
+        ReflectionTestUtils.setField(vote, "openedByMemberId", 5L);
+        ReflectionTestUtils.setField(vote, "openedByNickname", "member-5001");
+        ReflectionTestUtils.setField(vote, "capacity", 0);
+        LocalDateTime originalVoteStartAt = vote.getVoteStartAt();
+
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
+
+        voteService.updateFlashVote(1L, 5L, new FlashVoteUpdateRequest(
+                "수정된 번개 운동",
+                LocalDate.of(2026, 4, 12),
+                "20:00 ~ 21:00",
+                "신촌체육관",
+                "수정 메모",
+                LocalDateTime.of(2026, 4, 10, 22, 0)
+        ));
+
+        assertThat(vote.getTitle()).isEqualTo("수정된 번개 운동");
+        assertThat(vote.getActivityDate()).isEqualTo(LocalDate.of(2026, 4, 12));
+        assertThat(vote.getActivityTime()).isEqualTo("20:00 ~ 21:00");
+        assertThat(vote.getLocation()).isEqualTo("신촌체육관");
+        assertThat(vote.getMemo()).isEqualTo("수정 메모");
+        assertThat(vote.getVoteEndAt()).isEqualTo(LocalDateTime.of(2026, 4, 10, 22, 0));
+        assertThat(vote.getVoteStartAt()).isEqualTo(originalVoteStartAt);
+        assertThat(vote.getCapacity()).isZero();
+    }
+
+    @Test
+    @DisplayName("번개 모임 개설자가 아니면 번개 모임을 수정할 수 없다")
+    void updateFlashVoteThrowsWhenRequesterIsNotOpener() {
+        Vote vote = savedVote(1L, "기존 번개 운동");
+        ReflectionTestUtils.setField(vote, "activityType", ActivityType.FLASH);
+        ReflectionTestUtils.setField(vote, "openedByMemberId", 5L);
+
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
+
+        assertThatThrownBy(() -> voteService.updateFlashVote(1L, 7L, new FlashVoteUpdateRequest(
+                "수정된 번개 운동",
+                LocalDate.of(2026, 4, 12),
+                "20:00 ~ 21:00",
+                "신촌체육관",
+                "수정 메모",
+                LocalDateTime.of(2026, 4, 10, 22, 0)
+        )))
+                .isInstanceOfSatisfying(YbcException.class,
+                        exception -> assertThat(exception.getExceptionCodeName()).isEqualTo("FLASH_VOTE_UPDATE_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("번개 모임 수정 API로 일반 투표를 수정할 수 없다")
+    void updateFlashVoteThrowsWhenVoteIsNotFlash() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        ReflectionTestUtils.setField(vote, "openedByMemberId", 5L);
+
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
+
+        assertThatThrownBy(() -> voteService.updateFlashVote(1L, 5L, new FlashVoteUpdateRequest(
+                "수정된 정기 운동",
+                LocalDate.of(2026, 4, 12),
+                "20:00 ~ 21:00",
+                "신촌체육관",
+                "수정 메모",
+                LocalDateTime.of(2026, 4, 10, 22, 0)
+        )))
+                .isInstanceOfSatisfying(YbcException.class,
+                        exception -> assertThat(exception.getExceptionCodeName()).isEqualTo("INVALID_VOTE_ACTIVITY_TYPE"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 번개 모임은 수정할 수 없다")
+    void updateFlashVoteThrowsWhenVoteIsMissing() {
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> voteService.updateFlashVote(1L, 5L, new FlashVoteUpdateRequest(
+                "수정된 번개 운동",
+                LocalDate.of(2026, 4, 12),
+                "20:00 ~ 21:00",
+                "신촌체육관",
+                "수정 메모",
+                LocalDateTime.of(2026, 4, 10, 22, 0)
+        )))
+                .isInstanceOfSatisfying(YbcException.class,
+                        exception -> assertThat(exception.getExceptionCodeName()).isEqualTo("VOTE_NOT_FOUND"));
     }
 
     @Test

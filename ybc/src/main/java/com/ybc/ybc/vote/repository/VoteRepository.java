@@ -100,7 +100,8 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                     left join v.originalVote ov
                     left join VoteAttendance va on va.vote = v
                     where v.voteEndAt <= :now
-                    group by v.id, v.title, v.activityType, v.activityDate, v.location, v.voteStartAt, v.voteEndAt, v.activityTime, v.capacity, ov.id
+                    group by v.id, v.title, v.activityType, v.activityDate, v.location, v.voteStartAt, v.voteEndAt, v.activityTime, v.capacity, v.createdAt, ov.id
+                    order by v.activityDate desc, v.createdAt desc, v.id desc
                     """,
             countQuery = """
                     select count(v)
