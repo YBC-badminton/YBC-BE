@@ -17,6 +17,7 @@ import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.domain.VoteMatch;
 import com.ybc.ybc.vote.domain.VoteMatchGroup;
 import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
+import com.ybc.ybc.vote.dto.request.FlashVoteUpdateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.repository.GuestRepository;
@@ -164,6 +165,134 @@ class VoteControllerIntegrationTest {
                 .findFirst()
                 .orElseThrow();
         assertThat(savedVote.getVoteEndAt().withNano(0)).isEqualTo(voteEndAt.withNano(0));
+    }
+
+    @Test
+    @DisplayName("번개 모임 개설자는 본인이 생성한 번개 모임을 수정할 수 있다")
+    void updateFlashVote() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3003", "member-3003", "3003@example.com")
+        );
+        LocalDateTime voteStartAt = LocalDateTime.now().minusMinutes(30);
+        LocalDateTime originalVoteEndAt = LocalDateTime.now().plusHours(2);
+        Vote vote = voteRepository.save(flashVote(
+                "기존 번개 운동",
+                member.getId(),
+                "member-3003",
+                LocalDate.now().plusDays(1),
+                voteStartAt,
+                originalVoteEndAt
+        ));
+        LocalDateTime updatedVoteEndAt = LocalDateTime.now().plusHours(5);
+
+        mockMvc.perform(patch("/votes/flash/{voteId}", vote.getId())
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new FlashVoteUpdateRequest(
+                                "수정된 번개 운동",
+                                LocalDate.now().plusDays(2),
+                                "20:00 ~ 21:00",
+                                "신촌체육관",
+                                "수정 메모",
+                                updatedVoteEndAt
+                        ))))
+                .andExpect(status().isOk());
+
+        Vote updatedVote = voteRepository.findById(vote.getId()).orElseThrow();
+        assertThat(updatedVote.getTitle()).isEqualTo("수정된 번개 운동");
+        assertThat(updatedVote.getActivityDate()).isEqualTo(LocalDate.now().plusDays(2));
+        assertThat(updatedVote.getActivityTime()).isEqualTo("20:00 ~ 21:00");
+        assertThat(updatedVote.getLocation()).isEqualTo("신촌체육관");
+        assertThat(updatedVote.getMemo()).isEqualTo("수정 메모");
+        assertThat(updatedVote.getVoteEndAt().withNano(0)).isEqualTo(updatedVoteEndAt.withNano(0));
+        assertThat(updatedVote.getVoteStartAt().withNano(0)).isEqualTo(voteStartAt.withNano(0));
+        assertThat(updatedVote.getCapacity()).isZero();
+        assertThat(updatedVote.getOpenedByMemberId()).isEqualTo(member.getId());
+    }
+
+    @Test
+    @DisplayName("번개 모임 개설자가 아니면 번개 모임을 수정할 수 없다")
+    void updateFlashVoteThrowsWhenRequesterIsNotOpener() throws Exception {
+        Member opener = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3004", "member-3004", "3004@example.com")
+        );
+        Member anotherMember = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3005", "member-3005", "3005@example.com")
+        );
+        Vote vote = voteRepository.save(flashVote(
+                "기존 번개 운동",
+                opener.getId(),
+                "member-3004",
+                LocalDate.now().plusDays(1),
+                LocalDateTime.now().minusMinutes(30),
+                LocalDateTime.now().plusHours(2)
+        ));
+
+        mockMvc.perform(patch("/votes/flash/{voteId}", vote.getId())
+                        .with(authenticatedMember(anotherMember))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new FlashVoteUpdateRequest(
+                                "수정된 번개 운동",
+                                LocalDate.now().plusDays(2),
+                                "20:00 ~ 21:00",
+                                "신촌체육관",
+                                "수정 메모",
+                                LocalDateTime.now().plusHours(5)
+                        ))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FLASH_VOTE_UPDATE_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("번개 모임 수정 API로 일반 투표를 수정할 수 없다")
+    void updateFlashVoteThrowsWhenVoteIsNotFlash() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3006", "member-3006", "3006@example.com")
+        );
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDate.now().plusDays(1),
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusHours(3),
+                20
+        ));
+
+        mockMvc.perform(patch("/votes/flash/{voteId}", vote.getId())
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new FlashVoteUpdateRequest(
+                                "수정된 정기 운동",
+                                LocalDate.now().plusDays(2),
+                                "20:00 ~ 21:00",
+                                "신촌체육관",
+                                "수정 메모",
+                                LocalDateTime.now().plusHours(5)
+                        ))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_VOTE_ACTIVITY_TYPE"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 번개 모임은 수정할 수 없다")
+    void updateFlashVoteThrowsWhenVoteIsMissing() throws Exception {
+        Member member = memberRepository.save(
+                Member.createSocialMember(SocialProvider.KAKAO, "3007", "member-3007", "3007@example.com")
+        );
+
+        mockMvc.perform(patch("/votes/flash/{voteId}", 999L)
+                        .with(authenticatedMember(member))
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new FlashVoteUpdateRequest(
+                                "수정된 번개 운동",
+                                LocalDate.now().plusDays(2),
+                                "20:00 ~ 21:00",
+                                "신촌체육관",
+                                "수정 메모",
+                                LocalDateTime.now().plusHours(5)
+                        ))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("VOTE_NOT_FOUND"));
     }
 
     @Test
@@ -1211,29 +1340,50 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("open=false 조회 시 지난 모임만 조회한다")
+    @DisplayName("open=false 조회 시 지난 모임을 최근 활동순으로 조회한다")
     void getClosedVotes() throws Exception {
-        voteRepository.save(vote(
-                "주말 이벤트 운동",
+        LocalDateTime now = LocalDateTime.now();
+        Vote oldestActivityVote = voteRepository.save(vote(
+                "더 이전 정기 운동",
+                ActivityType.REGULAR,
+                now.toLocalDate().minusDays(10),
+                now.minusDays(11),
+                now.minusDays(9),
+                20
+        ));
+        Vote firstCreatedRecentVote = voteRepository.save(vote(
+                "최근 이벤트 운동",
                 ActivityType.EVENT,
-                LocalDateTime.now().minusDays(3),
-                LocalDateTime.now().minusDays(1),
+                now.toLocalDate().minusDays(3),
+                now.minusDays(4),
+                now.minusDays(2),
                 30
+        ));
+        Vote laterCreatedRecentVote = voteRepository.save(vote(
+                "가장 최근 정기 운동",
+                ActivityType.REGULAR,
+                now.toLocalDate().minusDays(3),
+                now.minusDays(4),
+                now.minusDays(2),
+                18
         ));
         voteRepository.save(vote(
                 "오늘 정기 운동",
                 ActivityType.REGULAR,
-                LocalDateTime.now().minusHours(2),
-                LocalDateTime.now().plusHours(5),
+                now.minusHours(2),
+                now.plusHours(5),
                 18
         ));
         voteRepository.save(vote(
                 "곧 열릴 정기 운동",
                 ActivityType.REGULAR,
-                LocalDateTime.now().plusMinutes(20),
-                LocalDateTime.now().plusHours(5),
+                now.plusMinutes(20),
+                now.plusHours(5),
                 18
         ));
+        updateCreatedAt(oldestActivityVote.getId(), now.minusDays(8));
+        updateCreatedAt(firstCreatedRecentVote.getId(), now.minusDays(2));
+        updateCreatedAt(laterCreatedRecentVote.getId(), now.minusDays(1));
 
         mockMvc.perform(get("/votes")
                         .with(jwt())
@@ -1241,10 +1391,14 @@ class VoteControllerIntegrationTest {
                         .param("page", "0")
                         .param("size", "10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.votes.length()").value(1))
-                .andExpect(jsonPath("$.votes[0].name").value("주말 이벤트 운동"))
-                .andExpect(jsonPath("$.votes[0].type").value("EVENT"))
-                .andExpect(jsonPath("$.totalElements").value(1));
+                .andExpect(jsonPath("$.votes.length()").value(3))
+                .andExpect(jsonPath("$.votes[0].voteId").value(laterCreatedRecentVote.getId()))
+                .andExpect(jsonPath("$.votes[0].name").value("가장 최근 정기 운동"))
+                .andExpect(jsonPath("$.votes[1].voteId").value(firstCreatedRecentVote.getId()))
+                .andExpect(jsonPath("$.votes[1].name").value("최근 이벤트 운동"))
+                .andExpect(jsonPath("$.votes[2].voteId").value(oldestActivityVote.getId()))
+                .andExpect(jsonPath("$.votes[2].name").value("더 이전 정기 운동"))
+                .andExpect(jsonPath("$.totalElements").value(3));
     }
 
     @Test
@@ -1262,6 +1416,23 @@ class VoteControllerIntegrationTest {
                                 "이화체육관",
                                 "준비 운동 후 게임",
                                 voteEndAt
+                        ))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 사용자는 번개 모임을 수정할 수 없다")
+    void updateFlashVoteRequiresAuthentication() throws Exception {
+        mockMvc.perform(patch("/votes/flash/{voteId}", 1L)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new FlashVoteUpdateRequest(
+                                "수정된 번개 운동",
+                                LocalDate.now().plusDays(2),
+                                "20:00 ~ 21:00",
+                                "신촌체육관",
+                                "수정 메모",
+                                LocalDateTime.now().plusHours(5)
                         ))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
@@ -1457,6 +1628,27 @@ class VoteControllerIntegrationTest {
                 .voteStartAt(voteStartAt)
                 .voteEndAt(voteEndAt)
                 .capacity(capacity)
+                .build();
+    }
+
+    private Vote flashVote(String title,
+                           Long openedByMemberId,
+                           String openedByNickname,
+                           LocalDate activityDate,
+                           LocalDateTime voteStartAt,
+                           LocalDateTime voteEndAt) {
+        return Vote.builder()
+                .title(title)
+                .activityType(ActivityType.FLASH)
+                .activityDate(activityDate)
+                .activityTime("19:00 ~ 20:00")
+                .location("이화체육관")
+                .memo("기존 메모")
+                .voteStartAt(voteStartAt)
+                .voteEndAt(voteEndAt)
+                .capacity(0)
+                .openedByMemberId(openedByMemberId)
+                .openedByNickname(openedByNickname)
                 .build();
     }
 
