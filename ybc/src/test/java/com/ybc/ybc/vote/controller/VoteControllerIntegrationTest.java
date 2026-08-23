@@ -1211,29 +1211,50 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("open=false 조회 시 지난 모임만 조회한다")
+    @DisplayName("open=false 조회 시 지난 모임을 최근 활동순으로 조회한다")
     void getClosedVotes() throws Exception {
-        voteRepository.save(vote(
-                "주말 이벤트 운동",
+        LocalDateTime now = LocalDateTime.now();
+        Vote oldestActivityVote = voteRepository.save(vote(
+                "더 이전 정기 운동",
+                ActivityType.REGULAR,
+                now.toLocalDate().minusDays(10),
+                now.minusDays(11),
+                now.minusDays(9),
+                20
+        ));
+        Vote firstCreatedRecentVote = voteRepository.save(vote(
+                "최근 이벤트 운동",
                 ActivityType.EVENT,
-                LocalDateTime.now().minusDays(3),
-                LocalDateTime.now().minusDays(1),
+                now.toLocalDate().minusDays(3),
+                now.minusDays(4),
+                now.minusDays(2),
                 30
+        ));
+        Vote laterCreatedRecentVote = voteRepository.save(vote(
+                "가장 최근 정기 운동",
+                ActivityType.REGULAR,
+                now.toLocalDate().minusDays(3),
+                now.minusDays(4),
+                now.minusDays(2),
+                18
         ));
         voteRepository.save(vote(
                 "오늘 정기 운동",
                 ActivityType.REGULAR,
-                LocalDateTime.now().minusHours(2),
-                LocalDateTime.now().plusHours(5),
+                now.minusHours(2),
+                now.plusHours(5),
                 18
         ));
         voteRepository.save(vote(
                 "곧 열릴 정기 운동",
                 ActivityType.REGULAR,
-                LocalDateTime.now().plusMinutes(20),
-                LocalDateTime.now().plusHours(5),
+                now.plusMinutes(20),
+                now.plusHours(5),
                 18
         ));
+        updateCreatedAt(oldestActivityVote.getId(), now.minusDays(8));
+        updateCreatedAt(firstCreatedRecentVote.getId(), now.minusDays(2));
+        updateCreatedAt(laterCreatedRecentVote.getId(), now.minusDays(1));
 
         mockMvc.perform(get("/votes")
                         .with(jwt())
@@ -1241,10 +1262,14 @@ class VoteControllerIntegrationTest {
                         .param("page", "0")
                         .param("size", "10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.votes.length()").value(1))
-                .andExpect(jsonPath("$.votes[0].name").value("주말 이벤트 운동"))
-                .andExpect(jsonPath("$.votes[0].type").value("EVENT"))
-                .andExpect(jsonPath("$.totalElements").value(1));
+                .andExpect(jsonPath("$.votes.length()").value(3))
+                .andExpect(jsonPath("$.votes[0].voteId").value(laterCreatedRecentVote.getId()))
+                .andExpect(jsonPath("$.votes[0].name").value("가장 최근 정기 운동"))
+                .andExpect(jsonPath("$.votes[1].voteId").value(firstCreatedRecentVote.getId()))
+                .andExpect(jsonPath("$.votes[1].name").value("최근 이벤트 운동"))
+                .andExpect(jsonPath("$.votes[2].voteId").value(oldestActivityVote.getId()))
+                .andExpect(jsonPath("$.votes[2].name").value("더 이전 정기 운동"))
+                .andExpect(jsonPath("$.totalElements").value(3));
     }
 
     @Test
