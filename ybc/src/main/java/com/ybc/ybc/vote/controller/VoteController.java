@@ -64,6 +64,16 @@ public class VoteController {
     }
 
     /**
+     * 본인이 생성한 번개 모임 투표만 삭제한다.
+     */
+    @DeleteMapping("/flash/{voteId}")
+    public ResponseEntity<Void> deleteFlashVote(@PathVariable Long voteId,
+                                                @AuthenticationPrincipal MemberPrincipal memberPrincipal) {
+        voteService.deleteFlashVote(voteId, memberPrincipal.getId());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * open 여부와 페이지 조건에 따라 투표 목록 조회를 요청받고 응답으로 반환한다.
      */
     @GetMapping
