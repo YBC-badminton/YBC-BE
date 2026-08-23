@@ -26,6 +26,8 @@ import com.ybc.ybc.vote.dto.response.VoteListResponse;
 import com.ybc.ybc.vote.dto.response.VoteSummaryResponse;
 import com.ybc.ybc.vote.repository.GuestRepository;
 import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
+import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
+import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,6 +72,12 @@ class VoteServiceTest {
 
     @Mock
     private GuestRepository guestRepository;
+
+    @Mock
+    private VoteMatchRepository voteMatchRepository;
+
+    @Mock
+    private VoteMatchGroupRepository voteMatchGroupRepository;
 
     @Mock
     private MemberService memberService;
@@ -287,6 +295,61 @@ class VoteServiceTest {
                 "수정 메모",
                 LocalDateTime.of(2026, 4, 10, 22, 0)
         )))
+                .isInstanceOfSatisfying(YbcException.class,
+                        exception -> assertThat(exception.getExceptionCodeName()).isEqualTo("VOTE_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("번개 모임 개설자는 본인이 생성한 번개 모임을 삭제할 수 있다")
+    void deleteFlashVoteDeletesOwnFlashVote() {
+        Vote vote = savedVote(1L, "기존 번개 운동");
+        ReflectionTestUtils.setField(vote, "activityType", ActivityType.FLASH);
+        ReflectionTestUtils.setField(vote, "openedByMemberId", 5L);
+
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
+
+        voteService.deleteFlashVote(1L, 5L);
+
+        verify(voteMatchRepository).deleteAllByVote_Id(1L);
+        verify(voteMatchGroupRepository).deleteAllByVote_Id(1L);
+        verify(guestRepository).deleteAllByVote_Id(1L);
+        verify(voteAttendanceRepository).deleteAllByVote_Id(1L);
+        verify(voteRepository).delete(vote);
+    }
+
+    @Test
+    @DisplayName("번개 모임 개설자가 아니면 번개 모임을 삭제할 수 없다")
+    void deleteFlashVoteThrowsWhenRequesterIsNotOpener() {
+        Vote vote = savedVote(1L, "기존 번개 운동");
+        ReflectionTestUtils.setField(vote, "activityType", ActivityType.FLASH);
+        ReflectionTestUtils.setField(vote, "openedByMemberId", 5L);
+
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
+
+        assertThatThrownBy(() -> voteService.deleteFlashVote(1L, 7L))
+                .isInstanceOfSatisfying(YbcException.class,
+                        exception -> assertThat(exception.getExceptionCodeName()).isEqualTo("FLASH_VOTE_DELETE_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("번개 모임 삭제 API로 일반 투표를 삭제할 수 없다")
+    void deleteFlashVoteThrowsWhenVoteIsNotFlash() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        ReflectionTestUtils.setField(vote, "openedByMemberId", 5L);
+
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(vote));
+
+        assertThatThrownBy(() -> voteService.deleteFlashVote(1L, 5L))
+                .isInstanceOfSatisfying(YbcException.class,
+                        exception -> assertThat(exception.getExceptionCodeName()).isEqualTo("INVALID_VOTE_ACTIVITY_TYPE"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 번개 모임은 삭제할 수 없다")
+    void deleteFlashVoteThrowsWhenVoteIsMissing() {
+        when(voteRepository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> voteService.deleteFlashVote(1L, 5L))
                 .isInstanceOfSatisfying(YbcException.class,
                         exception -> assertThat(exception.getExceptionCodeName()).isEqualTo("VOTE_NOT_FOUND"));
     }

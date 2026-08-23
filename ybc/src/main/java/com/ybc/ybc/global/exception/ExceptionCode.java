@@ -19,6 +19,7 @@ public enum ExceptionCode {
     VOTE_CLOSED(HttpStatus.BAD_REQUEST, ClientExceptionCode.VOTE_CLOSED, "마감된 투표에는 참여할 수 없습니다."),
     VOTE_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.VOTE_NOT_FOUND, "존재하지 않는 투표입니다."),
     FLASH_VOTE_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.FLASH_VOTE_UPDATE_FORBIDDEN, "해당 번개 모임을 수정할 권한이 없습니다."),
+    FLASH_VOTE_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.FLASH_VOTE_DELETE_FORBIDDEN, "해당 번개 모임을 삭제할 권한이 없습니다."),
     GUEST_NOT_FOUND(HttpStatus.NOT_FOUND, ClientExceptionCode.GUEST_NOT_FOUND, "존재하지 않는 게스트입니다."),
     GUEST_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.GUEST_UPDATE_FORBIDDEN, "해당 게스트를 수정할 권한이 없습니다."),
     GUEST_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, ClientExceptionCode.GUEST_DELETE_FORBIDDEN, "해당 게스트를 삭제할 권한이 없습니다."),
