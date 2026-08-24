@@ -93,7 +93,9 @@ class JwtTokenServiceTest {
         assertThat(tokenResponse.refreshTokenExpiresIn()).isEqualTo(1209600);
         assertThat(accessToken.getSubject()).isEqualTo("1");
         assertThat(accessToken.getClaimAsString("tokenType")).isEqualTo("access");
+        assertThat(accessToken.getClaimAsBoolean("isAdmin")).isFalse();
         assertThat(refreshToken.getClaimAsString("tokenType")).isEqualTo("refresh");
+        assertThat(refreshToken.getClaimAsBoolean("isAdmin")).isFalse();
 
         verify(refreshTokenService).save(1L, tokenResponse.refreshToken());
     }
@@ -120,9 +122,28 @@ class JwtTokenServiceTest {
         assertThat(reissuedTokens.refreshToken()).isNotEqualTo(issuedTokens.refreshToken());
         assertThat(reissuedAccessToken.getSubject()).isEqualTo("1");
         assertThat(reissuedAccessToken.getClaimAsString("tokenType")).isEqualTo("access");
+        assertThat(reissuedAccessToken.getClaimAsBoolean("isAdmin")).isFalse();
 
         verify(refreshTokenService).validate(1L, issuedTokens.refreshToken());
         verify(refreshTokenService).save(1L, reissuedTokens.refreshToken());
+    }
+
+    @Test
+    void issueTokensIncludesAdminClaimForAdminMember() {
+        MemberSummary memberSummary = new MemberSummary(
+                1L,
+                "KAKAO",
+                "123456789",
+                "admin@example.com",
+                "운영진",
+                "10기",
+                true
+        );
+
+        AuthTokenResponse tokenResponse = jwtTokenService.issueTokens(memberSummary);
+        Jwt accessToken = jwtDecoder.decode(tokenResponse.accessToken());
+
+        assertThat(accessToken.getClaimAsBoolean("isAdmin")).isTrue();
     }
 
     @Test
