@@ -475,6 +475,39 @@ class VoteServiceTest {
     }
 
     @Test
+    @DisplayName("추가참여 투표 게스트 조회 시 기존 투표 게스트는 제외한다")
+    void getVoteGuestsExcludesBaseVoteGuestsForAdditionalVote() {
+        Vote baseVote = savedVote(1L, "목요 정기 운동");
+        ReflectionTestUtils.setField(baseVote, "activityDate", LocalDate.of(2026, 4, 7));
+        Vote additionalVote = Vote.createAdditionalVote(
+                baseVote,
+                currentTime().minusMinutes(30),
+                currentTime().plusHours(1),
+                2
+        );
+        ReflectionTestUtils.setField(additionalVote, "id", 2L);
+
+        Guest baseGuest = guest(baseVote, savedMember(2L, "2001"), 10L, "기존 게스트");
+        Guest additionalGuest = guest(additionalVote, savedMember(3L, "2002"), 11L, "추가 게스트");
+
+        when(voteRepository.findById(2L)).thenReturn(Optional.of(additionalVote));
+        when(voteRepository.findAllByOriginalVote_IdOrderByIdAsc(1L)).thenReturn(List.of(additionalVote));
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteIds(anyCollection())).thenReturn(List.of());
+        when(guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(anyCollection()))
+                .thenReturn(List.of(baseGuest, additionalGuest));
+
+        VoteGuestListResponse response = voteService.getVoteGuests(2L);
+
+        assertThat(response.totalGuestCount()).isEqualTo(1L);
+        assertThat(response.confirmedGuestCount()).isEqualTo(1L);
+        assertThat(response.waitingGuestCount()).isZero();
+        assertThat(response.guests()).hasSize(1);
+        assertThat(response.guests().get(0).guestId()).isEqualTo(11L);
+        assertThat(response.guests().get(0).voteId()).isEqualTo(2L);
+        assertThat(response.guests().get(0).guestName()).isEqualTo("추가 게스트");
+    }
+
+    @Test
     @DisplayName("화요일 정원보다 많은 게스트는 대기 상태로 반환한다")
     void getVoteGuestsMarksOverflowGuestsAsWaiting() {
         Vote vote = savedVote(1L, "화요 정기 운동");
