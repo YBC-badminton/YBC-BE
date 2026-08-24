@@ -90,6 +90,7 @@ public class JwtTokenService {
                 .claim("socialId", memberSummary.socialId())
                 .claim("email", memberSummary.email())
                 .claim("nickname", memberSummary.nickname())
+                .claim("isAdmin", memberSummary.isAdmin())
                 .build();
 
         JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).type("JWT").build();

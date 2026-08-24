@@ -24,6 +24,7 @@ public class MemberPrincipal implements UserDetails, Serializable {
     private final String socialId;
     private final String email;
     private final String nickname;
+    private final boolean isAdmin;
 
     public static MemberPrincipal from(MemberSummary memberSummary) {
         return new MemberPrincipal(
@@ -31,7 +32,8 @@ public class MemberPrincipal implements UserDetails, Serializable {
                 memberSummary.provider(),
                 memberSummary.socialId(),
                 memberSummary.email(),
-                memberSummary.nickname()
+                memberSummary.nickname(),
+                memberSummary.isAdmin()
         );
     }
 
@@ -41,12 +43,19 @@ public class MemberPrincipal implements UserDetails, Serializable {
                 jwt.getClaimAsString("provider"),
                 jwt.getClaimAsString("socialId"),
                 jwt.getClaimAsString("email"),
-                jwt.getClaimAsString("nickname")
+                jwt.getClaimAsString("nickname"),
+                Boolean.TRUE.equals(jwt.getClaim("isAdmin"))
         );
     }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
+        if (isAdmin) {
+            return List.of(
+                    new SimpleGrantedAuthority("ROLE_USER"),
+                    new SimpleGrantedAuthority("ROLE_ADMIN")
+            );
+        }
         return List.of(new SimpleGrantedAuthority("ROLE_USER"));
     }
 
