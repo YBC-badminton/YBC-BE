@@ -176,18 +176,11 @@ public class VoteService {
                 guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(relatedVoteIds),
                 now()
         );
-        List<VoteGuestSummaryResponse> guests = guestList.guests().stream()
-                .map(resolvedGuest -> VoteGuestSummaryResponse.from(
-                        resolvedGuest.guest(),
-                        resolvedGuest.waiting()
-                ))
-                .toList();
-        return VoteGuestListResponse.from(
-                guestList.confirmedGuestCount(),
-                guestList.waitingGuestCount(),
-                guestList.guestQuota(),
-                guests
+        List<VoteGuestWaitlistResolver.ResolvedGuest> scopedGuests = filterGuestsForRequestedVote(
+                requestedVote,
+                guestList.guests()
         );
+        return toVoteGuestListResponse(scopedGuests, guestList.guestQuota());
     }
 
     /**
@@ -487,5 +480,40 @@ public class VoteService {
                     return baseVote;
                 })
                 .orElse(vote);
+    }
+
+    private List<VoteGuestWaitlistResolver.ResolvedGuest> filterGuestsForRequestedVote(
+            Vote requestedVote,
+            List<VoteGuestWaitlistResolver.ResolvedGuest> resolvedGuests
+    ) {
+        if (!requestedVote.isAdditionalParticipationVote()) {
+            return resolvedGuests;
+        }
+
+        return resolvedGuests.stream()
+                .filter(resolvedGuest -> resolvedGuest.guest().getVote().getId().equals(requestedVote.getId()))
+                .toList();
+    }
+
+    private VoteGuestListResponse toVoteGuestListResponse(
+            List<VoteGuestWaitlistResolver.ResolvedGuest> resolvedGuests,
+            int guestQuota
+    ) {
+        long confirmedGuestCount = resolvedGuests.stream()
+                .filter(resolvedGuest -> !resolvedGuest.waiting())
+                .count();
+        long waitingGuestCount = resolvedGuests.size() - confirmedGuestCount;
+        List<VoteGuestSummaryResponse> guests = resolvedGuests.stream()
+                .map(resolvedGuest -> VoteGuestSummaryResponse.from(
+                        resolvedGuest.guest(),
+                        resolvedGuest.waiting()
+                ))
+                .toList();
+        return VoteGuestListResponse.from(
+                confirmedGuestCount,
+                waitingGuestCount,
+                guestQuota,
+                guests
+        );
     }
 }
