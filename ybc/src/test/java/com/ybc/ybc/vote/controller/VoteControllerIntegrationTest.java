@@ -666,6 +666,41 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("추가참여 투표 게스트 조회 시 기존 투표 게스트는 제외한다")
+    void getVoteGuestsExcludesBaseVoteGuestsForAdditionalVote() throws Exception {
+        Vote baseVote = vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(1),
+                LocalDateTime.now().minusHours(1),
+                20
+        );
+        ReflectionTestUtils.setField(baseVote, "activityDate", LocalDate.of(2026, 4, 7));
+        baseVote = voteRepository.save(baseVote);
+        Vote additionalVote = voteRepository.saveAndFlush(
+                Vote.createAdditionalVote(
+                        baseVote,
+                        LocalDateTime.now().minusMinutes(30),
+                        LocalDateTime.now().plusHours(1),
+                        2
+                )
+        );
+
+        addGuest(baseVote, "base-host", "기존 게스트");
+        addGuest(additionalVote, "additional-host", "추가 게스트");
+
+        mockMvc.perform(get("/votes/{voteId}/guests", additionalVote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalGuestCount").value(1))
+                .andExpect(jsonPath("$.confirmedGuestCount").value(1))
+                .andExpect(jsonPath("$.waitingGuestCount").value(0))
+                .andExpect(jsonPath("$.guests.length()").value(1))
+                .andExpect(jsonPath("$.guests[0].voteId").value(additionalVote.getId()))
+                .andExpect(jsonPath("$.guests[0].inviterName").value("member-additional-host"))
+                .andExpect(jsonPath("$.guests[0].guestName").value("추가 게스트"));
+    }
+
+    @Test
     @DisplayName("게스트 신청은 모두 저장되지만 정원 초과분은 대기 상태로 조회한다")
     void getVoteGuestsMarksOverflowGuestsAsWaiting() throws Exception {
         Vote vote = vote(
