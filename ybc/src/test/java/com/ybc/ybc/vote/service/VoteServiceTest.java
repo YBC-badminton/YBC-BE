@@ -151,7 +151,8 @@ class VoteServiceTest {
                 "KAKAO",
                 "3001",
                 "3001@example.com",
-                "member-3001"
+                "member-3001",
+                false
         );
         when(voteRepository.saveAndFlush(any(Vote.class))).thenAnswer(invocation -> {
             Vote vote = invocation.getArgument(0);
@@ -191,7 +192,8 @@ class VoteServiceTest {
                 "KAKAO",
                 "3001",
                 "3001@example.com",
-                "member-3001"
+                "member-3001",
+                false
         );
         when(voteRepository.saveAndFlush(any(Vote.class))).thenAnswer(invocation -> {
             Vote vote = invocation.getArgument(0);
