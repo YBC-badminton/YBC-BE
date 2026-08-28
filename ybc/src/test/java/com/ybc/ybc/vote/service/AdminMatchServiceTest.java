@@ -1,10 +1,12 @@
 package com.ybc.ybc.vote.service;
 
+import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.members.service.ClubMemberLookupService;
 import com.ybc.ybc.members.service.ClubMemberSyncService;
 import com.ybc.ybc.vote.domain.ActivityType;
+import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
 import com.ybc.ybc.vote.domain.VoteAttendance;
 import com.ybc.ybc.vote.domain.VoteMatchGroup;
@@ -129,6 +131,55 @@ class AdminMatchServiceTest {
     }
 
     @Test
+    @DisplayName("정기 운동이 마감된 뒤 남은 회원 정원만큼 게스트도 대진 참가자에 포함된다")
+    void getParticipantsIncludesAdditionalGuestsFromClosedVoteVacancies() {
+        Vote vote = Vote.builder()
+                .activityType(ActivityType.REGULAR)
+                .title("정기 운동")
+                .activityDate(LocalDate.of(2026, 5, 22))
+                .activityTime("14:00 ~ 17:00")
+                .location("망원체육관")
+                .memo("memo")
+                .voteStartAt(LocalDateTime.of(2026, 5, 22, 18, 0))
+                .voteEndAt(LocalDateTime.of(2026, 5, 22, 21, 0))
+                .capacity(4)
+                .build();
+        ReflectionTestUtils.setField(vote, "id", 1L);
+
+        VoteAttendance firstAttendance = attendance(vote, member(10L, "member1"), 100L);
+        VoteAttendance secondAttendance = attendance(vote, member(11L, "member2"), 101L);
+
+        Guest firstGuest = guest(vote, member(20L, "host1"), 200L, "게스트1");
+        Guest secondGuest = guest(vote, member(21L, "host2"), 201L, "게스트2");
+        Guest thirdGuest = guest(vote, member(22L, "host3"), 202L, "게스트3");
+        Guest fourthGuest = guest(vote, member(23L, "host4"), 203L, "게스트4");
+        Guest fifthGuest = guest(vote, member(24L, "host5"), 204L, "게스트5");
+        Guest sixthGuest = guest(vote, member(25L, "host6"), 205L, "게스트6");
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteRepository.findAllByOriginalVote_IdOrderByIdAsc(1L)).thenReturn(List.of());
+        when(voteRepository
+                .findAllByActivityTypeAndActivityDateAndActivityTimeAndLocationAndVoteStartAtAndTitleAndOriginalVoteIsNullOrderByIdAsc(
+                        any(), any(), any(), any(), any(), any()
+                ))
+                .thenReturn(List.of());
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteIds(Set.of(1L)))
+                .thenReturn(List.of(firstAttendance, secondAttendance));
+        when(guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(Set.of(1L)))
+                .thenReturn(List.of(firstGuest, secondGuest, thirdGuest, fourthGuest, fifthGuest, sixthGuest));
+        when(clubMemberLookupService.getClubMembersByMemberId(any())).thenReturn(java.util.Map.of());
+
+        AdminMatchParticipantListResponse response = adminMatchService.getParticipants(1L);
+
+        assertThat(response.totalCount()).isEqualTo(7);
+        assertThat(response.participants()).filteredOn(participant -> participant.participantType().equals("GUEST"))
+                .hasSize(5);
+        assertThat(response.participants()).filteredOn(participant -> participant.participantType().equals("GUEST"))
+                .extracting(participant -> participant.name())
+                .containsExactly("게스트1", "게스트2", "게스트3", "게스트4", "게스트5");
+    }
+
+    @Test
     @DisplayName("추가참여 투표로 대진 조회 시 원본 투표 대진을 반환한다")
     void getMatchByVoteIdReturnsBaseVoteMatchForAdditionalVote() {
         Vote baseVote = Vote.builder()
@@ -166,5 +217,38 @@ class AdminMatchServiceTest {
         assertThat(response.matchId()).isEqualTo(100L);
         assertThat(response.courtCount()).isZero();
         assertThat(response.matches()).isEmpty();
+    }
+
+    private VoteAttendance attendance(Vote vote, Member member, Long id) {
+        VoteAttendance attendance = VoteAttendance.builder()
+                .vote(vote)
+                .member(member)
+                .attendanceStatus(true)
+                .build();
+        ReflectionTestUtils.setField(attendance, "id", id);
+        return attendance;
+    }
+
+    private Guest guest(Vote vote, Member inviter, Long id, String name) {
+        Guest guest = Guest.builder()
+                .vote(vote)
+                .member(inviter)
+                .name(name)
+                .gender(Gender.FEMALE)
+                .level("A")
+                .build();
+        ReflectionTestUtils.setField(guest, "id", id);
+        return guest;
+    }
+
+    private Member member(Long id, String socialId) {
+        Member member = Member.createSocialMember(
+                SocialProvider.KAKAO,
+                socialId,
+                "member-" + socialId,
+                socialId + "@example.com"
+        );
+        ReflectionTestUtils.setField(member, "id", id);
+        return member;
     }
 }

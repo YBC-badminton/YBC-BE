@@ -740,6 +740,39 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("정기 운동이 마감된 뒤 남은 회원 정원만큼 게스트 quota를 추가한다")
+    void getVoteGuestsAddsVacancyQuotaAfterVoteClosed() throws Exception {
+        Vote vote = vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(1),
+                LocalDateTime.now().minusMinutes(1),
+                4
+        );
+        ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 9));
+        vote = voteRepository.save(vote);
+        addAttendance(vote, true, "closed-seat-member1");
+        addAttendance(vote, true, "closed-seat-member2");
+        addGuest(vote, "closed-seat-host1", "게스트1");
+        addGuest(vote, "closed-seat-host2", "게스트2");
+        addGuest(vote, "closed-seat-host3", "게스트3");
+        addGuest(vote, "closed-seat-host4", "게스트4");
+        addGuest(vote, "closed-seat-host5", "게스트5");
+        addGuest(vote, "closed-seat-host6", "게스트6");
+
+        mockMvc.perform(get("/votes/{voteId}/guests", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalGuestCount").value(6))
+                .andExpect(jsonPath("$.confirmedGuestCount").value(5))
+                .andExpect(jsonPath("$.waitingGuestCount").value(1))
+                .andExpect(jsonPath("$.guestQuota").value(5))
+                .andExpect(jsonPath("$.guests[4].guestName").value("게스트5"))
+                .andExpect(jsonPath("$.guests[4].isWaiting").value(false))
+                .andExpect(jsonPath("$.guests[5].guestName").value("게스트6"))
+                .andExpect(jsonPath("$.guests[5].isWaiting").value(true));
+    }
+
+    @Test
     @DisplayName("주말 정기 운동은 게스트 2명까지만 확정된다")
     void getVoteGuestsUsesWeekendQuotaForRegularVote() throws Exception {
         Vote vote = vote(

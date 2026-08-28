@@ -95,15 +95,14 @@ final class VoteGuestWaitlistResolver {
         int baseGuestQuota = isWeekend(baseVote.getActivityDate().getDayOfWeek())
                 ? WEEKEND_GUEST_QUOTA
                 : WEEKDAY_GUEST_QUOTA;
-        int additionalGuestQuota = relatedVotes.stream()
-                .filter(relatedVote -> !relatedVote.getId().equals(baseVote.getId()))
+        int closedVoteVacancyQuota = relatedVotes.stream()
                 .filter(relatedVote -> !relatedVote.getVoteEndAt().isAfter(now))
                 .mapToInt(relatedVote -> (int) Math.max(
                         (long) relatedVote.getCapacity() - confirmedMemberCountByVoteId.getOrDefault(relatedVote.getId(), 0L),
                         0L
                 ))
                 .sum();
-        return baseGuestQuota + additionalGuestQuota;
+        return baseGuestQuota + closedVoteVacancyQuota;
     }
 
     private static boolean isWeekend(DayOfWeek dayOfWeek) {

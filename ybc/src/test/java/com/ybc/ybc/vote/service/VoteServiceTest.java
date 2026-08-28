@@ -544,6 +544,37 @@ class VoteServiceTest {
     }
 
     @Test
+    @DisplayName("정기 운동이 마감된 뒤 남은 회원 정원만큼 게스트 quota를 추가한다")
+    void getVoteGuestsAddsVacancyQuotaAfterVoteClosed() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 9));
+        ReflectionTestUtils.setField(vote, "capacity", 4);
+        ReflectionTestUtils.setField(vote, "voteEndAt", currentTime().minusMinutes(1));
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteIds(anyCollection())).thenReturn(List.of(
+                attendance(vote, savedMember(2L, "2001"), 100L),
+                attendance(vote, savedMember(3L, "2002"), 101L)
+        ));
+        when(guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(anyCollection())).thenReturn(List.of(
+                guest(vote, savedMember(10L, "host1"), 10L, "게스트1"),
+                guest(vote, savedMember(11L, "host2"), 11L, "게스트2"),
+                guest(vote, savedMember(12L, "host3"), 12L, "게스트3"),
+                guest(vote, savedMember(13L, "host4"), 13L, "게스트4"),
+                guest(vote, savedMember(14L, "host5"), 14L, "게스트5"),
+                guest(vote, savedMember(15L, "host6"), 15L, "게스트6")
+        ));
+
+        VoteGuestListResponse response = voteService.getVoteGuests(1L);
+
+        assertThat(response.confirmedGuestCount()).isEqualTo(5L);
+        assertThat(response.waitingGuestCount()).isEqualTo(1L);
+        assertThat(response.guestQuota()).isEqualTo(5);
+        assertThat(response.guests().get(4).isWaiting()).isFalse();
+        assertThat(response.guests().get(5).isWaiting()).isTrue();
+    }
+
+    @Test
     @DisplayName("주말 정기 운동은 기본 게스트 quota가 2명이다")
     void getVoteGuestsUsesWeekendQuotaForRegularVote() {
         Vote vote = savedVote(1L, "토요 정기 운동");
@@ -1114,6 +1145,16 @@ class VoteServiceTest {
                 .build();
         ReflectionTestUtils.setField(guest, "id", id);
         return guest;
+    }
+
+    private VoteAttendance attendance(Vote vote, Member member, Long id) {
+        VoteAttendance attendance = VoteAttendance.builder()
+                .vote(vote)
+                .member(member)
+                .attendanceStatus(true)
+                .build();
+        ReflectionTestUtils.setField(attendance, "id", id);
+        return attendance;
     }
 
     private LocalDateTime currentTime() {
