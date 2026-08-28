@@ -128,6 +128,43 @@ class KakaoAuthServiceTest {
     }
 
     @Test
+    void loginWithAuthorizationCodeRelinksClubMemberWhenPreviousMemberWasDeleted() {
+        ClubMember clubMember = ClubMember.create(
+                "운영진닉네임",
+                "이화여자대학교",
+                "010-1234-5678",
+                "03",
+                "10기",
+                "new@example.com",
+                null
+        );
+        clubMember.relinkMember(99L);
+
+        KakaoUserProfile kakaoUserProfile = new KakaoUserProfile(
+                "123456789",
+                "새닉네임",
+                "new@example.com"
+        );
+
+        when(kakaoApiClient.fetchUserProfile("auth-code")).thenReturn(kakaoUserProfile);
+        when(clubMemberRepository.findFirstByNormalizedEmail("new@example.com"))
+                .thenReturn(Optional.of(clubMember));
+        when(memberRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "123456789"))
+                .thenReturn(Optional.empty());
+        when(memberRepository.save(any(Member.class))).thenAnswer(invocation -> {
+            Member member = invocation.getArgument(0);
+            ReflectionTestUtils.setField(member, "id", 7L);
+            return member;
+        });
+        when(memberRepository.existsById(99L)).thenReturn(false);
+
+        KakaoLoginResult result = kakaoAuthService.loginWithAuthorizationCode("auth-code");
+
+        assertThat(result.member().id()).isEqualTo(7L);
+        assertThat(clubMember.getMemberId()).isEqualTo(7L);
+    }
+
+    @Test
     void getCurrentMemberReturnsClubMemberTermAndAdminFlag() {
         Member member = Member.createSocialMember(
                 SocialProvider.KAKAO,

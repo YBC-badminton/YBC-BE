@@ -6,6 +6,7 @@ import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.service.MemberService;
 import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.members.service.ClubMemberLookupService;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
@@ -53,6 +54,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -83,6 +85,9 @@ class VoteServiceTest {
     private MemberService memberService;
 
     @Mock
+    private ClubMemberLookupService clubMemberLookupService;
+
+    @Mock
     private Clock clock;
 
     @InjectMocks
@@ -92,6 +97,9 @@ class VoteServiceTest {
     void setUpClock() {
         lenient().when(clock.instant()).thenReturn(FIXED_INSTANT);
         lenient().when(clock.getZone()).thenReturn(KOREA);
+        lenient().when(clubMemberLookupService.getClubMembersByMemberId(any())).thenReturn(java.util.Map.of());
+        lenient().when(clubMemberLookupService.resolveDisplayName(any(Member.class), anyMap()))
+                .thenAnswer(invocation -> invocation.getArgument(0, Member.class).getNickname());
     }
 
     @Test
@@ -676,6 +684,30 @@ class VoteServiceTest {
         assertThat(response.attendees().get(1).nickname()).isEqualTo("member-2002");
         assertThat(response.attendees().get(1).isWaiting()).isTrue();
         assertThat(response.attendees().get(1).isAdmin()).isFalse();
+    }
+
+    @Test
+    @DisplayName("참석자 목록 조회 시 부원명이 있으면 닉네임 대신 부원명을 반환한다")
+    void getVoteAttendeesUsesClubMemberNameWhenAvailable() {
+        Vote vote = savedVote(1L, "목요 정기 운동");
+        Member member = savedMember(2L, "2001");
+        ReflectionTestUtils.setField(member, "nickname", "member-2001");
+
+        VoteAttendance attendance = VoteAttendance.builder()
+                .vote(vote)
+                .member(member)
+                .attendanceStatus(true)
+                .build();
+        ReflectionTestUtils.setField(attendance, "attendingAt", LocalDateTime.of(2026, 6, 12, 10, 0));
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteId(1L)).thenReturn(List.of(attendance));
+        when(clubMemberLookupService.resolveDisplayName(eq(member), anyMap())).thenReturn("강해린");
+
+        VoteAttendeeListResponse response = voteService.getVoteAttendees(1L);
+
+        assertThat(response.attendees()).hasSize(1);
+        assertThat(response.attendees().get(0).nickname()).isEqualTo("강해린");
     }
 
     @Test

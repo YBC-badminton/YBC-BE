@@ -12,9 +12,13 @@ public record VoteAbsenteeResponse(
         boolean isAdmin
 ) {
     public static VoteAbsenteeResponse from(VoteAttendance voteAttendance) {
+        return from(voteAttendance, voteAttendance.getMember().getNickname());
+    }
+
+    public static VoteAbsenteeResponse from(VoteAttendance voteAttendance, String displayName) {
         return new VoteAbsenteeResponse(
                 voteAttendance.getMember().getId(),
-                voteAttendance.getMember().getNickname(),
+                displayName,
                 resolveVotedAt(voteAttendance),
                 false,
                 voteAttendance.getMember().isAdmin()

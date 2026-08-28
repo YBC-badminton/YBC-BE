@@ -5,6 +5,8 @@ import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.auth.service.MemberService;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
+import com.ybc.ybc.members.domain.ClubMember;
+import com.ybc.ybc.members.service.ClubMemberLookupService;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
@@ -16,6 +18,7 @@ import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
 import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
 import com.ybc.ybc.vote.dto.response.RecentVoteListResponse;
 import com.ybc.ybc.vote.dto.response.RecentVoteResponse;
+import com.ybc.ybc.vote.dto.response.VoteAbsenteeResponse;
 import com.ybc.ybc.vote.dto.response.VoteAbsenteeListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendanceStatusResponse;
 import com.ybc.ybc.vote.dto.response.VoteAttendeeListResponse;
@@ -32,6 +35,7 @@ import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
 import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -45,8 +49,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -60,6 +66,7 @@ public class VoteService {
     private final VoteMatchRepository voteMatchRepository;
     private final VoteMatchGroupRepository voteMatchGroupRepository;
     private final MemberService memberService;
+    private final ClubMemberLookupService clubMemberLookupService;
     private final Clock clock;
 
     /**
@@ -203,12 +210,19 @@ public class VoteService {
                 vote,
                 voteAttendanceRepository.findAllActiveWithMemberByVoteId(voteId)
         );
+        Map<Long, ClubMember> clubMembersByMemberId = getClubMembersByMemberIdSafely(
+                resolvedAttendances.stream()
+                        .map(VoteAttendanceWaitlistResolver.ResolvedVoteAttendance::attendance)
+                        .toList()
+        );
         List<VoteAttendeeResponse> attendees = java.util.stream.IntStream.range(0, resolvedAttendances.size())
                 .mapToObj(index -> {
                     VoteAttendanceWaitlistResolver.ResolvedVoteAttendance resolvedAttendance = resolvedAttendances.get(index);
+                    VoteAttendance attendance = resolvedAttendance.attendance();
                     return VoteAttendeeResponse.from(
                             index + 1,
-                            resolvedAttendance.attendance(),
+                            attendance,
+                            clubMemberLookupService.resolveDisplayName(attendance.getMember(), clubMembersByMemberId),
                             resolvedAttendance.waiting()
                     );
                 })
@@ -226,7 +240,14 @@ public class VoteService {
                         .comparing(this::resolveAbsenteeOrderAt)
                         .thenComparing(VoteAttendance::getId))
                 .toList();
-        return VoteAbsenteeListResponse.from(absentees);
+        Map<Long, ClubMember> clubMembersByMemberId = getClubMembersByMemberIdSafely(absentees);
+        List<VoteAbsenteeResponse> responses = absentees.stream()
+                .map(attendance -> VoteAbsenteeResponse.from(
+                        attendance,
+                        clubMemberLookupService.resolveDisplayName(attendance.getMember(), clubMembersByMemberId)
+                ))
+                .toList();
+        return new VoteAbsenteeListResponse(responses.size(), responses);
     }
 
     /**
@@ -353,6 +374,19 @@ public class VoteService {
             return voteAttendance.getVotedAt();
         }
         return voteAttendance.getCreatedAt();
+    }
+
+    private Map<Long, ClubMember> getClubMembersByMemberIdSafely(List<VoteAttendance> attendances) {
+        try {
+            return clubMemberLookupService.getClubMembersByMemberId(
+                    attendances.stream()
+                            .map(VoteAttendance::getMember)
+                            .toList()
+            );
+        } catch (RuntimeException exception) {
+            log.error("Failed to resolve club member names for vote attendees.", exception);
+            return Map.of();
+        }
     }
 
     private void validateVoteIsOpenForParticipation(Vote vote) {

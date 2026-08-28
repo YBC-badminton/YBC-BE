@@ -2,7 +2,7 @@ package com.ybc.ybc.vote.service;
 
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
-import com.ybc.ybc.members.repository.ClubMemberRepository;
+import com.ybc.ybc.members.service.ClubMemberLookupService;
 import com.ybc.ybc.members.service.ClubMemberSyncService;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Vote;
@@ -47,7 +47,7 @@ class AdminMatchServiceTest {
     private GuestRepository guestRepository;
 
     @Mock
-    private ClubMemberRepository clubMemberRepository;
+    private ClubMemberLookupService clubMemberLookupService;
 
     @Mock
     private ClubMemberSyncService clubMemberSyncService;
@@ -66,7 +66,7 @@ class AdminMatchServiceTest {
                 voteRepository,
                 voteAttendanceRepository,
                 guestRepository,
-                clubMemberRepository,
+                clubMemberLookupService,
                 clubMemberSyncService,
                 voteMatchRepository,
                 voteMatchGroupRepository
@@ -113,7 +113,7 @@ class AdminMatchServiceTest {
                 .thenReturn(List.of());
         when(voteAttendanceRepository.findAllActiveWithMemberByVoteIds(Set.of(1L))).thenReturn(List.of(attendance));
         when(guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(Set.of(1L))).thenReturn(List.of());
-        when(clubMemberRepository.findAllByMemberIdInOrderByIdAsc(Set.of(10L)))
+        when(clubMemberLookupService.getClubMembersByMemberId(any()))
                 .thenThrow(new RuntimeException("broken club_member rows"));
 
         AdminMatchParticipantListResponse response = adminMatchService.getParticipants(1L);
