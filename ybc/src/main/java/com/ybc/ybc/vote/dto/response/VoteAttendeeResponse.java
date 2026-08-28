@@ -13,10 +13,17 @@ public record VoteAttendeeResponse(
         boolean isAdmin
 ) {
     public static VoteAttendeeResponse from(int attendeeNumber, VoteAttendance voteAttendance, boolean isWaiting) {
+        return from(attendeeNumber, voteAttendance, voteAttendance.getMember().getNickname(), isWaiting);
+    }
+
+    public static VoteAttendeeResponse from(int attendeeNumber,
+                                            VoteAttendance voteAttendance,
+                                            String displayName,
+                                            boolean isWaiting) {
         return new VoteAttendeeResponse(
                 attendeeNumber,
                 voteAttendance.getMember().getId(),
-                voteAttendance.getMember().getNickname(),
+                displayName,
                 resolveVotedAt(voteAttendance),
                 isWaiting,
                 voteAttendance.getMember().isAdmin()

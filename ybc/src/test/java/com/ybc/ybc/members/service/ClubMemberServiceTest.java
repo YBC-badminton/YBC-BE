@@ -24,6 +24,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -133,6 +134,25 @@ class ClubMemberServiceTest {
         assertThat(response.email()).isEqualTo("hong@example.com");
         assertThat(response.court()).isEqualTo(ClubMemberCourt.A);
         assertThat(response.isMapoResident()).isTrue();
+        assertThat(response.isAdmin()).isTrue();
+    }
+
+    @Test
+    @DisplayName("부원 수정 시 이전 member_id가 이미 삭제되었다면 같은 이메일의 새 회원으로 재연결한다")
+    void updateMemberRelinksWhenPreviousMemberWasDeleted() {
+        ClubMember member = savedMember(1L, "홍길동", "한국대학교", "010-0000-0000", "03", "2기", false, "hong@example.com", ClubMemberCourt.C);
+        member.relinkMember(99L);
+        Member authMember = authMember(7L, "hong@example.com", true);
+        when(clubMemberRepository.findById(1L)).thenReturn(Optional.of(member));
+        when(memberRepository.findAllById(Set.of(99L))).thenReturn(List.of());
+        when(memberRepository.findAllByNormalizedEmailInOrderByIdAsc(any())).thenReturn(List.of(authMember));
+
+        ClubMemberResponse response = clubMemberService.updateMember(
+                1L,
+                new ClubMemberUpdateRequest("홍길동", "02", "한국대학교", "010-1234-5678", "10기", true, "hong@example.com", Gender.MALE, ClubMemberCourt.A)
+        );
+
+        assertThat(member.getMemberId()).isEqualTo(7L);
         assertThat(response.isAdmin()).isTrue();
     }
 
