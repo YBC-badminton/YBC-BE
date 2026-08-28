@@ -4,7 +4,7 @@ import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.members.domain.ClubMember;
-import com.ybc.ybc.members.repository.ClubMemberRepository;
+import com.ybc.ybc.members.service.ClubMemberLookupService;
 import com.ybc.ybc.members.service.ClubMemberSyncService;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
@@ -45,7 +45,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Objects;
@@ -54,6 +53,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 @Slf4j
 @Service
@@ -69,7 +69,7 @@ public class AdminMatchService {
     private final VoteRepository voteRepository;
     private final VoteAttendanceRepository voteAttendanceRepository;
     private final GuestRepository guestRepository;
-    private final ClubMemberRepository clubMemberRepository;
+    private final ClubMemberLookupService clubMemberLookupService;
     private final ClubMemberSyncService clubMemberSyncService;
     private final VoteMatchRepository voteMatchRepository;
     private final VoteMatchGroupRepository voteMatchGroupRepository;
@@ -1083,86 +1083,16 @@ public class AdminMatchService {
 
     private Map<Long, ClubMember> getClubMembersByMemberIdSafely(Iterable<VoteAttendance> attendances) {
         try {
-            return getClubMembersByMemberId(attendances);
+            return clubMemberLookupService.getClubMembersByMemberId(
+                    StreamSupport.stream(attendances.spliterator(), false)
+                            .map(VoteAttendance::getMember)
+                            .filter(Objects::nonNull)
+                            .toList()
+            );
         } catch (RuntimeException exception) {
             log.error("Failed to resolve club member profiles for match participants.", exception);
             return Map.of();
         }
-    }
-
-    private Map<Long, ClubMember> getClubMembersByMemberId(Iterable<VoteAttendance> attendances) {
-        Set<Long> memberIds = new LinkedHashSet<>();
-        Map<Long, String> emailsByMemberId = new LinkedHashMap<>();
-        attendances.forEach(attendance -> {
-            String email = normalizeEmail(attendance.getMember().getEmail());
-            Long memberId = attendance.getMember().getId();
-            memberIds.add(memberId);
-            emailsByMemberId.put(memberId, email);
-        });
-        if (memberIds.isEmpty()) {
-            return Map.of();
-        }
-
-        Map<Long, ClubMember> clubMembersByMemberId = clubMemberRepository.findAllByMemberIdInOrderByIdAsc(memberIds).stream()
-                .filter(clubMember -> clubMember.getMemberId() != null)
-                .collect(Collectors.toMap(
-                        ClubMember::getMemberId,
-                        Function.identity(),
-                        (first, ignored) -> first,
-                        LinkedHashMap::new
-                ));
-
-        Set<Long> unresolvedMemberIds = memberIds.stream()
-                .filter(memberId -> !clubMembersByMemberId.containsKey(memberId))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (unresolvedMemberIds.isEmpty()) {
-            return clubMembersByMemberId;
-        }
-
-        Set<String> unresolvedEmails = unresolvedMemberIds.stream()
-                .map(emailsByMemberId::get)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (unresolvedEmails.isEmpty()) {
-            return clubMembersByMemberId;
-        }
-
-        Map<String, List<ClubMember>> clubMembersByEmail = clubMemberRepository.findAllByNormalizedEmailInOrderByIdAsc(unresolvedEmails)
-                .stream()
-                .filter(clubMember -> normalizeEmail(clubMember.getEmail()) != null)
-                .collect(Collectors.groupingBy(
-                        clubMember -> Objects.requireNonNull(normalizeEmail(clubMember.getEmail())),
-                        LinkedHashMap::new,
-                        Collectors.toList()
-                ));
-
-        unresolvedMemberIds.forEach(memberId -> {
-            String email = emailsByMemberId.get(memberId);
-            if (email == null) {
-                return;
-            }
-
-            ClubMember linkedClubMember = clubMembersByEmail.getOrDefault(email, List.of())
-                    .stream()
-                    .filter(clubMember -> clubMember.getMemberId() == null || clubMember.getMemberId().equals(memberId))
-                    .findFirst()
-                    .orElse(null);
-            if (linkedClubMember == null) {
-                return;
-            }
-
-            linkedClubMember.linkMember(memberId);
-            clubMembersByMemberId.put(memberId, linkedClubMember);
-        });
-
-        return clubMembersByMemberId;
-    }
-
-    private String normalizeEmail(String email) {
-        if (email == null || email.isBlank()) {
-            return null;
-        }
-        return email.trim().toLowerCase(Locale.ROOT);
     }
 
     private Vote resolveBaseVote(Vote vote) {

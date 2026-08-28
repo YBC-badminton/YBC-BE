@@ -84,10 +84,17 @@ public class KakaoAuthService {
 
         Member savedMember = memberRepository.save(member);
         if (clubMember.getMemberId() != null && !clubMember.getMemberId().equals(savedMember.getId())) {
-            log.warn("Club member is already linked to a different member id during Kakao login. clubMemberId={}, linkedMemberId={}, savedMemberId={}, socialId={}, email={}",
-                    clubMember.getId(), clubMember.getMemberId(), savedMember.getId(), maskedSocialId, maskedEmail);
+            if (memberRepository.existsById(clubMember.getMemberId())) {
+                log.warn("Club member is already linked to a different member id during Kakao login. clubMemberId={}, linkedMemberId={}, savedMemberId={}, socialId={}, email={}",
+                        clubMember.getId(), clubMember.getMemberId(), savedMember.getId(), maskedSocialId, maskedEmail);
+            } else {
+                log.info("Relinking club member to recreated member account after stale link detection. clubMemberId={}, staleMemberId={}, savedMemberId={}, socialId={}, email={}",
+                        clubMember.getId(), clubMember.getMemberId(), savedMember.getId(), maskedSocialId, maskedEmail);
+                clubMember.relinkMember(savedMember.getId());
+            }
+        } else {
+            clubMember.linkMember(savedMember.getId());
         }
-        clubMember.linkMember(savedMember.getId());
         return new KakaoLoginResult(firstLogin, MemberSummary.from(savedMember, clubMember));
     }
 

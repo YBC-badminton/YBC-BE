@@ -122,12 +122,29 @@ public class ClubMemberService {
     }
 
     private Member linkLinkedMember(ClubMember clubMember) {
-        Member linkedMember = findLinkedMember(clubMember, createMemberLookup(List.of(clubMember)))
+        MemberLookup memberLookup = createMemberLookup(List.of(clubMember));
+        Member linkedMember = findLinkedMember(clubMember, memberLookup)
                 .orElse(null);
-        if (linkedMember != null && clubMember.getMemberId() == null) {
-            clubMember.linkMember(linkedMember.getId());
+        if (linkedMember != null && shouldRefreshLinkedMember(clubMember, linkedMember, memberLookup)) {
+            if (clubMember.getMemberId() == null) {
+                clubMember.linkMember(linkedMember.getId());
+            } else {
+                clubMember.relinkMember(linkedMember.getId());
+            }
         }
         return linkedMember;
+    }
+
+    private boolean shouldRefreshLinkedMember(ClubMember clubMember,
+                                              Member linkedMember,
+                                              MemberLookup memberLookup) {
+        if (clubMember.getMemberId() == null) {
+            return true;
+        }
+        if (clubMember.getMemberId().equals(linkedMember.getId())) {
+            return false;
+        }
+        return !memberLookup.membersById().containsKey(clubMember.getMemberId());
     }
 
     private Optional<Member> findLinkedMember(ClubMember clubMember, MemberLookup memberLookup) {

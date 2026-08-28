@@ -302,6 +302,13 @@ public class ClubMember {
         this.memberId = memberId;
     }
 
+    public void relinkMember(Long memberId) {
+        if (memberId == null) {
+            return;
+        }
+        this.memberId = memberId;
+    }
+
     public boolean isMapoResident() {
         return Boolean.TRUE.equals(mapoResident);
     }

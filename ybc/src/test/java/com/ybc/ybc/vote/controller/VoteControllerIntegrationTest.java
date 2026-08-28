@@ -8,6 +8,8 @@ import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.auth.dto.MemberSummary;
 import com.ybc.ybc.auth.repository.MemberRepository;
+import com.ybc.ybc.members.domain.ClubMember;
+import com.ybc.ybc.members.repository.ClubMemberRepository;
 import com.ybc.ybc.support.TestMailConfig;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
@@ -80,6 +82,9 @@ class VoteControllerIntegrationTest {
     private MemberRepository memberRepository;
 
     @Autowired
+    private ClubMemberRepository clubMemberRepository;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     private final ObjectMapper objectMapper = JsonMapper.builder()
@@ -93,6 +98,7 @@ class VoteControllerIntegrationTest {
         guestRepository.deleteAll();
         voteAttendanceRepository.deleteAll();
         voteRepository.deleteAll();
+        clubMemberRepository.deleteAll();
         memberRepository.deleteAll();
     }
 
@@ -734,6 +740,39 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("정기 운동이 마감된 뒤 남은 회원 정원만큼 게스트 quota를 추가한다")
+    void getVoteGuestsAddsVacancyQuotaAfterVoteClosed() throws Exception {
+        Vote vote = vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(1),
+                LocalDateTime.now().minusMinutes(1),
+                4
+        );
+        ReflectionTestUtils.setField(vote, "activityDate", LocalDate.of(2026, 4, 9));
+        vote = voteRepository.save(vote);
+        addAttendance(vote, true, "closed-seat-member1");
+        addAttendance(vote, true, "closed-seat-member2");
+        addGuest(vote, "closed-seat-host1", "게스트1");
+        addGuest(vote, "closed-seat-host2", "게스트2");
+        addGuest(vote, "closed-seat-host3", "게스트3");
+        addGuest(vote, "closed-seat-host4", "게스트4");
+        addGuest(vote, "closed-seat-host5", "게스트5");
+        addGuest(vote, "closed-seat-host6", "게스트6");
+
+        mockMvc.perform(get("/votes/{voteId}/guests", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalGuestCount").value(6))
+                .andExpect(jsonPath("$.confirmedGuestCount").value(5))
+                .andExpect(jsonPath("$.waitingGuestCount").value(1))
+                .andExpect(jsonPath("$.guestQuota").value(5))
+                .andExpect(jsonPath("$.guests[4].guestName").value("게스트5"))
+                .andExpect(jsonPath("$.guests[4].isWaiting").value(false))
+                .andExpect(jsonPath("$.guests[5].guestName").value("게스트6"))
+                .andExpect(jsonPath("$.guests[5].isWaiting").value(true));
+    }
+
+    @Test
     @DisplayName("주말 정기 운동은 게스트 2명까지만 확정된다")
     void getVoteGuestsUsesWeekendQuotaForRegularVote() throws Exception {
         Vote vote = vote(
@@ -936,6 +975,68 @@ class VoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.attendees[1].votedAt").exists())
                 .andExpect(jsonPath("$.attendees[1].isWaiting").value(true))
                 .andExpect(jsonPath("$.attendees[1].isAdmin").value(false));
+    }
+
+    @Test
+    @DisplayName("참석자 조회 시 연결된 부원 정보가 없더라도 이메일이 같으면 부원명을 반환한다")
+    void getVoteAttendeesUsesClubMemberNameWhenEmailMatches() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        VoteAttendance attendance = saveAttendance(vote, true, "3001");
+        Member member = attendance.getMember();
+        clubMemberRepository.saveAndFlush(
+                ClubMember.create(
+                        "실명 회원",
+                        "이화여대",
+                        "01012345678",
+                        "01",
+                        "1기",
+                        member.getEmail(),
+                        Gender.FEMALE
+                )
+        );
+
+        mockMvc.perform(get("/votes/{voteId}/attendees", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalAttendeeCount").value(1))
+                .andExpect(jsonPath("$.attendees[0].nickname").value("실명 회원"))
+                .andExpect(jsonPath("$.attendees[0].memberId").value(member.getId()));
+    }
+
+    @Test
+    @DisplayName("참석자 조회 시 부원이 삭제된 예전 member_id를 들고 있어도 이메일이 같으면 부원명을 반환한다")
+    void getVoteAttendeesUsesClubMemberNameWhenLinkedMemberIdIsStale() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "목요 정기 운동",
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusDays(1),
+                20
+        ));
+        VoteAttendance attendance = saveAttendance(vote, true, "3011");
+        Member member = attendance.getMember();
+        ClubMember clubMember = ClubMember.create(
+                "실명 회원",
+                "이화여대",
+                "01012345678",
+                "01",
+                "1기",
+                member.getEmail(),
+                Gender.FEMALE
+        );
+        ReflectionTestUtils.setField(clubMember, "memberId", 999L);
+        clubMemberRepository.saveAndFlush(clubMember);
+
+        mockMvc.perform(get("/votes/{voteId}/attendees", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalAttendeeCount").value(1))
+                .andExpect(jsonPath("$.attendees[0].nickname").value("실명 회원"))
+                .andExpect(jsonPath("$.attendees[0].memberId").value(member.getId()));
     }
 
     @Test
