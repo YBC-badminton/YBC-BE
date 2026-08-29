@@ -9,7 +9,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -30,10 +32,12 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
+import java.util.Set;
 
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
+    private static final Set<Long> SWAGGER_ALLOWED_MEMBER_IDS = Set.of(8L);
     private static final String[] PUBLIC_AUTH_ENDPOINTS = {
             "/",
             "/api/v1/auth/kakao/login-url",
@@ -89,7 +93,8 @@ public class SecurityConfig {
                         .requestMatchers(bearerTokenIgnoredRequestMatcher).permitAll()
                         .requestMatchers(PUBLIC_ACTUATOR_ENDPOINTS).permitAll()
                         .requestMatchers(PUBLIC_MONITORING_TEST_ENDPOINTS).permitAll()
-                        .requestMatchers(SWAGGER_ENDPOINTS).hasRole("ADMIN")
+                        .requestMatchers(SWAGGER_ENDPOINTS).access((authentication, context) ->
+                                new AuthorizationDecision(canAccessSwagger(authentication.get())))
                         .requestMatchers(PUBLIC_AUTH_ENDPOINTS).permitAll()
                         .anyRequest().authenticated()
                 );
@@ -149,5 +154,39 @@ public class SecurityConfig {
                     principal.getAuthorities()
             );
         };
+    }
+
+    private boolean canAccessSwagger(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+        if (authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()))) {
+            return true;
+        }
+        Long memberId = resolveMemberId(authentication);
+        return memberId != null && SWAGGER_ALLOWED_MEMBER_IDS.contains(memberId);
+    }
+
+    private Long resolveMemberId(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof MemberPrincipal memberPrincipal) {
+            return memberPrincipal.getId();
+        }
+        if (principal instanceof Jwt jwt) {
+            return parseMemberId(jwt.getSubject());
+        }
+        return null;
+    }
+
+    private Long parseMemberId(String subject) {
+        if (subject == null || subject.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(subject);
+        } catch (NumberFormatException exception) {
+            return null;
+        }
     }
 }
