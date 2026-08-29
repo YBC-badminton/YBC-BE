@@ -40,6 +40,18 @@ class SwaggerIntegrationTest {
     }
 
     @Test
+    void openApiDocsAllowMemberIdEightUser() throws Exception {
+        mockMvc.perform(get("/v3/api-docs")
+                        .with(jwt()
+                                .jwt(jwt -> jwt.subject("8"))
+                                .authorities(createAuthorityList("ROLE_USER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.openapi").isNotEmpty())
+                .andExpect(jsonPath("$.info.title").value("YBC API"))
+                .andExpect(jsonPath("$.servers[0].url").value("/"));
+    }
+
+    @Test
     void openApiDocsAllowAdminUser() throws Exception {
         mockMvc.perform(get("/v3/api-docs")
                         .with(jwt().authorities(createAuthorityList("ROLE_USER", "ROLE_ADMIN"))))
