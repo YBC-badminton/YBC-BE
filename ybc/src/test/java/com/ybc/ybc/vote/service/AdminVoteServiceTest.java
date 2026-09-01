@@ -225,7 +225,13 @@ class AdminVoteServiceTest {
                 LocalDateTime.of(2026, 4, 10, 20, 0),
                 ActivityType.FLASH,
                 20);
-        Vote completedVote = vote(3L, "지난 이벤트 운동",
+        Vote activeVote = vote(3L, "내일 이벤트 운동",
+                LocalDate.of(2026, 4, 11),
+                LocalDateTime.of(2026, 4, 10, 9, 0),
+                LocalDateTime.of(2026, 4, 10, 11, 0),
+                ActivityType.EVENT,
+                16);
+        Vote completedVote = vote(4L, "지난 이벤트 운동",
                 LocalDate.of(2026, 4, 9),
                 LocalDateTime.of(2026, 4, 9, 11, 0),
                 LocalDateTime.of(2026, 4, 9, 20, 0),
@@ -234,26 +240,28 @@ class AdminVoteServiceTest {
 
         when(voteRepository.findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime.of(2026, 4, 10, 12, 0)))
                 .thenReturn(List.of());
-        when(voteRepository.findAll(any(Sort.class))).thenReturn(List.of(upcomingVote, inProgressVote, completedVote));
-        when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(1L, 2L, 3L)))
+        when(voteRepository.findAll(any(Sort.class))).thenReturn(List.of(upcomingVote, inProgressVote, activeVote, completedVote));
+        when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(1L, 2L, 3L, 4L)))
                 .thenReturn(List.of(
                         new VoteAttendanceCountProjection(2L, 12L),
-                        new VoteAttendanceCountProjection(3L, 5L)
+                        new VoteAttendanceCountProjection(4L, 5L)
                 ));
-        when(guestRepository.countGuestsByVoteIds(List.of(1L, 2L, 3L)))
+        when(guestRepository.countGuestsByVoteIds(List.of(1L, 2L, 3L, 4L)))
                 .thenReturn(List.of(
                         new VoteGuestCountProjection(2L, 2L)
                 ));
 
         AdminVoteListResponse response = adminVoteService.getVoteManagement();
 
-        assertThat(response.summary().totalCount()).isEqualTo(3);
+        assertThat(response.summary().totalCount()).isEqualTo(4);
         assertThat(response.summary().upcomingCount()).isEqualTo(1);
         assertThat(response.summary().inProgressCount()).isEqualTo(1);
+        assertThat(response.summary().activeCount()).isEqualTo(1);
         assertThat(response.summary().completedCount()).isEqualTo(1);
         assertThat(response.data().get(0).capacity()).isEqualTo(20);
         assertThat(response.data().get(1).capacity()).isEqualTo(20);
-        assertThat(response.data().get(2).capacity()).isEqualTo(30);
+        assertThat(response.data().get(2).status()).isEqualTo(AdminVoteStatus.ACTIVE);
+        assertThat(response.data().get(3).capacity()).isEqualTo(30);
         assertThat(response.data().get(1).attendance().currentAttendees()).isEqualTo(12L);
         assertThat(response.data().get(1).attendance().currentGuests()).isEqualTo(2L);
         assertThat(response.data().get(1).attendance().totalParticipants()).isEqualTo(12L);
@@ -280,7 +288,13 @@ class AdminVoteServiceTest {
                 LocalDateTime.of(2026, 4, 7, 12, 0),
                 ActivityType.EVENT,
                 20);
-        Vote inProgressVote = vote(4L, "오늘 번개 운동",
+        Vote activeVote = vote(4L, "내일 이벤트 운동",
+                LocalDate.of(2026, 4, 11),
+                LocalDateTime.of(2026, 4, 10, 9, 0),
+                LocalDateTime.of(2026, 4, 10, 11, 0),
+                ActivityType.EVENT,
+                20);
+        Vote inProgressVote = vote(5L, "오늘 번개 운동",
                 LocalDate.of(2026, 4, 10),
                 LocalDateTime.of(2026, 4, 10, 11, 0),
                 LocalDateTime.of(2026, 4, 10, 20, 0),
@@ -289,6 +303,7 @@ class AdminVoteServiceTest {
         when(voteRepository.findAllByVoteEndAtLessThanEqualOrderByVoteEndAtAscIdAsc(LocalDateTime.of(2026, 4, 10, 12, 0)))
                 .thenReturn(List.of());
         when(voteRepository.findAll(any(Sort.class))).thenReturn(List.of(
+                activeVote,
                 inProgressVote,
                 includedRegularVote,
                 excludedFlashVote,

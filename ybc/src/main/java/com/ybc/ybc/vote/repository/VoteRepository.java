@@ -1,7 +1,7 @@
 package com.ybc.ybc.vote.repository;
 
 import com.ybc.ybc.vote.domain.Vote;
-import com.ybc.ybc.vote.dto.response.VoteSummaryResponse;
+import com.ybc.ybc.vote.repository.projection.VoteSummaryProjection;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,7 +36,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
      */
     @Query(
             value = """
-                    select new com.ybc.ybc.vote.dto.response.VoteSummaryResponse(
+                    select new com.ybc.ybc.vote.repository.projection.VoteSummaryProjection(
                         v.id,
                         v.title,
                         v.activityType,
@@ -68,7 +68,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                       and v.voteStartAt <= :openAt
                     """
     )
-    Page<VoteSummaryResponse> findOpenVoteSummaries(
+    Page<VoteSummaryProjection> findOpenVoteSummaries(
             @Param("now") LocalDateTime now,
             @Param("openAt") LocalDateTime openAt,
             Pageable pageable
@@ -79,7 +79,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
      */
     @Query(
             value = """
-                    select new com.ybc.ybc.vote.dto.response.VoteSummaryResponse(
+                    select new com.ybc.ybc.vote.repository.projection.VoteSummaryProjection(
                         v.id,
                         v.title,
                         v.activityType,
@@ -109,7 +109,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
                     where v.voteEndAt <= :now
                     """
     )
-    Page<VoteSummaryResponse> findClosedVoteSummaries(
+    Page<VoteSummaryProjection> findClosedVoteSummaries(
             @Param("now") LocalDateTime now,
             Pageable pageable
     );

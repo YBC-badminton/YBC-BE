@@ -474,12 +474,15 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.votes.length()").value(3))
                 .andExpect(jsonPath("$.votes[0].voteId").value(firstCreatedSameDateVote.getId()))
+                .andExpect(jsonPath("$.votes[0].status").value("UPCOMING"))
                 .andExpect(jsonPath("$.votes[0].currentParticipantCount").value(0))
                 .andExpect(jsonPath("$.votes[0].matchRegistered").value(false))
                 .andExpect(jsonPath("$.votes[1].voteId").value(laterCreatedSameDateVote.getId()))
+                .andExpect(jsonPath("$.votes[1].status").value("IN_PROGRESS"))
                 .andExpect(jsonPath("$.votes[1].currentParticipantCount").value(2))
                 .andExpect(jsonPath("$.votes[1].matchRegistered").value(true))
                 .andExpect(jsonPath("$.votes[2].voteId").value(laterActivityVote.getId()))
+                .andExpect(jsonPath("$.votes[2].status").value("IN_PROGRESS"))
                 .andExpect(jsonPath("$.votes[2].currentParticipantCount").value(0))
                 .andExpect(jsonPath("$.votes[2].matchRegistered").value(false));
     }
@@ -1644,12 +1647,38 @@ class VoteControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.votes.length()").value(3))
                 .andExpect(jsonPath("$.votes[0].voteId").value(laterCreatedRecentVote.getId()))
+                .andExpect(jsonPath("$.votes[0].status").value("COMPLETED"))
                 .andExpect(jsonPath("$.votes[0].name").value("가장 최근 정기 운동"))
                 .andExpect(jsonPath("$.votes[1].voteId").value(firstCreatedRecentVote.getId()))
+                .andExpect(jsonPath("$.votes[1].status").value("COMPLETED"))
                 .andExpect(jsonPath("$.votes[1].name").value("최근 이벤트 운동"))
                 .andExpect(jsonPath("$.votes[2].voteId").value(oldestActivityVote.getId()))
+                .andExpect(jsonPath("$.votes[2].status").value("COMPLETED"))
                 .andExpect(jsonPath("$.votes[2].name").value("더 이전 정기 운동"))
                 .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    @Test
+    @DisplayName("open=false 조회 시 활동 종료 전인 마감 투표는 ACTIVE 상태로 반환한다")
+    void getClosedVotesIncludesActiveStatus() throws Exception {
+        LocalDateTime now = LocalDateTime.now();
+        Vote activeVote = voteRepository.save(vote(
+                "내일 정기 운동",
+                ActivityType.REGULAR,
+                now.toLocalDate().plusDays(1),
+                now.minusDays(1),
+                now.minusHours(1),
+                20
+        ));
+
+        mockMvc.perform(get("/votes")
+                        .with(jwt())
+                        .param("open", "false")
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.votes[0].voteId").value(activeVote.getId()))
+                .andExpect(jsonPath("$.votes[0].status").value("ACTIVE"));
     }
 
     @Test
