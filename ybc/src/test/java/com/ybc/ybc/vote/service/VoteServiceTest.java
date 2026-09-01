@@ -15,6 +15,7 @@ import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.FlashVoteUpdateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
+import com.ybc.ybc.vote.dto.response.AdminVoteStatus;
 import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
 import com.ybc.ybc.vote.dto.response.RecentVoteListResponse;
 import com.ybc.ybc.vote.dto.response.VoteAbsenteeListResponse;
@@ -30,6 +31,7 @@ import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
 import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
+import com.ybc.ybc.vote.repository.projection.VoteSummaryProjection;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -103,16 +105,16 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("open=true 투표 목록 조회 시 activityDate를 포함해 반환한다")
+    @DisplayName("open=true 투표 목록 조회 시 activityDate와 status를 포함해 반환한다")
     void getVotesReturnsActivityDate() {
-        VoteSummaryResponse summary = new VoteSummaryResponse(
+        VoteSummaryProjection summary = new VoteSummaryProjection(
                 1L,
                 "목요 정기 운동",
                 ActivityType.REGULAR,
                 LocalDate.of(2026, 4, 10),
                 "이화체육관",
-                LocalDateTime.of(2026, 4, 9, 18, 0),
-                LocalDateTime.of(2026, 4, 9, 23, 0),
+                LocalDateTime.of(2026, 4, 10, 12, 20),
+                LocalDateTime.of(2026, 4, 10, 13, 0),
                 "19:00",
                 20,
                 3L,
@@ -126,20 +128,35 @@ class VoteServiceTest {
 
         assertThat(response.votes()).hasSize(1);
         assertThat(response.votes().get(0).activityDate()).isEqualTo(LocalDate.of(2026, 4, 10));
+        assertThat(response.votes().get(0).status()).isEqualTo(AdminVoteStatus.UPCOMING);
         assertThat(response.votes().get(0).matchRegistered()).isTrue();
         verify(voteRepository).findOpenVoteSummaries(eq(now), eq(now.plusMinutes(30)), any(org.springframework.data.domain.Pageable.class));
     }
 
     @Test
-    @DisplayName("open=false 투표 목록 조회 시 마감된 투표 목록 저장소를 조회한다")
+    @DisplayName("open=false 투표 목록 조회 시 활동 종료 전이면 ACTIVE 상태를 반환한다")
     void getVotesReturnsClosedVotesWhenOpenIsFalse() {
         LocalDateTime now = currentTime();
+        VoteSummaryProjection summary = new VoteSummaryProjection(
+                2L,
+                "내일 정기 운동",
+                ActivityType.REGULAR,
+                LocalDate.of(2026, 4, 11),
+                "이화체육관",
+                LocalDateTime.of(2026, 4, 10, 9, 0),
+                LocalDateTime.of(2026, 4, 10, 11, 0),
+                "19:00",
+                20,
+                0L,
+                false
+        );
         when(voteRepository.findClosedVoteSummaries(eq(now), any(org.springframework.data.domain.Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+                .thenReturn(new PageImpl<>(List.of(summary), PageRequest.of(0, 10), 1));
 
         VoteListResponse response = voteService.getVotes(false, 0, 10);
 
-        assertThat(response.votes()).isEmpty();
+        assertThat(response.votes()).hasSize(1);
+        assertThat(response.votes().get(0).status()).isEqualTo(AdminVoteStatus.ACTIVE);
         verify(voteRepository).findClosedVoteSummaries(eq(now), any(org.springframework.data.domain.Pageable.class));
     }
 

@@ -4,6 +4,7 @@ public record AdminVoteListSummaryResponse(
         long totalCount,
         long upcomingCount,
         long inProgressCount,
+        long activeCount,
         long completedCount
 ) {
 }
