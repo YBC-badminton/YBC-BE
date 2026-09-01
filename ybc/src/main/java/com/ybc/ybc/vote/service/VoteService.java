@@ -15,6 +15,7 @@ import com.ybc.ybc.vote.dto.request.FlashVoteCreateRequest;
 import com.ybc.ybc.vote.dto.request.FlashVoteUpdateRequest;
 import com.ybc.ybc.vote.dto.request.VoteAttendanceRequest;
 import com.ybc.ybc.vote.dto.request.VoteGuestRequest;
+import com.ybc.ybc.vote.dto.response.AdminVoteStatus;
 import com.ybc.ybc.vote.dto.response.FlashVoteCreateResponse;
 import com.ybc.ybc.vote.dto.response.RecentVoteListResponse;
 import com.ybc.ybc.vote.dto.response.RecentVoteResponse;
@@ -34,6 +35,7 @@ import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
 import com.ybc.ybc.vote.repository.VoteMatchGroupRepository;
 import com.ybc.ybc.vote.repository.VoteMatchRepository;
 import com.ybc.ybc.vote.repository.VoteRepository;
+import com.ybc.ybc.vote.repository.projection.VoteSummaryProjection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -134,10 +136,19 @@ public class VoteService {
     public VoteListResponse getVotes(boolean open, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "voteStartAt"));
         LocalDateTime now = now();
-        Page<VoteSummaryResponse> votePage = open
+        Page<VoteSummaryProjection> votePage = open
                 ? voteRepository.findOpenVoteSummaries(now, now.plusMinutes(VOTE_PREVIEW_MINUTES), pageable)
                 : voteRepository.findClosedVoteSummaries(now, pageable);
-        return VoteListResponse.from(votePage);
+        return VoteListResponse.from(votePage.map(vote -> VoteSummaryResponse.from(
+                vote,
+                AdminVoteStatus.from(
+                        vote.voteStartAt(),
+                        vote.voteEndAt(),
+                        vote.activityDate(),
+                        vote.activityTime(),
+                        now
+                )
+        )));
     }
 
     /**

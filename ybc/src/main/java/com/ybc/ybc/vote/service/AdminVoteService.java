@@ -126,7 +126,13 @@ public class AdminVoteService {
 
         List<AdminVoteListItemResponse> data = votes.stream()
                 .map(vote -> {
-                    AdminVoteStatus status = AdminVoteStatus.from(vote.getVoteStartAt(), vote.getVoteEndAt(), now);
+                    AdminVoteStatus status = AdminVoteStatus.from(
+                            vote.getVoteStartAt(),
+                            vote.getVoteEndAt(),
+                            vote.getActivityDate(),
+                            vote.getActivityTime(),
+                            now
+                    );
                     return AdminVoteListItemResponse.from(
                             vote,
                             status,
@@ -154,7 +160,13 @@ public class AdminVoteService {
                         Sort.Order.desc("id")
                         )
                 ).stream()
-                .filter(vote -> AdminVoteStatus.from(vote.getVoteStartAt(), vote.getVoteEndAt(), now) == AdminVoteStatus.COMPLETED)
+                .filter(vote -> AdminVoteStatus.from(
+                        vote.getVoteStartAt(),
+                        vote.getVoteEndAt(),
+                        vote.getActivityDate(),
+                        vote.getActivityTime(),
+                        now
+                ) == AdminVoteStatus.COMPLETED)
                 .filter(this::isMatchVisibleActivity)
                 .toList();
         VoteCountBundle voteCountBundle = buildVoteCountBundle(completedVotes);
@@ -306,7 +318,13 @@ public class AdminVoteService {
         LocalDateTime now = LocalDateTime.now(clock);
         long attendeeCount = voteAttendanceRepository.countAttendancesByVoteId(vote.getId());
         long guestCount = guestRepository.countByVote_Id(vote.getId());
-        AdminVoteStatus status = AdminVoteStatus.from(vote.getVoteStartAt(), vote.getVoteEndAt(), now);
+        AdminVoteStatus status = AdminVoteStatus.from(
+                vote.getVoteStartAt(),
+                vote.getVoteEndAt(),
+                vote.getActivityDate(),
+                vote.getActivityTime(),
+                now
+        );
         return AdminVoteListItemResponse.from(vote, status, attendeeCount, guestCount);
     }
 
@@ -315,6 +333,7 @@ public class AdminVoteService {
                 data.size(),
                 data.stream().filter(item -> item.status() == AdminVoteStatus.UPCOMING).count(),
                 data.stream().filter(item -> item.status() == AdminVoteStatus.IN_PROGRESS).count(),
+                data.stream().filter(item -> item.status() == AdminVoteStatus.ACTIVE).count(),
                 data.stream().filter(item -> item.status() == AdminVoteStatus.COMPLETED).count()
         );
     }

@@ -230,6 +230,14 @@ class AdminVoteControllerIntegrationTest {
                 LocalDateTime.now().plusHours(4),
                 20
         ));
+        Vote activeVote = voteRepository.save(vote(
+                "내일 이벤트 운동",
+                LocalDate.now().plusDays(1),
+                ActivityType.EVENT,
+                LocalDateTime.now().minusDays(1),
+                LocalDateTime.now().minusHours(1),
+                18
+        ));
         voteRepository.save(vote(
                 "지난 이벤트 운동",
                 LocalDate.now().minusDays(1),
@@ -246,9 +254,10 @@ class AdminVoteControllerIntegrationTest {
         mockMvc.perform(get(ADMIN_VOTES_API)
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary.totalCount").value(3))
+                .andExpect(jsonPath("$.summary.totalCount").value(4))
                 .andExpect(jsonPath("$.summary.upcomingCount").value(1))
                 .andExpect(jsonPath("$.summary.inProgressCount").value(1))
+                .andExpect(jsonPath("$.summary.activeCount").value(1))
                 .andExpect(jsonPath("$.summary.completedCount").value(1))
                 .andExpect(jsonPath("$.data[0].voteId").value(upcomingVote.getId()))
                 .andExpect(jsonPath("$.data[0].status").value("UPCOMING"))
@@ -258,7 +267,9 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.data[1].capacity").value(20))
                 .andExpect(jsonPath("$.data[1].attendance.currentAttendees").value(2))
                 .andExpect(jsonPath("$.data[1].attendance.currentGuests").value(1))
-                .andExpect(jsonPath("$.data[1].attendance.totalParticipants").value(2));
+                .andExpect(jsonPath("$.data[1].attendance.totalParticipants").value(2))
+                .andExpect(jsonPath("$.data[2].voteId").value(activeVote.getId()))
+                .andExpect(jsonPath("$.data[2].status").value("ACTIVE"));
     }
 
     @Test
@@ -1056,7 +1067,8 @@ class AdminVoteControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.totalCount").value(2))
                 .andExpect(jsonPath("$.summary.inProgressCount").value(1))
-                .andExpect(jsonPath("$.summary.completedCount").value(1));
+                .andExpect(jsonPath("$.summary.activeCount").value(1))
+                .andExpect(jsonPath("$.summary.completedCount").value(0));
 
         List<Vote> votes = voteRepository.findAll();
         assertThat(votes).hasSize(2);
@@ -1091,7 +1103,8 @@ class AdminVoteControllerIntegrationTest {
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.totalCount").value(1))
-                .andExpect(jsonPath("$.summary.completedCount").value(1));
+                .andExpect(jsonPath("$.summary.activeCount").value(1))
+                .andExpect(jsonPath("$.summary.completedCount").value(0));
 
         assertThat(voteRepository.findAll()).hasSize(1);
     }

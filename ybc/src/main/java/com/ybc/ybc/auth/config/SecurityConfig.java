@@ -3,6 +3,10 @@ package com.ybc.ybc.auth.config;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.ybc.ybc.auth.domain.AuthTokenType;
 import com.ybc.ybc.auth.domain.MemberPrincipal;
+import com.ybc.ybc.auth.service.SwaggerAccessService;
+import com.ybc.ybc.auth.service.SwaggerLoginService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import com.ybc.ybc.global.security.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -11,7 +15,6 @@ import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -25,19 +28,20 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
-import java.util.Set;
 
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
-    private static final Set<Long> SWAGGER_ALLOWED_MEMBER_IDS = Set.of(8L);
     private static final String[] PUBLIC_AUTH_ENDPOINTS = {
             "/",
             "/api/v1/auth/kakao/login-url",
@@ -61,6 +65,10 @@ public class SecurityConfig {
     private static final String[] PUBLIC_MONITORING_TEST_ENDPOINTS = {
             "/internal/monitoring/test-alert"
     };
+    private static final String[] PUBLIC_SWAGGER_LOGIN_ENDPOINTS = {
+            "/swagger-login",
+            "/swagger-logout"
+    };
     private static final String[] SWAGGER_ENDPOINTS = {
             "/swagger-ui.html",
             "/swagger-ui/**",
@@ -69,6 +77,7 @@ public class SecurityConfig {
     };
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final JwtProperties jwtProperties;
+    private final SwaggerAccessService swaggerAccessService;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
@@ -76,6 +85,8 @@ public class SecurityConfig {
                                                    RequestMatcher bearerTokenIgnoredRequestMatcher,
                                                    BearerTokenResolver publicEndpointAwareBearerTokenResolver,
                                                    CorsConfigurationSource corsConfigurationSource) throws Exception {
+        AuthenticationEntryPoint swaggerAwareAuthenticationEntryPoint = swaggerAwareAuthenticationEntryPoint();
+
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(AbstractHttpConfigurer::disable)
@@ -83,9 +94,9 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(restAuthenticationEntryPoint))
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(swaggerAwareAuthenticationEntryPoint))
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .authenticationEntryPoint(restAuthenticationEntryPoint)
+                        .authenticationEntryPoint(swaggerAwareAuthenticationEntryPoint)
                         .bearerTokenResolver(publicEndpointAwareBearerTokenResolver)
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
                 )
@@ -93,8 +104,9 @@ public class SecurityConfig {
                         .requestMatchers(bearerTokenIgnoredRequestMatcher).permitAll()
                         .requestMatchers(PUBLIC_ACTUATOR_ENDPOINTS).permitAll()
                         .requestMatchers(PUBLIC_MONITORING_TEST_ENDPOINTS).permitAll()
+                        .requestMatchers(PUBLIC_SWAGGER_LOGIN_ENDPOINTS).permitAll()
                         .requestMatchers(SWAGGER_ENDPOINTS).access((authentication, context) ->
-                                new AuthorizationDecision(canAccessSwagger(authentication.get())))
+                                new AuthorizationDecision(swaggerAccessService.canAccess(authentication.get())))
                         .requestMatchers(PUBLIC_AUTH_ENDPOINTS).permitAll()
                         .anyRequest().authenticated()
                 );
@@ -134,10 +146,23 @@ public class SecurityConfig {
     @Bean
     public BearerTokenResolver publicEndpointAwareBearerTokenResolver(RequestMatcher bearerTokenIgnoredRequestMatcher) {
         DefaultBearerTokenResolver defaultBearerTokenResolver = new DefaultBearerTokenResolver();
+        RequestMatcher swaggerRequestMatcher = swaggerRequestMatcher();
 
-        return request -> bearerTokenIgnoredRequestMatcher.matches(request)
-                ? null
-                : defaultBearerTokenResolver.resolve(request);
+        return request -> {
+            if (bearerTokenIgnoredRequestMatcher.matches(request)) {
+                return null;
+            }
+
+            String bearerToken = defaultBearerTokenResolver.resolve(request);
+            if (StringUtils.hasText(bearerToken)) {
+                return bearerToken;
+            }
+
+            if (swaggerRequestMatcher.matches(request)) {
+                return resolveSwaggerCookieToken(request);
+            }
+            return null;
+        };
     }
 
     @Bean
@@ -156,37 +181,49 @@ public class SecurityConfig {
         };
     }
 
-    private boolean canAccessSwagger(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return false;
-        }
-        if (authentication.getAuthorities().stream()
-                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()))) {
-            return true;
-        }
-        Long memberId = resolveMemberId(authentication);
-        return memberId != null && SWAGGER_ALLOWED_MEMBER_IDS.contains(memberId);
+    private RequestMatcher swaggerUiRequestMatcher() {
+        return request -> {
+            String requestUri = request.getRequestURI();
+            return "/swagger-ui.html".equals(requestUri) || requestUri.startsWith("/swagger-ui/");
+        };
     }
 
-    private Long resolveMemberId(Authentication authentication) {
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof MemberPrincipal memberPrincipal) {
-            return memberPrincipal.getId();
+    private RequestMatcher swaggerRequestMatcher() {
+        return new OrRequestMatcher(
+                swaggerUiRequestMatcher(),
+                request -> {
+                    String requestUri = request.getRequestURI();
+                    return "/v3/api-docs".equals(requestUri) || requestUri.startsWith("/v3/api-docs/");
+                }
+        );
+    }
+
+    private String resolveSwaggerCookieToken(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return null;
         }
-        if (principal instanceof Jwt jwt) {
-            return parseMemberId(jwt.getSubject());
+
+        for (Cookie cookie : cookies) {
+            if (SwaggerLoginService.SWAGGER_ACCESS_TOKEN_COOKIE_NAME.equals(cookie.getName())
+                    && StringUtils.hasText(cookie.getValue())) {
+                return cookie.getValue();
+            }
         }
         return null;
     }
 
-    private Long parseMemberId(String subject) {
-        if (subject == null || subject.isBlank()) {
-            return null;
-        }
-        try {
-            return Long.parseLong(subject);
-        } catch (NumberFormatException exception) {
-            return null;
-        }
+    private AuthenticationEntryPoint swaggerAwareAuthenticationEntryPoint() {
+        RequestMatcher swaggerUiRequestMatcher = swaggerUiRequestMatcher();
+        LoginUrlAuthenticationEntryPoint swaggerLoginEntryPoint =
+                new LoginUrlAuthenticationEntryPoint("/swagger-login");
+
+        return (request, response, authException) -> {
+            if (swaggerUiRequestMatcher.matches(request)) {
+                swaggerLoginEntryPoint.commence(request, response, authException);
+                return;
+            }
+            restAuthenticationEntryPoint.commence(request, response, authException);
+        };
     }
 }
