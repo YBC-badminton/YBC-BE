@@ -11,6 +11,11 @@ import com.ybc.ybc.members.domain.ClubMember;
 import com.ybc.ybc.members.repository.ClubMemberRepository;
 import com.ybc.ybc.auth.service.KakaoApiClient;
 import com.ybc.ybc.support.TestMailConfig;
+import com.ybc.ybc.vote.domain.ActivityType;
+import com.ybc.ybc.vote.domain.Vote;
+import com.ybc.ybc.vote.domain.VoteAttendance;
+import com.ybc.ybc.vote.repository.VoteAttendanceRepository;
+import com.ybc.ybc.vote.repository.VoteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -29,6 +34,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
@@ -68,6 +75,12 @@ class AuthControllerIntegrationTest {
     private KakaoApiClient kakaoApiClient;
 
     @Autowired
+    private VoteRepository voteRepository;
+
+    @Autowired
+    private VoteAttendanceRepository voteAttendanceRepository;
+
+    @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
     private final ObjectMapper objectMapper = JsonMapper.builder()
@@ -78,6 +91,8 @@ class AuthControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        voteAttendanceRepository.deleteAll();
+        voteRepository.deleteAll();
         clubMemberRepository.deleteAll();
         memberRepository.deleteAll();
         refreshTokenStore.clear();
@@ -319,7 +334,43 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.nickname").value("양배추"))
                 .andExpect(jsonPath("$.email").value("cabbage@example.com"))
                 .andExpect(jsonPath("$.term").value("10기"))
-                .andExpect(jsonPath("$.isAdmin").value(false));
+                .andExpect(jsonPath("$.isAdmin").value(false))
+                .andExpect(jsonPath("$.activeVotes").isArray())
+                .andExpect(jsonPath("$.activeVotes").isEmpty());
+    }
+
+    @Test
+    void getCurrentMemberIncludesParticipatedActiveVotesWhenResponseExists() throws Exception {
+        LoginContext loginContext = login("auth-code", new KakaoUserProfile("123456789", "양배추", "cabbage@example.com"));
+        Member member = memberRepository.findById(loginContext.memberId()).orElseThrow();
+
+        Vote activeVote = voteRepository.save(
+                Vote.builder()
+                        .activityType(ActivityType.REGULAR)
+                        .title("정기모임 9월 1주차")
+                        .activityDate(LocalDate.now().plusDays(1))
+                        .activityTime("19:00 ~ 21:00")
+                        .location("이화체육관")
+                        .memo("확정 인원 확인")
+                        .voteStartAt(LocalDateTime.now().minusDays(1))
+                        .voteEndAt(LocalDateTime.now().minusHours(1))
+                        .capacity(20)
+                        .build()
+        );
+        voteAttendanceRepository.save(
+                VoteAttendance.builder()
+                        .vote(activeVote)
+                        .member(member)
+                        .attendanceStatus(false)
+                        .build()
+        );
+
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + loginContext.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(loginContext.memberId()))
+                .andExpect(jsonPath("$.activeVotes[0].voteId").value(activeVote.getId()))
+                .andExpect(jsonPath("$.activeVotes[0].name").value("정기모임 9월 1주차"));
     }
 
     @Test

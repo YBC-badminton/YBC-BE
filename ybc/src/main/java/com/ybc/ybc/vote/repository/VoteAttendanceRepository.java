@@ -1,11 +1,14 @@
 package com.ybc.ybc.vote.repository;
 
 import com.ybc.ybc.vote.domain.VoteAttendance;
+import com.ybc.ybc.vote.repository.projection.ActiveVoteCandidateProjection;
 import com.ybc.ybc.vote.repository.projection.VoteAttendanceCountProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -22,6 +25,26 @@ public interface VoteAttendanceRepository extends JpaRepository<VoteAttendance, 
     Optional<VoteAttendance> findByVote_IdAndMember_Id(Long voteId, Long memberId);
 
     boolean existsByVote_IdInAndMember_IdAndAttendanceStatusTrue(Collection<Long> voteIds, Long memberId);
+
+    @Query("""
+            select distinct new com.ybc.ybc.vote.repository.projection.ActiveVoteCandidateProjection(
+                v.id,
+                v.title,
+                v.voteStartAt,
+                v.voteEndAt,
+                v.activityDate,
+                v.activityTime
+            )
+            from VoteAttendance va
+            join va.vote v
+            where va.member.id = :memberId
+              and v.voteEndAt <= :now
+              and v.activityDate >= :today
+            order by v.activityDate asc, v.id asc
+            """)
+    List<ActiveVoteCandidateProjection> findParticipatedVoteCandidates(@Param("memberId") Long memberId,
+                                                                       @Param("now") LocalDateTime now,
+                                                                       @Param("today") LocalDate today);
 
     List<VoteAttendance> findAllByVote_IdAndAttendanceStatusTrueOrderByIdAsc(Long voteId);
 

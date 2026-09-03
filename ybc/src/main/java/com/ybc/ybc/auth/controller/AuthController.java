@@ -2,15 +2,14 @@ package com.ybc.ybc.auth.controller;
 
 import com.ybc.ybc.auth.domain.MemberPrincipal;
 import com.ybc.ybc.auth.dto.AuthTokenResponse;
+import com.ybc.ybc.auth.dto.CurrentMemberResponse;
 import com.ybc.ybc.auth.dto.KakaoLoginRequest;
 import com.ybc.ybc.auth.dto.KakaoLoginResponse;
 import com.ybc.ybc.auth.dto.KakaoLoginUrlResponse;
-import com.ybc.ybc.auth.dto.MemberResponse;
-import com.ybc.ybc.auth.dto.MemberSummary;
 import com.ybc.ybc.auth.service.AuthFacade;
 import com.ybc.ybc.auth.dto.TokenRefreshRequest;
-import com.ybc.ybc.auth.service.KakaoAuthService;
 import com.ybc.ybc.auth.service.JwtTokenService;
+import com.ybc.ybc.auth.service.KakaoAuthService;
 import com.ybc.ybc.global.exception.YbcException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -120,9 +119,8 @@ public class AuthController {
      * 회원정보 조회
      */
     @GetMapping("/me")
-    public MemberResponse getCurrentMember(@AuthenticationPrincipal MemberPrincipal memberPrincipal) {
-        MemberSummary memberSummary = kakaoAuthService.getCurrentMember(memberPrincipal.getId());
-        return MemberResponse.from(memberSummary);
+    public CurrentMemberResponse getCurrentMember(@AuthenticationPrincipal MemberPrincipal memberPrincipal) {
+        return authFacade.getCurrentMember(memberPrincipal.getId());
     }
 
 
