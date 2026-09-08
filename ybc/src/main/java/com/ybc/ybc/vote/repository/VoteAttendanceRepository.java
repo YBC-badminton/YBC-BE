@@ -38,6 +38,7 @@ public interface VoteAttendanceRepository extends JpaRepository<VoteAttendance, 
             from VoteAttendance va
             join va.vote v
             where va.member.id = :memberId
+              and va.attendanceStatus = true
               and v.voteEndAt <= :now
               and v.activityDate >= :today
             order by v.activityDate asc, v.id asc
