@@ -361,7 +361,7 @@ class AuthControllerIntegrationTest {
                 VoteAttendance.builder()
                         .vote(activeVote)
                         .member(member)
-                        .attendanceStatus(false)
+                        .attendanceStatus(true)
                         .build()
         );
 
@@ -371,6 +371,40 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.id").value(loginContext.memberId()))
                 .andExpect(jsonPath("$.activeVotes[0].voteId").value(activeVote.getId()))
                 .andExpect(jsonPath("$.activeVotes[0].name").value("정기모임 9월 1주차"));
+    }
+
+    @Test
+    void getCurrentMemberExcludesActiveVotesWhenMemberVotedAbsent() throws Exception {
+        LoginContext loginContext = login("auth-code", new KakaoUserProfile("123456789", "양배추", "cabbage@example.com"));
+        Member member = memberRepository.findById(loginContext.memberId()).orElseThrow();
+
+        Vote activeVote = voteRepository.save(
+                Vote.builder()
+                        .activityType(ActivityType.REGULAR)
+                        .title("정기모임 9월 1주차")
+                        .activityDate(LocalDate.now().plusDays(1))
+                        .activityTime("19:00 ~ 21:00")
+                        .location("이화체육관")
+                        .memo("확정 인원 확인")
+                        .voteStartAt(LocalDateTime.now().minusDays(1))
+                        .voteEndAt(LocalDateTime.now().minusHours(1))
+                        .capacity(20)
+                        .build()
+        );
+        voteAttendanceRepository.save(
+                VoteAttendance.builder()
+                        .vote(activeVote)
+                        .member(member)
+                        .attendanceStatus(false)
+                        .build()
+        );
+
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + loginContext.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(loginContext.memberId()))
+                .andExpect(jsonPath("$.activeVotes").isArray())
+                .andExpect(jsonPath("$.activeVotes").isEmpty());
     }
 
     @Test
