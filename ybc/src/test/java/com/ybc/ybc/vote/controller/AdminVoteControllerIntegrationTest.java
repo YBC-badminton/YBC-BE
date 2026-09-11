@@ -39,6 +39,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -273,8 +274,20 @@ class AdminVoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("인증된 사용자는 투표 완료된 운동 리스트 조회 시 REGULAR, EVENT만 보고 화요일 운동은 제외한다")
+    @DisplayName("인증된 사용자는 대진 생성 가능 운동 조회 시 활동 예정과 완료 상태의 REGULAR, EVENT만 본다")
     void getCompletedVotesReturnsOnlyVisibleActivitiesWhenAuthenticated() throws Exception {
+        LocalDate activeActivityDate = LocalDate.now().plusDays(1);
+        if (activeActivityDate.getDayOfWeek() == DayOfWeek.TUESDAY) {
+            activeActivityDate = activeActivityDate.plusDays(1);
+        }
+        Vote activeVote = voteRepository.save(vote(
+                "활동 예정 이벤트 운동",
+                activeActivityDate,
+                ActivityType.EVENT,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                20
+        ));
         Vote latestCompletedVote = voteRepository.save(vote(
                 "3월 4주차 정기 배드민턴 투표",
                 LocalDate.of(2026, 3, 28),
@@ -329,23 +342,27 @@ class AdminVoteControllerIntegrationTest {
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].voteId").value(latestCompletedVote.getId()))
-                .andExpect(jsonPath("$[0].title").value("3월 4주차 정기 배드민턴 투표"))
-                .andExpect(jsonPath("$[0].activityDay").value("토요일"))
-                .andExpect(jsonPath("$[0].activityDate").value("2026-03-28"))
-                .andExpect(jsonPath("$[0].location").value("망원체육관"))
-                .andExpect(jsonPath("$[0].attendance.currentAttendees").value(2))
-                .andExpect(jsonPath("$[0].attendance.currentGuests").value(2))
-                .andExpect(jsonPath("$[0].attendance.totalParticipants").value(2))
-                .andExpect(jsonPath("$[0].matchRegistered").value(true))
-                .andExpect(jsonPath("$[0].matchId").value(matchGroup.getId()))
-                .andExpect(jsonPath("$[1].voteId").value(secondCompletedVote.getId()))
-                .andExpect(jsonPath("$[1].title").value("목요일 이벤트 운동"))
-                .andExpect(jsonPath("$[1].activityDay").value("목요일"))
-                .andExpect(jsonPath("$[1].attendance.totalParticipants").value(1))
-                .andExpect(jsonPath("$[1].matchRegistered").value(false))
-                .andExpect(jsonPath("$[1].matchId").isEmpty());
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].voteId").value(activeVote.getId()))
+                .andExpect(jsonPath("$[0].title").value("활동 예정 이벤트 운동"))
+                .andExpect(jsonPath("$[0].matchRegistered").value(false))
+                .andExpect(jsonPath("$[0].matchId").isEmpty())
+                .andExpect(jsonPath("$[1].voteId").value(latestCompletedVote.getId()))
+                .andExpect(jsonPath("$[1].title").value("3월 4주차 정기 배드민턴 투표"))
+                .andExpect(jsonPath("$[1].activityDay").value("토요일"))
+                .andExpect(jsonPath("$[1].activityDate").value("2026-03-28"))
+                .andExpect(jsonPath("$[1].location").value("망원체육관"))
+                .andExpect(jsonPath("$[1].attendance.currentAttendees").value(2))
+                .andExpect(jsonPath("$[1].attendance.currentGuests").value(2))
+                .andExpect(jsonPath("$[1].attendance.totalParticipants").value(2))
+                .andExpect(jsonPath("$[1].matchRegistered").value(true))
+                .andExpect(jsonPath("$[1].matchId").value(matchGroup.getId()))
+                .andExpect(jsonPath("$[2].voteId").value(secondCompletedVote.getId()))
+                .andExpect(jsonPath("$[2].title").value("목요일 이벤트 운동"))
+                .andExpect(jsonPath("$[2].activityDay").value("목요일"))
+                .andExpect(jsonPath("$[2].attendance.totalParticipants").value(1))
+                .andExpect(jsonPath("$[2].matchRegistered").value(false))
+                .andExpect(jsonPath("$[2].matchId").isEmpty());
     }
 
     @Test
@@ -441,8 +458,8 @@ class AdminVoteControllerIntegrationTest {
     @DisplayName("인증된 사용자는 투표 참석자로 대진을 등록할 수 있다")
     void registerMatchesReturnsMatchResponseWhenAuthenticated() throws Exception {
         Vote vote = voteRepository.save(vote(
-                "대진 등록용 정기 운동",
-                LocalDate.now().minusDays(1),
+                "활동 예정 대진 등록용 정기 운동",
+                LocalDate.now().plusDays(1),
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusDays(2),
                 LocalDateTime.now().minusDays(1),
