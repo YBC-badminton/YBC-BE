@@ -268,7 +268,7 @@ class AdminVoteServiceTest {
     }
 
     @Test
-    @DisplayName("투표 완료된 운동 리스트 조회 시 REGULAR, EVENT만 반환하고 화요일 운동은 제외한다")
+    @DisplayName("대진 생성 가능 운동 조회 시 활동 예정과 완료 상태의 REGULAR, EVENT만 반환하고 화요일 운동은 제외한다")
     void getCompletedVotesReturnsOnlyVisibleActivities() {
         Vote includedRegularVote = vote(1L, "지난 정기 운동",
                 LocalDate.of(2026, 4, 8),
@@ -309,26 +309,33 @@ class AdminVoteServiceTest {
                 excludedFlashVote,
                 excludedTuesdayEventVote
         ));
-        when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(1L)))
-                .thenReturn(List.of(new VoteAttendanceCountProjection(1L, 12L)));
-        when(guestRepository.countGuestsByVoteIds(List.of(1L)))
+        when(voteAttendanceRepository.countAttendancesByVoteIds(List.of(4L, 1L)))
+                .thenReturn(List.of(
+                        new VoteAttendanceCountProjection(4L, 4L),
+                        new VoteAttendanceCountProjection(1L, 12L)
+                ));
+        when(guestRepository.countGuestsByVoteIds(List.of(4L, 1L)))
                 .thenReturn(List.of(new VoteGuestCountProjection(1L, 2L)));
         com.ybc.ybc.vote.domain.VoteMatchGroup matchGroup = com.ybc.ybc.vote.domain.VoteMatchGroup.create(includedRegularVote);
         ReflectionTestUtils.setField(matchGroup, "id", 100L);
-        when(voteMatchGroupRepository.findAllByVote_IdIn(Set.of(1L)))
+        when(voteMatchGroupRepository.findAllByVote_IdIn(Set.of(4L, 1L)))
                 .thenReturn(List.of(matchGroup));
 
         List<AdminCompletedVoteResponse> response = adminVoteService.getCompletedVotes();
 
-        assertThat(response).hasSize(1);
-        assertThat(response.get(0).voteId()).isEqualTo(1L);
-        assertThat(response.get(0).title()).isEqualTo("지난 정기 운동");
-        assertThat(response.get(0).activityDay()).isEqualTo("수요일");
-        assertThat(response.get(0).attendance().currentAttendees()).isEqualTo(12L);
-        assertThat(response.get(0).attendance().currentGuests()).isEqualTo(2L);
-        assertThat(response.get(0).attendance().totalParticipants()).isEqualTo(12L);
-        assertThat(response.get(0).matchRegistered()).isTrue();
-        assertThat(response.get(0).matchId()).isEqualTo(100L);
+        assertThat(response).hasSize(2);
+        assertThat(response.get(0).voteId()).isEqualTo(4L);
+        assertThat(response.get(0).title()).isEqualTo("내일 이벤트 운동");
+        assertThat(response.get(0).attendance().currentAttendees()).isEqualTo(4L);
+        assertThat(response.get(0).matchRegistered()).isFalse();
+        assertThat(response.get(1).voteId()).isEqualTo(1L);
+        assertThat(response.get(1).title()).isEqualTo("지난 정기 운동");
+        assertThat(response.get(1).activityDay()).isEqualTo("수요일");
+        assertThat(response.get(1).attendance().currentAttendees()).isEqualTo(12L);
+        assertThat(response.get(1).attendance().currentGuests()).isEqualTo(2L);
+        assertThat(response.get(1).attendance().totalParticipants()).isEqualTo(12L);
+        assertThat(response.get(1).matchRegistered()).isTrue();
+        assertThat(response.get(1).matchId()).isEqualTo(100L);
     }
 
     @Test
