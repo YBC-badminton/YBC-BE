@@ -74,7 +74,7 @@ public class AdminVoteController {
 
     /**
      * GET /admin/votes?status=completed
-     * 투표 완료된 운동 리스트 조회
+     * 대진 생성 가능한 활동 예정/완료 운동 리스트 조회
      */
     @GetMapping(params = "status=completed")
     public List<AdminCompletedVoteResponse> getCompletedVotes() {

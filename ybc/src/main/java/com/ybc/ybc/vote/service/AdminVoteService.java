@@ -148,31 +148,34 @@ public class AdminVoteService {
         );
     }
 
-    // 투표 완료된 운동 리스트 조회
+    // 대진 생성 가능한 활동 예정/완료 운동 리스트 조회
     @Transactional
     public List<AdminCompletedVoteResponse> getCompletedVotes() {
         reconcileAdditionalVotes();
 
         LocalDateTime now = LocalDateTime.now(clock);
-        List<Vote> completedVotes = voteRepository.findAll(
+        List<Vote> matchCandidateVotes = voteRepository.findAll(
                         Sort.by(
                         Sort.Order.desc("activityDate"),
                         Sort.Order.desc("id")
                         )
                 ).stream()
-                .filter(vote -> AdminVoteStatus.from(
-                        vote.getVoteStartAt(),
-                        vote.getVoteEndAt(),
-                        vote.getActivityDate(),
-                        vote.getActivityTime(),
-                        now
-                ) == AdminVoteStatus.COMPLETED)
+                .filter(vote -> {
+                    AdminVoteStatus status = AdminVoteStatus.from(
+                            vote.getVoteStartAt(),
+                            vote.getVoteEndAt(),
+                            vote.getActivityDate(),
+                            vote.getActivityTime(),
+                            now
+                    );
+                    return status == AdminVoteStatus.ACTIVE || status == AdminVoteStatus.COMPLETED;
+                })
                 .filter(this::isMatchVisibleActivity)
                 .toList();
-        VoteCountBundle voteCountBundle = buildVoteCountBundle(completedVotes);
-        Map<Long, Long> matchIdsByVoteId = getMatchIdsByVoteId(completedVotes);
+        VoteCountBundle voteCountBundle = buildVoteCountBundle(matchCandidateVotes);
+        Map<Long, Long> matchIdsByVoteId = getMatchIdsByVoteId(matchCandidateVotes);
 
-        return completedVotes.stream()
+        return matchCandidateVotes.stream()
                 .map(vote -> {
                     Long matchId = matchIdsByVoteId.get(vote.getId());
                     return AdminCompletedVoteResponse.from(
