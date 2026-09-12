@@ -1064,6 +1064,70 @@ class AdminVoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("인증된 사용자는 완성된 대진을 취소할 수 있다")
+    void deleteMatchRemovesMatchesAndMatchGroupWhenAuthenticated() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "대진 취소용 정기 운동",
+                LocalDate.now().plusDays(1),
+                ActivityType.REGULAR,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1),
+                20
+        ));
+        VoteAttendance first = addMatchParticipant(vote, "delete-match-1001", "김민준", Gender.MALE);
+        VoteAttendance second = addMatchParticipant(vote, "delete-match-1002", "이서연", Gender.FEMALE);
+        VoteAttendance third = addMatchParticipant(vote, "delete-match-1003", "박지훈", Gender.MALE);
+        VoteAttendance fourth = addMatchParticipant(vote, "delete-match-1004", "최하은", Gender.FEMALE);
+        List<Map<String, Object>> requestBody = List.of(Map.of(
+                "courtNumber", 1,
+                "courtMatches", List.of(Map.of(
+                        "matchNumber", 1,
+                        "team1", List.of(memberParticipant(first.getId()), memberParticipant(second.getId())),
+                        "team2", List.of(memberParticipant(third.getId()), memberParticipant(fourth.getId()))
+                ))
+        ));
+        mockMvc.perform(post(ADMIN_VOTES_API + "/{voteId}/matches", vote.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBody)))
+                .andExpect(status().isOk());
+        Long matchId = voteMatchGroupRepository.findAll().get(0).getId();
+
+        mockMvc.perform(delete(ADMIN_MATCHES_API + "/{matchId}", matchId)
+                        .with(authorizedUser()))
+                .andExpect(status().isNoContent());
+
+        assertThat(voteMatchRepository.findAll()).isEmpty();
+        assertThat(voteMatchGroupRepository.findById(matchId)).isEmpty();
+        assertThat(voteAttendanceRepository.count()).isEqualTo(4);
+
+        mockMvc.perform(get(ADMIN_VOTES_API)
+                        .param("status", "completed")
+                        .with(authorizedUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].voteId").value(vote.getId()))
+                .andExpect(jsonPath("$[0].matchRegistered").value(false))
+                .andExpect(jsonPath("$[0].matchId").isEmpty());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 matchId로 대진 취소 시 404를 반환한다")
+    void deleteMatchReturnsNotFoundWhenMatchDoesNotExist() throws Exception {
+        mockMvc.perform(delete(ADMIN_MATCHES_API + "/{matchId}", 9999L)
+                        .with(authorizedUser()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("MATCH_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("인증 정보가 없으면 대진 취소는 401을 반환한다")
+    void deleteMatchReturnsUnauthorizedWithoutAccessToken() throws Exception {
+        mockMvc.perform(delete(ADMIN_MATCHES_API + "/{matchId}", 1L))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED_USER"));
+    }
+
+    @Test
     @DisplayName("정규운동이 마감되면 현황 조회 시 추가참여 투표가 자동 생성된다")
     void getVoteManagementCreatesAdditionalVoteWhenThresholdIsReached() throws Exception {
         Vote endedVote = voteRepository.save(vote(

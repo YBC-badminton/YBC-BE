@@ -6,6 +6,8 @@ import com.ybc.ybc.vote.dto.response.AdminMatchRegistrationResponse;
 import com.ybc.ybc.vote.service.AdminMatchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,5 +40,15 @@ public class AdminMatchController {
     public AdminMatchRegistrationResponse updateMatch(@PathVariable Long matchId,
                                                       @Valid @RequestBody List<@Valid AdminMatchCourtRequest> request) {
         return adminMatchService.updateMatch(matchId, request);
+    }
+
+    /**
+     * DELETE /admin/matches/{matchId}
+     * 대진 완성 취소
+     */
+    @DeleteMapping("/{matchId}")
+    public ResponseEntity<Void> deleteMatch(@PathVariable Long matchId) {
+        adminMatchService.deleteMatch(matchId);
+        return ResponseEntity.noContent().build();
     }
 }

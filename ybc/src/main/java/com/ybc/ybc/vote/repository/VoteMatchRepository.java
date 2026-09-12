@@ -12,6 +12,8 @@ public interface VoteMatchRepository extends JpaRepository<VoteMatch, Long> {
 
     void deleteAllByVote_IdIn(java.util.Collection<Long> voteIds);
 
+    void deleteAllByMatchGroup_Id(Long matchGroupId);
+
     void deleteAllByMatchGroup_IdAndCourtNumberAndMatchNumber(Long matchGroupId, Integer courtNumber, Integer matchNumber);
 
     @Query("""

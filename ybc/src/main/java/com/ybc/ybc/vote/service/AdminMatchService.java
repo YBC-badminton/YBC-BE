@@ -123,6 +123,13 @@ public class AdminMatchService {
     }
 
     @Transactional
+    public void deleteMatch(Long matchId) {
+        VoteMatchGroup matchGroup = getMatchGroup(matchId);
+        voteMatchRepository.deleteAllByMatchGroup_Id(matchId);
+        voteMatchGroupRepository.delete(matchGroup);
+    }
+
+    @Transactional
     public AdminMatchParticipantListResponse getParticipants(Long voteId) {
         clubMemberSyncService.reconcileFinalPassMembersSafely();
         Vote requestedVote = getVote(voteId);

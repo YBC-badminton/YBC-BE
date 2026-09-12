@@ -33,6 +33,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -217,6 +218,31 @@ class AdminMatchServiceTest {
         assertThat(response.matchId()).isEqualTo(100L);
         assertThat(response.courtCount()).isZero();
         assertThat(response.matches()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("대진 완성을 취소하면 경기 데이터와 대진 그룹을 순서대로 삭제한다")
+    void deleteMatchDeletesMatchesBeforeMatchGroup() {
+        Vote vote = Vote.builder()
+                .activityType(ActivityType.REGULAR)
+                .title("정기 운동")
+                .activityDate(LocalDate.of(2026, 5, 23))
+                .activityTime("14:00 ~ 17:00")
+                .location("망원체육관")
+                .voteStartAt(LocalDateTime.of(2026, 5, 22, 18, 0))
+                .voteEndAt(LocalDateTime.of(2026, 5, 22, 21, 0))
+                .capacity(24)
+                .build();
+        ReflectionTestUtils.setField(vote, "id", 1L);
+        VoteMatchGroup matchGroup = VoteMatchGroup.create(vote);
+        ReflectionTestUtils.setField(matchGroup, "id", 100L);
+        when(voteMatchGroupRepository.findById(100L)).thenReturn(Optional.of(matchGroup));
+
+        adminMatchService.deleteMatch(100L);
+
+        var deletionOrder = inOrder(voteMatchRepository, voteMatchGroupRepository);
+        deletionOrder.verify(voteMatchRepository).deleteAllByMatchGroup_Id(100L);
+        deletionOrder.verify(voteMatchGroupRepository).delete(matchGroup);
     }
 
     private VoteAttendance attendance(Vote vote, Member member, Long id) {
