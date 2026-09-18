@@ -382,28 +382,29 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("로그인 사용자의 진행 중인 최근 투표 3개 조회 시 참여 인원 수를 함께 반환한다")
+    @DisplayName("로그인 사용자의 진행 중·활동 예정 최근 투표 조회 시 참여 인원 수를 함께 반환한다")
     void getRecentVotesReturnsParticipantCountsForAuthenticatedUser() {
-        Vote firstVote = savedVote(1L, "가장 최근 투표", LocalDate.of(2026, 4, 12));
-        Vote secondVote = savedVote(2L, "두 번째 최근 투표", LocalDate.of(2026, 4, 11));
-        Vote thirdVote = savedVote(3L, "세 번째 최근 투표", LocalDate.of(2026, 4, 10));
         LocalDateTime now = currentTime();
         LocalDate today = now.toLocalDate();
-        when(voteRepository.findRecentOngoingVotes(eq(now), eq(today), any(org.springframework.data.domain.Pageable.class)))
-                .thenReturn(List.of(firstVote, secondVote, thirdVote));
+        Vote inProgressVote = savedVote(1L, "진행 중 투표", today.plusDays(1));
+        Vote activeVote = savedVote(2L, "활동 예정 투표", today.plusDays(2));
+        ReflectionTestUtils.setField(activeVote, "voteEndAt", now.minusHours(1));
+        Vote completedVote = savedVote(3L, "활동 완료 투표", today.minusDays(1));
+        ReflectionTestUtils.setField(completedVote, "voteEndAt", now.minusDays(2));
+        when(voteRepository.findRecentVoteCandidates(now, today))
+                .thenReturn(List.of(inProgressVote, activeVote, completedVote));
         when(voteAttendanceRepository.countAttendancesByVoteId(1L)).thenReturn(3L);
         when(voteAttendanceRepository.countAttendancesByVoteId(2L)).thenReturn(2L);
-        when(voteAttendanceRepository.countAttendancesByVoteId(3L)).thenReturn(1L);
 
         RecentVoteListResponse response = voteService.getRecentVotes(true);
 
-        assertThat(response.count()).isEqualTo(3);
-        assertThat(response.votes()).hasSize(3);
-        assertThat(response.votes().get(0).name()).isEqualTo("가장 최근 투표");
+        assertThat(response.count()).isEqualTo(2);
+        assertThat(response.votes()).hasSize(2);
+        assertThat(response.votes().get(0).name()).isEqualTo("진행 중 투표");
         assertThat(response.votes().get(0).currentParticipantCount()).isEqualTo(3L);
         assertThat(response.votes().get(0).participantCountVisible()).isTrue();
-        assertThat(response.votes().get(1).name()).isEqualTo("두 번째 최근 투표");
-        assertThat(response.votes().get(2).currentParticipantCount()).isEqualTo(1L);
+        assertThat(response.votes().get(1).name()).isEqualTo("활동 예정 투표");
+        assertThat(response.votes().get(1).currentParticipantCount()).isEqualTo(2L);
     }
 
     @Test
@@ -413,7 +414,7 @@ class VoteServiceTest {
         Vote secondVote = savedVote(2L, "두 번째 최근 투표", LocalDate.of(2026, 4, 11));
         LocalDateTime now = currentTime();
         LocalDate today = now.toLocalDate();
-        when(voteRepository.findRecentOngoingVotes(eq(now), eq(today), any(org.springframework.data.domain.Pageable.class)))
+        when(voteRepository.findRecentVoteCandidates(now, today))
                 .thenReturn(List.of(firstVote, secondVote));
 
         RecentVoteListResponse response = voteService.getRecentVotes(false);
