@@ -152,13 +152,15 @@ public class VoteService {
     }
 
     /**
-     * 현재 진행 중인 투표를 오늘 기준 가장 가까운 활동 날짜 순으로 최대 3개 조회한다.
+     * 현재 진행 중이거나 활동 예정인 투표를 오늘 기준 가장 가까운 활동 날짜 순으로 최대 3개 조회한다.
      * 같은 날짜라면 정기 운동, 이벤트, 번개 순으로 우선 노출한다.
      * 비로그인 사용자는 참여 인원 수를 숨긴다.
      */
     public RecentVoteListResponse getRecentVotes(boolean participantCountVisible) {
         LocalDateTime now = now();
-        List<RecentVoteResponse> votes = voteRepository.findRecentOngoingVotes(now, now.toLocalDate(), PageRequest.of(0, 3)).stream()
+        List<RecentVoteResponse> votes = voteRepository.findRecentVoteCandidates(now, now.toLocalDate()).stream()
+                .filter(vote -> isRecentVoteVisible(vote, now))
+                .limit(3)
                 .map(vote -> RecentVoteResponse.from(
                         vote,
                         participantCountVisible ? countCurrentParticipantCount(vote.getId()) : null,
@@ -166,6 +168,17 @@ public class VoteService {
                 ))
                 .toList();
         return RecentVoteListResponse.from(votes);
+    }
+
+    private boolean isRecentVoteVisible(Vote vote, LocalDateTime now) {
+        AdminVoteStatus status = AdminVoteStatus.from(
+                vote.getVoteStartAt(),
+                vote.getVoteEndAt(),
+                vote.getActivityDate(),
+                vote.getActivityTime(),
+                now
+        );
+        return status == AdminVoteStatus.IN_PROGRESS || status == AdminVoteStatus.ACTIVE;
     }
 
     /**

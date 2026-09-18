@@ -583,6 +583,34 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("최근 투표 조회 시 투표가 마감됐지만 활동 전인 투표도 반환한다")
+    void getRecentVotesIncludesActiveVotes() throws Exception {
+        LocalDateTime now = LocalDateTime.now();
+        Vote activeVote = voteRepository.save(vote(
+                "활동 예정 정기 운동",
+                ActivityType.REGULAR,
+                now.toLocalDate().plusDays(1),
+                now.minusDays(2),
+                now.minusHours(1),
+                20
+        ));
+        voteRepository.save(vote(
+                "활동 완료 정기 운동",
+                ActivityType.REGULAR,
+                now.toLocalDate().minusDays(1),
+                now.minusDays(3),
+                now.minusDays(2),
+                20
+        ));
+
+        mockMvc.perform(get("/votes/recent"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(1))
+                .andExpect(jsonPath("$.votes[0].voteId").value(activeVote.getId()))
+                .andExpect(jsonPath("$.votes[0].name").value("활동 예정 정기 운동"));
+    }
+
+    @Test
     @DisplayName("투표 상세 정보를 조회한다")
     void getVote() throws Exception {
         Vote vote = voteRepository.save(vote(
