@@ -85,7 +85,7 @@ public class VoteController {
     }
 
     /**
-     * 최근 생성된 투표 3개를 조회한다. 비로그인 사용자는 참여 인원 수를 숨긴다.
+     * 진행 중이거나 활동 예정인 최근 투표 3개를 조회한다. 비로그인 사용자는 참여 인원 수를 숨긴다.
      */
     @GetMapping("/recent")
     public ResponseEntity<RecentVoteListResponse> getRecentVotes(@AuthenticationPrincipal MemberPrincipal memberPrincipal) {
