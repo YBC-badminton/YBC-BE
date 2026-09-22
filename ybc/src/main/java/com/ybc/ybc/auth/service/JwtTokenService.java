@@ -29,6 +29,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class JwtTokenService {
     private static final String TOKEN_TYPE_CLAIM = "tokenType";
+    private static final String SESSION_ID_CLAIM = "sessionId";
 
     private final JwtEncoder jwtEncoder;
     private final JwtDecoder jwtDecoder;
@@ -39,9 +40,13 @@ public class JwtTokenService {
     // 회원 정보로 액세스 토큰과 리프레시 토큰 발급
     @Transactional
     public AuthTokenResponse issueTokens(MemberSummary memberSummary) {
-        String accessToken = createToken(memberSummary, AuthTokenType.ACCESS);
-        String refreshToken = createToken(memberSummary, AuthTokenType.REFRESH);
-        refreshTokenService.save(memberSummary.id(), refreshToken);
+        return issueTokens(memberSummary, UUID.randomUUID().toString());
+    }
+
+    private AuthTokenResponse issueTokens(MemberSummary memberSummary, String sessionId) {
+        String accessToken = createToken(memberSummary, AuthTokenType.ACCESS, sessionId);
+        String refreshToken = createToken(memberSummary, AuthTokenType.REFRESH, sessionId);
+        refreshTokenService.save(memberSummary.id(), sessionId, refreshToken);
 
         return AuthTokenResponse.of(
                 accessToken,
@@ -58,22 +63,38 @@ public class JwtTokenService {
         validateTokenType(jwt, AuthTokenType.REFRESH);
 
         Long memberId = Long.parseLong(jwt.getSubject());
-        refreshTokenService.validate(memberId, refreshToken);
+        String sessionId = jwt.getClaimAsString(SESSION_ID_CLAIM);
+        if (StringUtils.hasText(sessionId)) {
+            refreshTokenService.validate(memberId, sessionId, refreshToken);
+        } else {
+            refreshTokenService.validateLegacy(memberId, refreshToken);
+        }
 
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new YbcException(ExceptionCode.UNAUTHORIZED_USER));
 
-        return issueTokens(MemberSummary.from(member));
+        AuthTokenResponse tokens = StringUtils.hasText(sessionId)
+                ? issueTokens(MemberSummary.from(member), sessionId)
+                : issueTokens(MemberSummary.from(member));
+
+        if (!StringUtils.hasText(sessionId)) {
+            refreshTokenService.deleteLegacy(memberId);
+        }
+        return tokens;
     }
 
-    // 회원의 저장된 리프레시 토큰 삭제
+    // 현재 로그인 세션의 리프레시 토큰 삭제
     @Transactional
-    public void logout(Long memberId) {
-        refreshTokenService.delete(memberId);
+    public void logout(Long memberId, String sessionId) {
+        if (StringUtils.hasText(sessionId)) {
+            refreshTokenService.delete(memberId, sessionId);
+        } else {
+            refreshTokenService.deleteLegacy(memberId);
+        }
     }
 
     // 토큰 종류에 맞는 JWT 본문을 만들어 서명된 토큰 문자열로 변환
-    private String createToken(MemberSummary memberSummary, AuthTokenType authTokenType) {
+    private String createToken(MemberSummary memberSummary, AuthTokenType authTokenType, String sessionId) {
         Instant now = Instant.now();
         long expirationSeconds = authTokenType == AuthTokenType.ACCESS
                 ? jwtProperties.accessTokenExpirationSeconds()
@@ -86,6 +107,7 @@ public class JwtTokenService {
                 .id(UUID.randomUUID().toString())
                 .subject(String.valueOf(memberSummary.id()))
                 .claim(TOKEN_TYPE_CLAIM, authTokenType.value())
+                .claim(SESSION_ID_CLAIM, sessionId)
                 .claim("provider", memberSummary.provider())
                 .claim("socialId", memberSummary.socialId())
                 .claim("email", memberSummary.email())

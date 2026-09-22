@@ -17,11 +17,13 @@ class MemberPrincipalTest {
                 .claim("email", "admin@example.com")
                 .claim("nickname", "운영진")
                 .claim("isAdmin", true)
+                .claim("sessionId", "session-1")
                 .build();
 
         MemberPrincipal principal = MemberPrincipal.fromJwt(jwt);
 
         assertThat(principal.isAdmin()).isTrue();
+        assertThat(principal.getSessionId()).isEqualTo("session-1");
         assertThat(principal.getAuthorities())
                 .extracting("authority")
                 .containsExactlyInAnyOrder("ROLE_USER", "ROLE_ADMIN");
