@@ -30,6 +30,7 @@ import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -82,6 +83,9 @@ class AuthControllerIntegrationTest {
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private JwtDecoder jwtDecoder;
 
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
@@ -145,7 +149,8 @@ class AuthControllerIntegrationTest {
         assertThat(savedMember.get().getNickname()).isEqualTo("양배추");
         assertThat(savedMember.get().getEmail()).isEqualTo("cabbage@example.com");
         assertThat(savedMember.get().isAdmin()).isFalse();
-        assertThat(refreshTokenStore).containsEntry("auth:refresh:" + memberId, refreshToken);
+        String sessionId = jwtDecoder.decode(refreshToken).getClaimAsString("sessionId");
+        assertThat(refreshTokenStore).containsEntry(refreshTokenKey(memberId, sessionId), refreshToken);
     }
 
     @Test
@@ -428,7 +433,39 @@ class AuthControllerIntegrationTest {
 
         assertThat(reissuedAccessToken).isNotEqualTo(loginContext.accessToken());
         assertThat(reissuedRefreshToken).isNotEqualTo(loginContext.refreshToken());
-        assertThat(refreshTokenStore).containsEntry("auth:refresh:" + loginContext.memberId(), reissuedRefreshToken);
+        assertThat(refreshTokenStore).containsEntry(
+                refreshTokenKey(loginContext.memberId(), loginContext.sessionId()),
+                reissuedRefreshToken
+        );
+    }
+
+    @Test
+    void multipleBrowserLoginsKeepEachRefreshTokenActive() throws Exception {
+        KakaoUserProfile profile = new KakaoUserProfile("123456789", "양배추", "cabbage@example.com");
+        LoginContext firstBrowser = login("first-browser-code", profile);
+        LoginContext secondBrowser = loginExistingMember("second-browser-code", profile);
+
+        assertThat(secondBrowser.memberId()).isEqualTo(firstBrowser.memberId());
+        assertThat(secondBrowser.sessionId()).isNotEqualTo(firstBrowser.sessionId());
+        assertThat(refreshTokenStore)
+                .containsEntry(
+                        refreshTokenKey(firstBrowser.memberId(), firstBrowser.sessionId()),
+                        firstBrowser.refreshToken()
+                )
+                .containsEntry(
+                        refreshTokenKey(secondBrowser.memberId(), secondBrowser.sessionId()),
+                        secondBrowser.refreshToken()
+                );
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", firstBrowser.refreshToken()))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", secondBrowser.refreshToken()))))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -477,13 +514,44 @@ class AuthControllerIntegrationTest {
                         .header("Authorization", "Bearer " + loginContext.accessToken()))
                 .andExpect(status().isNoContent());
 
-        assertThat(refreshTokenStore).doesNotContainKey("auth:refresh:" + loginContext.memberId());
+        assertThat(refreshTokenStore).doesNotContainKey(
+                refreshTokenKey(loginContext.memberId(), loginContext.sessionId())
+        );
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("refreshToken", loginContext.refreshToken()))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("REFRESH_TOKEN_NOT_FOUND"));
+    }
+
+    @Test
+    void logoutDeletesOnlyCurrentBrowserSession() throws Exception {
+        KakaoUserProfile profile = new KakaoUserProfile("123456789", "양배추", "cabbage@example.com");
+        LoginContext firstBrowser = login("first-browser-code", profile);
+        LoginContext secondBrowser = loginExistingMember("second-browser-code", profile);
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + firstBrowser.accessToken()))
+                .andExpect(status().isNoContent());
+
+        assertThat(refreshTokenStore)
+                .doesNotContainKey(refreshTokenKey(firstBrowser.memberId(), firstBrowser.sessionId()))
+                .containsEntry(
+                        refreshTokenKey(secondBrowser.memberId(), secondBrowser.sessionId()),
+                        secondBrowser.refreshToken()
+                );
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", firstBrowser.refreshToken()))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("REFRESH_TOKEN_NOT_FOUND"));
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", secondBrowser.refreshToken()))))
+                .andExpect(status().isOk());
     }
 
     private String fetchKakaoLoginState(String frontendRedirectUri) throws Exception {
@@ -501,6 +569,10 @@ class AuthControllerIntegrationTest {
 
     private LoginContext login(String code, KakaoUserProfile kakaoUserProfile) throws Exception {
         saveClubMember(kakaoUserProfile.nickname(), kakaoUserProfile.email());
+        return loginExistingMember(code, kakaoUserProfile);
+    }
+
+    private LoginContext loginExistingMember(String code, KakaoUserProfile kakaoUserProfile) throws Exception {
         when(kakaoApiClient.fetchUserProfile(code)).thenReturn(kakaoUserProfile);
 
         String responseBody = mockMvc.perform(post("/api/v1/auth/kakao/login")
@@ -516,14 +588,21 @@ class AuthControllerIntegrationTest {
         return new LoginContext(
                 json.get("member").get("id").asLong(),
                 json.get("tokens").get("accessToken").asText(),
-                json.get("tokens").get("refreshToken").asText()
+                json.get("tokens").get("refreshToken").asText(),
+                jwtDecoder.decode(json.get("tokens").get("refreshToken").asText())
+                        .getClaimAsString("sessionId")
         );
+    }
+
+    private String refreshTokenKey(Long memberId, String sessionId) {
+        return "auth:refresh:" + memberId + ":" + sessionId;
     }
 
     private record LoginContext(
             Long memberId,
             String accessToken,
-            String refreshToken
+            String refreshToken,
+            String sessionId
     ) {
     }
 

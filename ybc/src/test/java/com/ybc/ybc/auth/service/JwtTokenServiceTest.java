@@ -15,16 +15,21 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,6 +47,7 @@ class JwtTokenServiceTest {
 
     private JwtTokenService jwtTokenService;
     private JwtDecoder jwtDecoder;
+    private JwtEncoder jwtEncoder;
 
     @BeforeEach
     void setUp() {
@@ -56,7 +62,7 @@ class JwtTokenServiceTest {
                 Base64.getDecoder().decode(jwtProperties.secretKey()),
                 "HmacSHA256"
         );
-        JwtEncoder jwtEncoder = new NimbusJwtEncoder(new ImmutableSecret<>(secretKey));
+        jwtEncoder = new NimbusJwtEncoder(new ImmutableSecret<>(secretKey));
         jwtDecoder = NimbusJwtDecoder.withSecretKey(secretKey)
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
@@ -96,8 +102,15 @@ class JwtTokenServiceTest {
         assertThat(accessToken.getClaimAsBoolean("isAdmin")).isFalse();
         assertThat(refreshToken.getClaimAsString("tokenType")).isEqualTo("refresh");
         assertThat(refreshToken.getClaimAsBoolean("isAdmin")).isFalse();
+        assertThat(accessToken.getClaimAsString("sessionId")).isNotBlank();
+        assertThat(refreshToken.getClaimAsString("sessionId"))
+                .isEqualTo(accessToken.getClaimAsString("sessionId"));
 
-        verify(refreshTokenService).save(1L, tokenResponse.refreshToken());
+        verify(refreshTokenService).save(
+                1L,
+                accessToken.getClaimAsString("sessionId"),
+                tokenResponse.refreshToken()
+        );
     }
 
     @Test
@@ -117,15 +130,17 @@ class JwtTokenServiceTest {
 
         AuthTokenResponse reissuedTokens = jwtTokenService.reissueTokens(issuedTokens.refreshToken());
         Jwt reissuedAccessToken = jwtDecoder.decode(reissuedTokens.accessToken());
+        String sessionId = jwtDecoder.decode(issuedTokens.refreshToken()).getClaimAsString("sessionId");
 
         assertThat(reissuedTokens.accessToken()).isNotEqualTo(issuedTokens.accessToken());
         assertThat(reissuedTokens.refreshToken()).isNotEqualTo(issuedTokens.refreshToken());
         assertThat(reissuedAccessToken.getSubject()).isEqualTo("1");
         assertThat(reissuedAccessToken.getClaimAsString("tokenType")).isEqualTo("access");
         assertThat(reissuedAccessToken.getClaimAsBoolean("isAdmin")).isFalse();
+        assertThat(reissuedAccessToken.getClaimAsString("sessionId")).isEqualTo(sessionId);
 
-        verify(refreshTokenService).validate(1L, issuedTokens.refreshToken());
-        verify(refreshTokenService).save(1L, reissuedTokens.refreshToken());
+        verify(refreshTokenService).validate(1L, sessionId, issuedTokens.refreshToken());
+        verify(refreshTokenService).save(1L, sessionId, reissuedTokens.refreshToken());
     }
 
     @Test
@@ -162,5 +177,45 @@ class JwtTokenServiceTest {
 
         assertThatThrownBy(() -> jwtTokenService.reissueTokens(tokenResponse.accessToken()))
                 .isInstanceOf(YbcException.class);
+    }
+
+    @Test
+    void reissueTokensMigratesLegacyRefreshTokenToSessionStorage() {
+        Member member = Member.createSocialMember(
+                SocialProvider.KAKAO,
+                "123456789",
+                "양배추",
+                "ybc@example.com"
+        );
+        ReflectionTestUtils.setField(member, "id", 1L);
+        String legacyRefreshToken = createLegacyRefreshToken();
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+        AuthTokenResponse reissuedTokens = jwtTokenService.reissueTokens(legacyRefreshToken);
+        String sessionId = jwtDecoder.decode(reissuedTokens.refreshToken()).getClaimAsString("sessionId");
+
+        assertThat(sessionId).isNotBlank();
+        verify(refreshTokenService).validateLegacy(1L, legacyRefreshToken);
+        verify(refreshTokenService).save(1L, sessionId, reissuedTokens.refreshToken());
+        verify(refreshTokenService).deleteLegacy(1L);
+    }
+
+    private String createLegacyRefreshToken() {
+        Instant now = Instant.now();
+        JwtClaimsSet claimsSet = JwtClaimsSet.builder()
+                .issuer("ybc-test")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(1209600))
+                .id(UUID.randomUUID().toString())
+                .subject("1")
+                .claim("tokenType", "refresh")
+                .claim("provider", "KAKAO")
+                .claim("socialId", "123456789")
+                .claim("email", "ybc@example.com")
+                .claim("nickname", "양배추")
+                .claim("isAdmin", false)
+                .build();
+        JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).type("JWT").build();
+        return jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claimsSet)).getTokenValue();
     }
 }

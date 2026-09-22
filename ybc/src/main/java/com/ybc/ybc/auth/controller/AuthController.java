@@ -139,7 +139,7 @@ public class AuthController {
      */
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal MemberPrincipal memberPrincipal) {
-        jwtTokenService.logout(memberPrincipal.getId());
+        jwtTokenService.logout(memberPrincipal.getId(), memberPrincipal.getSessionId());
         return ResponseEntity.noContent().build();
     }
 

@@ -25,6 +25,16 @@ public class MemberPrincipal implements UserDetails, Serializable {
     private final String email;
     private final String nickname;
     private final boolean isAdmin;
+    private final String sessionId;
+
+    public MemberPrincipal(Long id,
+                           String provider,
+                           String socialId,
+                           String email,
+                           String nickname,
+                           boolean isAdmin) {
+        this(id, provider, socialId, email, nickname, isAdmin, null);
+    }
 
     public static MemberPrincipal from(MemberSummary memberSummary) {
         return new MemberPrincipal(
@@ -33,7 +43,8 @@ public class MemberPrincipal implements UserDetails, Serializable {
                 memberSummary.socialId(),
                 memberSummary.email(),
                 memberSummary.nickname(),
-                memberSummary.isAdmin()
+                memberSummary.isAdmin(),
+                null
         );
     }
 
@@ -44,7 +55,8 @@ public class MemberPrincipal implements UserDetails, Serializable {
                 jwt.getClaimAsString("socialId"),
                 jwt.getClaimAsString("email"),
                 jwt.getClaimAsString("nickname"),
-                Boolean.TRUE.equals(jwt.getClaim("isAdmin"))
+                Boolean.TRUE.equals(jwt.getClaim("isAdmin")),
+                jwt.getClaimAsString("sessionId")
         );
     }
 
