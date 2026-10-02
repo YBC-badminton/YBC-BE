@@ -640,8 +640,8 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("이벤트 운동 게스트는 모두 대기 상태로 반환한다")
-    void getVoteGuestsMarksAllEventGuestsAsWaiting() {
+    @DisplayName("마감 전 이벤트 운동 게스트는 모두 대기 상태로 반환한다")
+    void getVoteGuestsMarksAllEventGuestsAsWaitingBeforeVoteClosed() {
         Vote vote = savedVote(1L, "행사 운동");
         ReflectionTestUtils.setField(vote, "activityType", ActivityType.EVENT);
 
@@ -658,6 +658,35 @@ class VoteServiceTest {
         assertThat(response.waitingGuestCount()).isEqualTo(2L);
         assertThat(response.guestQuota()).isZero();
         assertThat(response.guests()).allMatch(guestSummary -> guestSummary.isWaiting());
+    }
+
+    @Test
+    @DisplayName("이벤트 운동이 마감된 뒤 여석만큼 게스트를 확정한다")
+    void getVoteGuestsConfirmsEventGuestsWithinVacanciesAfterVoteClosed() {
+        Vote vote = savedVote(1L, "행사 운동");
+        ReflectionTestUtils.setField(vote, "activityType", ActivityType.EVENT);
+        ReflectionTestUtils.setField(vote, "capacity", 4);
+        ReflectionTestUtils.setField(vote, "voteEndAt", currentTime().minusMinutes(1));
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteIds(anyCollection())).thenReturn(List.of(
+                attendance(vote, savedMember(2L, "2001"), 100L),
+                attendance(vote, savedMember(3L, "2002"), 101L)
+        ));
+        when(guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(anyCollection())).thenReturn(List.of(
+                guest(vote, savedMember(10L, "host1"), 10L, "게스트1"),
+                guest(vote, savedMember(11L, "host2"), 11L, "게스트2"),
+                guest(vote, savedMember(12L, "host3"), 12L, "게스트3")
+        ));
+
+        VoteGuestListResponse response = voteService.getVoteGuests(1L);
+
+        assertThat(response.confirmedGuestCount()).isEqualTo(2L);
+        assertThat(response.waitingGuestCount()).isEqualTo(1L);
+        assertThat(response.guestQuota()).isEqualTo(2);
+        assertThat(response.guests().get(0).isWaiting()).isFalse();
+        assertThat(response.guests().get(1).isWaiting()).isFalse();
+        assertThat(response.guests().get(2).isWaiting()).isTrue();
     }
 
     @Test

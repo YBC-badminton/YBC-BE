@@ -181,6 +181,50 @@ class AdminMatchServiceTest {
     }
 
     @Test
+    @DisplayName("이벤트 운동이 마감된 뒤 여석만큼 게스트를 대진 참가자에 포함한다")
+    void getParticipantsIncludesEventGuestsWithinVacanciesAfterVoteClosed() {
+        LocalDateTime now = LocalDateTime.now();
+        Vote vote = Vote.builder()
+                .activityType(ActivityType.EVENT)
+                .title("이벤트 운동")
+                .activityDate(now.toLocalDate().plusDays(1))
+                .activityTime("14:00 ~ 17:00")
+                .location("망원체육관")
+                .memo("memo")
+                .voteStartAt(now.minusDays(1))
+                .voteEndAt(now.minusMinutes(1))
+                .capacity(4)
+                .build();
+        ReflectionTestUtils.setField(vote, "id", 1L);
+
+        VoteAttendance firstAttendance = attendance(vote, member(10L, "member1"), 100L);
+        VoteAttendance secondAttendance = attendance(vote, member(11L, "member2"), 101L);
+        Guest firstGuest = guest(vote, member(20L, "host1"), 200L, "게스트1");
+        Guest secondGuest = guest(vote, member(21L, "host2"), 201L, "게스트2");
+        Guest waitingGuest = guest(vote, member(22L, "host3"), 202L, "게스트3");
+
+        when(voteRepository.findById(1L)).thenReturn(Optional.of(vote));
+        when(voteRepository.findAllByOriginalVote_IdOrderByIdAsc(1L)).thenReturn(List.of());
+        when(voteRepository
+                .findAllByActivityTypeAndActivityDateAndActivityTimeAndLocationAndVoteStartAtAndTitleAndOriginalVoteIsNullOrderByIdAsc(
+                        any(), any(), any(), any(), any(), any()
+                ))
+                .thenReturn(List.of());
+        when(voteAttendanceRepository.findAllActiveWithMemberByVoteIds(Set.of(1L)))
+                .thenReturn(List.of(firstAttendance, secondAttendance));
+        when(guestRepository.findAllByVote_IdInOrderByVote_IdAscIdAsc(Set.of(1L)))
+                .thenReturn(List.of(firstGuest, secondGuest, waitingGuest));
+        when(clubMemberLookupService.getClubMembersByMemberId(any())).thenReturn(java.util.Map.of());
+
+        AdminMatchParticipantListResponse response = adminMatchService.getParticipants(1L);
+
+        assertThat(response.totalCount()).isEqualTo(4);
+        assertThat(response.participants()).filteredOn(participant -> participant.participantType().equals("GUEST"))
+                .extracting(participant -> participant.name())
+                .containsExactly("게스트1", "게스트2");
+    }
+
+    @Test
     @DisplayName("추가참여 투표로 대진 조회 시 원본 투표 대진을 반환한다")
     void getMatchByVoteIdReturnsBaseVoteMatchForAdditionalVote() {
         Vote baseVote = Vote.builder()
