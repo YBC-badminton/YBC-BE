@@ -35,14 +35,7 @@ final class VoteGuestWaitlistResolver {
             return new ResolvedGuestList(orderedGuests.size(), orderedGuests.size(), 0L, confirmedGuests);
         }
 
-        if (baseVote.getActivityType() == ActivityType.EVENT) {
-            List<ResolvedGuest> waitingGuests = orderedGuests.stream()
-                    .map(guest -> new ResolvedGuest(guest, true))
-                    .toList();
-            return new ResolvedGuestList(0, 0L, orderedGuests.size(), waitingGuests);
-        }
-
-        int guestQuota = resolveRegularGuestQuota(baseVote, relatedVotes, confirmedAttendances, now);
+        int guestQuota = resolveGuestQuota(baseVote, relatedVotes, confirmedAttendances, now);
         List<ResolvedGuest> resolvedGuests = orderedGuests.stream()
                 .map(guest -> new ResolvedGuest(guest, true))
                 .toList();
@@ -82,19 +75,19 @@ final class VoteGuestWaitlistResolver {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    private static int resolveRegularGuestQuota(Vote baseVote,
-                                                Collection<Vote> relatedVotes,
-                                                Collection<VoteAttendance> confirmedAttendances,
-                                                LocalDateTime now) {
+    private static int resolveGuestQuota(Vote baseVote,
+                                         Collection<Vote> relatedVotes,
+                                         Collection<VoteAttendance> confirmedAttendances,
+                                         LocalDateTime now) {
         Map<Long, Long> confirmedMemberCountByVoteId = confirmedAttendances.stream()
                 .collect(Collectors.groupingBy(
                         attendance -> attendance.getVote().getId(),
                         Collectors.counting()
                 ));
 
-        int baseGuestQuota = isWeekend(baseVote.getActivityDate().getDayOfWeek())
-                ? WEEKEND_GUEST_QUOTA
-                : WEEKDAY_GUEST_QUOTA;
+        int baseGuestQuota = baseVote.getActivityType() == ActivityType.REGULAR
+                ? resolveRegularBaseGuestQuota(baseVote.getActivityDate().getDayOfWeek())
+                : 0;
         int closedVoteVacancyQuota = relatedVotes.stream()
                 .filter(relatedVote -> !relatedVote.getVoteEndAt().isAfter(now))
                 .mapToInt(relatedVote -> (int) Math.max(
@@ -103,6 +96,10 @@ final class VoteGuestWaitlistResolver {
                 ))
                 .sum();
         return baseGuestQuota + closedVoteVacancyQuota;
+    }
+
+    private static int resolveRegularBaseGuestQuota(DayOfWeek dayOfWeek) {
+        return isWeekend(dayOfWeek) ? WEEKEND_GUEST_QUOTA : WEEKDAY_GUEST_QUOTA;
     }
 
     private static boolean isWeekend(DayOfWeek dayOfWeek) {
