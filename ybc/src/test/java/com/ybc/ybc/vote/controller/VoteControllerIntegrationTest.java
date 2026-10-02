@@ -854,8 +854,8 @@ class VoteControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("이벤트 운동 게스트는 모두 대기 상태다")
-    void getVoteGuestsMarksAllEventGuestsAsWaiting() throws Exception {
+    @DisplayName("마감 전 이벤트 운동 게스트는 모두 대기 상태다")
+    void getVoteGuestsMarksAllEventGuestsAsWaitingBeforeVoteClosed() throws Exception {
         Vote vote = voteRepository.save(vote(
                 "행사 운동",
                 ActivityType.EVENT,
@@ -873,6 +873,33 @@ class VoteControllerIntegrationTest {
                 .andExpect(jsonPath("$.guestQuota").value(0))
                 .andExpect(jsonPath("$.guests[0].isWaiting").value(true))
                 .andExpect(jsonPath("$.guests[1].isWaiting").value(true));
+    }
+
+    @Test
+    @DisplayName("이벤트 운동이 마감된 뒤 여석만큼 게스트를 확정한다")
+    void getVoteGuestsConfirmsEventGuestsWithinVacanciesAfterVoteClosed() throws Exception {
+        Vote vote = voteRepository.save(vote(
+                "마감된 행사 운동",
+                ActivityType.EVENT,
+                LocalDateTime.now().minusDays(1),
+                LocalDateTime.now().minusMinutes(1),
+                4
+        ));
+        addAttendance(vote, true, "closed-event-member1");
+        addAttendance(vote, true, "closed-event-member2");
+        addGuest(vote, "closed-event-host1", "게스트1");
+        addGuest(vote, "closed-event-host2", "게스트2");
+        addGuest(vote, "closed-event-host3", "게스트3");
+
+        mockMvc.perform(get("/votes/{voteId}/guests", vote.getId()).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalGuestCount").value(3))
+                .andExpect(jsonPath("$.confirmedGuestCount").value(2))
+                .andExpect(jsonPath("$.waitingGuestCount").value(1))
+                .andExpect(jsonPath("$.guestQuota").value(2))
+                .andExpect(jsonPath("$.guests[0].isWaiting").value(false))
+                .andExpect(jsonPath("$.guests[1].isWaiting").value(false))
+                .andExpect(jsonPath("$.guests[2].isWaiting").value(true));
     }
 
     @Test
