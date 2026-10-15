@@ -61,6 +61,24 @@ app:
       folder: ${GCS_FOLDER:images}
       max-image-count: ${GCS_MAX_IMAGE_COUNT:10}
   monitoring:
+    operational:
+      enabled: ${OPERATIONAL_MONITORING_ENABLED:true}
+      poll-interval-ms: ${OPERATIONAL_MONITORING_POLL_INTERVAL_MS:10000}
+      initial-delay-ms: ${OPERATIONAL_MONITORING_INITIAL_DELAY_MS:60000}
+      db-pending-threshold: ${DB_POOL_PENDING_THRESHOLD:1}
+      db-sustain-seconds: ${DB_POOL_WAIT_SUSTAIN_SECONDS:60}
+      http-window-seconds: ${HTTP_MONITORING_WINDOW_SECONDS:300}
+      minimum-latency-requests: ${HTTP_LATENCY_MIN_REQUESTS:20}
+      latency-warning-ms: ${HTTP_LATENCY_WARNING_MS:1000}
+      latency-recovery-ms: ${HTTP_LATENCY_RECOVERY_MS:800}
+      latency-sustain-seconds: ${HTTP_LATENCY_SUSTAIN_SECONDS:60}
+      repeated5xx-count: ${HTTP_5XX_REPEAT_THRESHOLD:3}
+    memory:
+      enabled: ${MEMORY_MONITORING_ENABLED:true}
+      warning-threshold-bytes: ${MEMORY_WARNING_THRESHOLD_BYTES:800000000}
+      recovery-threshold-bytes: ${MEMORY_RECOVERY_THRESHOLD_BYTES:700000000}
+      poll-interval-ms: ${MEMORY_MONITORING_POLL_INTERVAL_MS:30000}
+      initial-delay-ms: ${MEMORY_MONITORING_INITIAL_DELAY_MS:60000}
     discord:
       enabled: ${DISCORD_ALERT_ENABLED:false}
       webhook-url: ${DISCORD_ALERT_WEBHOOK_URL:}
@@ -77,6 +95,11 @@ app:
     test-endpoint:
       enabled: ${MONITORING_TEST_ENDPOINT_ENABLED:false}
       token: ${MONITORING_TEST_ENDPOINT_TOKEN:}
+    incident:
+      enabled: ${INCIDENT_ANALYSIS_ENABLED:false}
+      api-key: ${INCIDENT_OPENAI_API_KEY:${OPENAI_API_KEY:}}
+      model: ${OPENAI_INCIDENT_MODEL:gpt-4.1-mini}
+      discord-webhook-url: ${DISCORD_INCIDENT_WEBHOOK_URL:${DISCORD_ALERT_WEBHOOK_URL:}}
 
 management:
   endpoints:

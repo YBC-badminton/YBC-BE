@@ -1,1 +1,5 @@
 *.yml
+!/docker-compose.monitoring.yml
+!/monitoring/prometheus/prometheus.yml
+!/monitoring/grafana/provisioning/datasources/prometheus.yml
+!/monitoring/grafana/provisioning/dashboards/ybc.yml
