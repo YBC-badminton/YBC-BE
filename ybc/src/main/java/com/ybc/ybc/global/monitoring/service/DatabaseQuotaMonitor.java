@@ -6,7 +6,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -39,10 +38,6 @@ public class DatabaseQuotaMonitor {
                 .register(meterRegistry);
     }
 
-    @Scheduled(
-            fixedDelayString = "${app.monitoring.supabase.poll-interval-ms:1800000}",
-            initialDelayString = "${app.monitoring.supabase.initial-delay-ms:60000}"
-    )
     public void checkDatabaseSize() {
         MonitoringProperties.Supabase supabase = monitoringProperties.supabase();
         if (supabase == null || !supabase.enabled()) {
@@ -50,7 +45,8 @@ public class DatabaseQuotaMonitor {
         }
 
         try {
-            Long size = jdbcTemplate.queryForObject("select pg_database_size(current_database())", Long.class);
+            Long size = jdbcTemplate.query("select pg_database_size(current_database())", statement -> statement.setQueryTimeout(3),
+                    result -> result.next() ? result.getLong(1) : null);
             if (size == null) {
                 return;
             }
