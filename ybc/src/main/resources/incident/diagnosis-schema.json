@@ -1,0 +1,196 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "anomalies",
+    "causeCandidates",
+    "evidence",
+    "serviceImpact",
+    "additionalChecks",
+    "recommendedActions",
+    "confidence"
+  ],
+  "properties": {
+    "anomalies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 600
+      },
+      "minItems": 1,
+      "maxItems": 6
+    },
+    "causeCandidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "summary",
+          "evidenceFields",
+          "confidence",
+          "counterEvidence",
+          "additionalChecks"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "MEMORY_PRESSURE",
+              "INSTANCE_CAPACITY",
+              "DB_POOL_EXHAUSTION",
+              "REQUEST_LATENCY",
+              "APPLICATION_ERROR",
+              "DB_QUERY_FAILURE",
+              "EXTERNAL_DEPENDENCY",
+              "DB_STORAGE_PRESSURE",
+              "OTHER",
+              "INSUFFICIENT_DATA"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          },
+          "evidenceFields": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "minItems": 1,
+            "maxItems": 8
+          },
+          "confidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "level",
+              "reason"
+            ],
+            "properties": {
+              "level": {
+                "type": "string",
+                "enum": [
+                  "LOW",
+                  "MEDIUM",
+                  "HIGH"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 600
+              }
+            }
+          },
+          "counterEvidence": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 600
+            },
+            "minItems": 1,
+            "maxItems": 3
+          },
+          "additionalChecks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 600
+            },
+            "minItems": 1,
+            "maxItems": 4
+          }
+        }
+      },
+      "minItems": 1,
+      "maxItems": 3
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "value",
+          "interpretation"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "interpretation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          }
+        }
+      },
+      "minItems": 1,
+      "maxItems": 16
+    },
+    "serviceImpact": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "additionalChecks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 600
+      },
+      "minItems": 1,
+      "maxItems": 6
+    },
+    "recommendedActions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 600
+      },
+      "minItems": 1,
+      "maxItems": 6
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "reason"
+      ],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600
+        }
+      }
+    }
+  }
+}

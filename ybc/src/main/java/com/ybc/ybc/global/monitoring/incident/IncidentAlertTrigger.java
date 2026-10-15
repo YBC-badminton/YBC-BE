@@ -1,0 +1,158 @@
+package com.ybc.ybc.global.monitoring.incident;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.ybc.ybc.global.monitoring.service.ErrorAlertService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.net.URI;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.LinkedHashMap;
+import java.util.Set;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static com.ybc.ybc.global.monitoring.incident.IncidentJson.*;
+
+/** No scheduler, executor, or Redis queue: analysis runs only while an HTTP request is active. */
+@Component
+public class IncidentAlertTrigger {
+    public static final String COST_ATTRIBUTE = IncidentAlertTrigger.class.getName() + ".cost";
+    public static final String ATTEMPT_ATTRIBUTE = IncidentAlertTrigger.class.getName() + ".attempt";
+    private static final Logger log = LoggerFactory.getLogger(IncidentAlertTrigger.class);
+    private static final ThreadLocal<RequestScope> ACTIVE = new ThreadLocal<>();
+    private final boolean enabled;
+    private final String service, revision, webhook;
+    private final IncidentAnalyzer analyzer;
+    private final Delivery delivery;
+    private final Clock clock;
+    private final Semaphore analysisSlot = new Semaphore(1);
+    private final ArrayDeque<Alert> recent = new ArrayDeque<>();
+    private final LinkedHashMap<String, Alert> pending = new LinkedHashMap<>();
+    private final LinkedHashMap<String, Instant> attempted = new LinkedHashMap<>();
+
+    @Autowired
+    public IncidentAlertTrigger(Environment environment, ObjectProvider<ErrorAlertService> alerts) throws IOException {
+        this(environment, analyzer(environment), (report, target) -> alerts.getObject().sendIncidentDiagnosisAlert(report, target), Clock.systemUTC());
+    }
+
+    IncidentAlertTrigger(Environment environment, IncidentAnalyzer analyzer, Delivery delivery, Clock clock) {
+        enabled = environment.getProperty("app.monitoring.incident.enabled", Boolean.class, false);
+        service = environment.getProperty("spring.application.name", "ybc");
+        revision = environment.getProperty("K_REVISION", "UNKNOWN");
+        webhook = environment.getProperty("app.monitoring.incident.discord-webhook-url",
+                environment.getProperty("app.monitoring.discord.webhook-url", ""));
+        this.analyzer = analyzer; this.delivery = delivery; this.clock = clock;
+    }
+
+    private static IncidentAnalyzer analyzer(Environment environment) throws IOException {
+        String key = environment.getProperty("app.monitoring.incident.api-key", "");
+        if (!environment.getProperty("app.monitoring.incident.enabled", Boolean.class, false) || !key.matches("[\\x21-\\x7E]+")) return null;
+        try {
+            return new IncidentAnalyzer(IncidentHttp.create(), key, environment.getProperty("app.monitoring.incident.model", "gpt-4.1-mini"));
+        } catch (IllegalArgumentException invalidConfiguration) {
+            log.warn("Diagnosis configuration unavailable; original monitoring alerts remain enabled.");
+            return null;
+        }
+    }
+
+    public void submit(String name, String message) {
+        if (!enabled || analyzer == null || !analyzer.isConfigured()) return;
+        Alert alert = new Alert(name, IncidentInput.boundedLog(message), clock.instant());
+        synchronized (this) {
+            recent.removeIf(old -> old.at().isBefore(alert.at().minusSeconds(300)));
+            recent.addLast(alert);
+            while (recent.size() > 100) recent.removeFirst();
+        }
+        runMonitoring(() -> processOrDefer(alert));
+    }
+
+    public void flushPending() {
+        if (!isRequestActive()) return;
+        Alert alert;
+        synchronized (this) {
+            if (pending.isEmpty()) return;
+            alert = pending.remove(pending.keySet().iterator().next());
+        }
+        runMonitoring(() -> processOrDefer(alert));
+    }
+
+    private void processOrDefer(Alert alert) {
+        Instant now = clock.instant();
+        synchronized (this) {
+            Instant previous = attempted.get(alert.name());
+            if (previous != null && !now.isBefore(previous) && now.isBefore(previous.plusSeconds(300))) return;
+        }
+        RequestScope scope = ACTIVE.get();
+        if (scope == null || !scope.attempt.compareAndSet(false, true) || !analysisSlot.tryAcquire()) {
+            synchronized (this) {
+                if (pending.size() < 20 || pending.containsKey(alert.name())) pending.putIfAbsent(alert.name(), alert);
+                else log.warn("Deferred diagnosis buffer full; original alert is handled separately.");
+            }
+            return;
+        }
+        try {
+            var event = object().put("jobId", hash(object().put("name", alert.name()).put("at", alert.at().toString())))
+                    .put("job", service).put("revision", revision).put("alertName", alert.name())
+                    .put("startsAt", alert.at().toString()).put("receivedAt", alert.at().plusMillis(1).toString())
+                    .put("source", "APPLICATION").put("triggerMessage", alert.message());
+            var logs = event.putArray("relatedLogs");
+            synchronized (this) {
+                attempted.put(alert.name(), now);
+                while (attempted.size() > 64) attempted.remove(attempted.keySet().iterator().next());
+                pending.remove(alert.name());
+                for (Alert entry : recent) if (!entry.at().isBefore(alert.at().plusMillis(1).minusSeconds(300)) && !entry.at().isAfter(alert.at())) {
+                    logs.add(object().put("timestamp", entry.at().toString()).put("message", entry.message()));
+                }
+            }
+            ObjectNode raw = new ApplicationIncidentCollector().collect(event);
+            ObjectNode input = IncidentInput.prepare(raw, "multi", Set.of());
+            long tick = System.nanoTime();
+            var result = analyzer.analyze(input);
+            var report = IncidentReport.create(raw, input, "multi", Set.of(), result, now,
+                    (System.nanoTime() - tick) / 1_000_000, analyzer.promptVersion());
+            delivery.send(report, IncidentDiscord.webhook(webhook));
+        } catch (Exception failure) {
+            if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
+            log.warn("Diagnosis unavailable; original monitoring alert remains. No automatic retry.");
+        } finally { analysisSlot.release(); }
+    }
+
+    public static boolean isRequestActive() { return ACTIVE.get() != null; }
+    public static String maskMessage(String message) { return IncidentInput.boundedLog(message); }
+
+    public static RequestScope openRequest(AtomicLong cost, AtomicBoolean attempt) { return new RequestScope(cost, attempt); }
+    public static RequestScope openRequest() { return openRequest(new AtomicLong(), new AtomicBoolean()); }
+
+    public static void runMonitoring(Runnable work) {
+        RequestScope scope = ACTIVE.get();
+        if (scope == null) { work.run(); return; }
+        boolean outer = scope.depth++ == 0;
+        long started = System.nanoTime();
+        try { work.run(); }
+        finally { if (--scope.depth == 0 && outer) scope.cost.addAndGet(System.nanoTime() - started); }
+    }
+
+    public static final class RequestScope implements AutoCloseable {
+        private final AtomicLong cost;
+        private final AtomicBoolean attempt;
+        private final RequestScope previous;
+        private int depth;
+        private RequestScope(AtomicLong cost, AtomicBoolean attempt) {
+            this.cost = cost; this.attempt = attempt; previous = ACTIVE.get(); ACTIVE.set(this);
+        }
+        @Override public void close() { if (previous == null) ACTIVE.remove(); else ACTIVE.set(previous); }
+    }
+
+    private record Alert(String name, String message, Instant at) { }
+    @FunctionalInterface interface Delivery { void send(JsonNode report, URI target) throws Exception; }
+}
