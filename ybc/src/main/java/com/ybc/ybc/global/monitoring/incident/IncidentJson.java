@@ -30,7 +30,7 @@ final class IncidentJson {
             return value;
         } catch (IOException e) {
             // Jackson errors may contain excerpts of operational data.
-            throw new IllegalArgumentException("JSON 형식이 올바르지 않습니다.");
+            throw new ValidationFailure("JSON 형식이 올바르지 않습니다.");
         }
     }
 
@@ -104,6 +104,11 @@ final class IncidentJson {
     static ObjectNode object() { return MAPPER.createObjectNode(); }
 
     static void require(boolean condition, String message) {
-        if (!condition) throw new IllegalArgumentException(message);
+        if (!condition) throw new ValidationFailure(message);
+    }
+
+    /** Only application-written validation messages; never contains raw JSON/provider response bodies. */
+    static final class ValidationFailure extends IllegalArgumentException {
+        private ValidationFailure(String message) { super(message); }
     }
 }

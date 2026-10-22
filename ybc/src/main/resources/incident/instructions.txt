@@ -28,6 +28,7 @@ evidence.field는 입력 숫자 지표의 JSON Pointer(예: /memoryUsageMb) 또�
 숫자의 evidence.value는 원본 파일의 표기가 아니라, 실제 전달한 JSON을 파싱한 뒤 Jackson JsonNode.asText()로 얻은 값이다. 입력의 metricEvidenceValues[지표명] 문자열을 그대로 복사하라. 예를 들어 숫자 1.00이 파싱·전달 과정에서 1.0이 됐다면 "1.0"이 기준이며 "1"로 바꾸지 마라. 단위·천 단위 구분·퍼센트·계산값을 붙이지 마라.
 로그의 evidence.value는 마스킹·길이 제한 후 실제 입력에 있는 relatedLogs[index].message 전체 문자열과 일치해야 한다. 일부 인용·요약·공백/개행 변경·말줄임표 추가는 허용하지 않는다. 설명은 interpretation에 적어라.
 각 후보의 evidenceFields에는 evidence에 실제로 포함한 field를 하나 이상 참조하라.
+스키마 순서대로 evidence 배열을 먼저 작성한 뒤 후보의 evidenceFields에는 그 배열에 작성한 field 문자열을 그대로 복사하라. 입력에 존재하더라도 evidence 배열에 싣지 않은 경로를 후보가 참조하면 전체 응답이 거부된다. /relatedLogs/0, relatedLogs[0].message, 숫자 인덱스만 쓰는 표현은 허용하지 않는다. 로그 인덱스는 0부터 시작하며 제공된 스키마의 enum에 있는 경로만 사용하라.
 후보 코드 MEMORY_PRESSURE, INSTANCE_CAPACITY, DB_POOL_EXHAUSTION은 각각 메모리, 처리 용량, DB 풀 문제의 가설이다.
 APPLICATION_ERROR는 코드·입력 처리 문제, DB_QUERY_FAILURE는 쿼리·제약조건·DB 통신 문제, EXTERNAL_DEPENDENCY는 외부 서비스·네트워크 문제, DB_STORAGE_PRESSURE는 DB 저장 용량 문제의 가설이다. 관련 로그 근거가 있을 때만 사용하라. DB 용량 경고를 DB 풀 고갈로 해석하지 마라. 권장 조치는 로그에 맞는 코드 위치·설정·쿼리 확인과 검토 후 수동 수정 순서로 구체화하라.
 REQUEST_LATENCY는 지연 원인 미확정 상태에서 API별 처리 경로 확인이 필요한 후보다. 지연만 보고 DB 쿼리 문제가 확인됐다고 말하지 마라.

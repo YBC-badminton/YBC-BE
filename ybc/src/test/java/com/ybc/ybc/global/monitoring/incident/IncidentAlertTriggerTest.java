@@ -17,6 +17,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executors;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import org.slf4j.LoggerFactory;
 
 import static com.ybc.ybc.global.monitoring.incident.IncidentJson.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,6 +31,47 @@ class IncidentAlertTriggerTest {
             .withProperty("app.monitoring.incident.enabled", "true")
             .withProperty("app.monitoring.incident.discord-webhook-url", "https://discord.com/api/webhooks/1/test");
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-14T00:00:00Z"), ZoneOffset.UTC);
+
+    @Test void failureLogsSeparateOpenAiValidationAndDiscordWithoutExposingSecrets() throws Exception {
+        var logger = (Logger) LoggerFactory.getLogger(IncidentAlertTrigger.class);
+        var entries = new ListAppender<ILoggingEvent>(); entries.start(); logger.addAppender(entries);
+        try {
+            for (String scenario : new String[]{"openai-401", "validation", "discord-429", "unknown"}) {
+                entries.list.clear();
+                var analyzer = new IncidentAnalyzer((uri, headers, body) -> {
+                    if (scenario.equals("openai-401")) throw new IncidentHttp.Failure("sensitive-provider-body sk-test-secret", 401);
+                    if (scenario.equals("unknown")) throw new IllegalArgumentException("sensitive-provider-body sk-test-secret");
+                    if (scenario.equals("validation")) return IncidentFixtures.response(object());
+                    return IncidentFixtures.response(diagnosis(parse(body.path("input").asText())));
+                }, "sk-test-secret", "gpt-4.1-mini");
+                var trigger = new IncidentAlertTrigger(environment, analyzer, (report, uri) -> {
+                    throw new IncidentHttp.Failure("sensitive-provider-body sk-test-secret", 429);
+                }, clock);
+                try (var scope = IncidentAlertTrigger.openRequest()) { trigger.submit("HTTP_5XX", "failure"); }
+                String logs = entries.list.stream().map(ILoggingEvent::getFormattedMessage).collect(java.util.stream.Collectors.joining("\n"));
+                assertTrue(logs.contains(scenario.equals("discord-429") ? "stage=DISCORD_DELIVERY" : "stage=OPENAI_ANALYSIS"));
+                switch (scenario) {
+                    case "openai-401" -> assertTrue(logs.contains("reason=HTTP_STATUS_401"));
+                    case "validation" -> assertTrue(logs.contains("reason=AI 출력 필수 항목이 누락됐습니다."));
+                    case "discord-429" -> assertTrue(logs.contains("reason=HTTP_STATUS_429"));
+                    default -> assertTrue(logs.contains("reason=UNEXPECTED_FAILURE"));
+                }
+                assertFalse(logs.contains("sk-test-secret"));
+                assertFalse(logs.contains("sensitive-provider-body"));
+            }
+        } finally { logger.detachAppender(entries); entries.stop(); }
+    }
+
+    @Test void invalidDiscordConfigurationIsRejectedBeforeSpendingOnOpenAi() throws Exception {
+        var calls = new AtomicInteger();
+        var analyzer = new IncidentAnalyzer((uri, headers, body) -> {
+            calls.incrementAndGet(); return IncidentFixtures.response(diagnosis(parse(body.path("input").asText())));
+        }, "key", "gpt-4.1-mini");
+        var trigger = new IncidentAlertTrigger(environment.withProperty("app.monitoring.incident.discord-webhook-url", "invalid"),
+                analyzer, (report, uri) -> fail("must not send"), clock);
+        try (var scope = IncidentAlertTrigger.openRequest()) { trigger.submit("HTTP_5XX", "failure"); }
+        assertEquals(0, calls.get());
+    }
 
     @Test void concurrentRequestsDeferSecondAnalysisWithoutBlockingItsBusinessThread() throws Exception {
         var entered = new CountDownLatch(1); var release = new CountDownLatch(1);

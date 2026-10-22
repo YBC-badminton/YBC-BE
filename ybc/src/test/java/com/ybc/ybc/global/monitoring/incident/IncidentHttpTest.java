@@ -50,6 +50,7 @@ class IncidentHttpTest {
             IOException error = assertThrows(IOException.class, () -> IncidentHttp.create().post(
                     URI.create("http://127.0.0.1:" + server.getAddress().getPort()), Map.of("Authorization", "Bearer test"), object().put("name", "test")));
             assertTrue(error.getMessage().contains("429"));
+            assertEquals(429, ((IncidentHttp.Failure) error).statusCode());
             assertFalse(error.getMessage().contains("sensitive-provider-body"));
             assertEquals(1, calls.get());
         } finally { server.stop(0); }

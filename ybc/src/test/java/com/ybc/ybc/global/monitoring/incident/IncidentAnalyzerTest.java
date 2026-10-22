@@ -11,6 +11,28 @@ import static com.ybc.ybc.global.monitoring.incident.IncidentJson.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class IncidentAnalyzerTest {
+    @Test void requestSchemaLimitsReferencesToActualInputAndEnforcesLowWithoutMutatingBaseSchema() throws Exception {
+        var analyzer = new IncidentAnalyzer(null, "test", "gpt-4.1-mini");
+        var logsOnly = IncidentInput.prepare(input(), "single-log", Set.of());
+        var scoped = analyzer.request(logsOnly).at("/text/format/schema");
+        var order = new java.util.ArrayList<String>(); scoped.path("properties").fieldNames().forEachRemaining(order::add);
+        assertTrue(order.indexOf("evidence") < order.indexOf("causeCandidates"));
+        assertEquals(parse("[\"/relatedLogs/0/message\"]"), scoped.at("/properties/evidence/items/properties/field/enum"));
+        assertEquals(1, scoped.at("/properties/evidence/maxItems").asInt());
+        assertEquals(parse("[\"/relatedLogs/0/message\"]"), scoped.at("/properties/causeCandidates/anyOf/0/items/properties/evidenceFields/items/enum"));
+        assertEquals(parse("[\"LOW\"]"), scoped.at("/properties/confidence/properties/level/enum"));
+        assertEquals(parse("[\"LOW\"]"), scoped.at("/properties/causeCandidates/anyOf/0/items/properties/confidence/properties/level/enum"));
+        assertFalse(scoped.at("/properties/causeCandidates/anyOf/0/items/properties/code/enum").toString().contains("INSUFFICIENT_DATA"));
+        assertFalse(scoped.at("/properties/causeCandidates/anyOf/0/items/properties/code/enum").toString().contains("REQUEST_LATENCY"));
+        assertEquals(1, scoped.at("/properties/causeCandidates/anyOf/1/maxItems").asInt());
+        assertEquals(parse("[\"INSUFFICIENT_DATA\"]"), scoped.at("/properties/causeCandidates/anyOf/1/items/properties/code/enum"));
+        var metrics = analyzer.request(IncidentInput.prepare(input(), "multi", Set.of())).at("/text/format/schema");
+        assertTrue(metrics.at("/properties/evidence/items/properties/field/enum").toString().contains("/memoryUsageMb"));
+        assertEquals(parse("[\"LOW\",\"MEDIUM\",\"HIGH\"]"), metrics.at("/properties/confidence/properties/level/enum"));
+        // Local validation is still strict even if generation is constrained.
+        assertThrows(IllegalArgumentException.class, () -> analyzer.validateDiagnosis(diagnosis(), logsOnly));
+    }
+
     @Test
     void sendsStrictSchemaWithoutToolsAndAcceptsGroundedResponse() throws Exception {
         AtomicBoolean called = new AtomicBoolean();

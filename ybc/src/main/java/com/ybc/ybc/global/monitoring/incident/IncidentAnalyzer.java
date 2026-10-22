@@ -13,7 +13,7 @@ import java.util.Set;
 import static com.ybc.ybc.global.monitoring.incident.IncidentJson.*;
 
 final class IncidentAnalyzer {
-    static final String PROMPT_VERSION = "ybc-incident-v6";
+    static final String PROMPT_VERSION = "ybc-incident-v7";
     private final IncidentHttp http;
     private final String apiKey;
     private final String model;
@@ -41,8 +41,50 @@ final class IncidentAnalyzer {
         request.put("instructions", instructions);
         request.put("input", input.toString());
         request.putObject("text").putObject("format")
-                .put("type", "json_schema").put("name", "incident_diagnosis").put("strict", true).set("schema", schema);
+                .put("type", "json_schema").put("name", "incident_diagnosis").put("strict", true).set("schema", schemaFor(input));
         return request;
+    }
+
+    private ObjectNode schemaFor(JsonNode input) {
+        ObjectNode scoped = schema.deepCopy();
+        // Structured Outputs follows schema key order: establish evidence before candidates refer to it.
+        ObjectNode properties = (ObjectNode) scoped.path("properties");
+        ObjectNode ordered = object();
+        properties.fields().forEachRemaining(entry -> {
+            if (entry.getKey().equals("causeCandidates")) ordered.set("evidence", properties.path("evidence"));
+            if (!entry.getKey().equals("evidence")) ordered.set(entry.getKey(), entry.getValue());
+        });
+        scoped.set("properties", ordered);
+        var paths = MAPPER.createArrayNode();
+        IncidentInput.METRICS.stream().sorted().filter(metric -> input.path(metric).isNumber())
+                .forEach(metric -> paths.add("/" + metric));
+        for (int index = 0; index < input.path("relatedLogs").size(); index++) {
+            if (input.path("relatedLogs").get(index).path("message").isTextual()) paths.add("/relatedLogs/" + index + "/message");
+        }
+        require(!paths.isEmpty(), "분석할 지표 또는 로그가 필요합니다.");
+        ((ObjectNode) scoped.at("/properties/evidence")).put("maxItems", Math.min(paths.size(), 16));
+        ((ObjectNode) scoped.at("/properties/evidence/items/properties/field")).set("enum", paths.deepCopy());
+        ((ObjectNode) scoped.at("/properties/causeCandidates/items/properties/evidenceFields/items")).set("enum", paths);
+        if (IncidentInput.METRICS.stream().noneMatch(metric -> input.path(metric).isNumber())) {
+            var low = MAPPER.createArrayNode().add("LOW");
+            ((ObjectNode) scoped.at("/properties/confidence/properties/level")).set("enum", low.deepCopy());
+            ((ObjectNode) scoped.at("/properties/causeCandidates/items/properties/confidence/properties/level")).set("enum", low);
+        }
+        // INSUFFICIENT_DATA is a standalone judgment state, not an additional cause candidate.
+        ObjectNode normal = ((ObjectNode) scoped.at("/properties/causeCandidates")).deepCopy();
+        var codes = MAPPER.createArrayNode();
+        for (JsonNode code : normal.at("/items/properties/code/enum")) {
+            if (code.asText().equals("INSUFFICIENT_DATA")) continue;
+            if (code.asText().equals("REQUEST_LATENCY") && (!input.path("p95Latency").isNumber() || input.path("p95Latency").asDouble() <= 0)) continue;
+            codes.add(code);
+        }
+        ((ObjectNode) normal.at("/items/properties/code")).set("enum", codes);
+        ObjectNode insufficient = ((ObjectNode) scoped.at("/properties/causeCandidates")).deepCopy();
+        insufficient.put("maxItems", 1);
+        ((ObjectNode) insufficient.at("/items/properties/code")).set("enum", MAPPER.createArrayNode().add("INSUFFICIENT_DATA"));
+        ((ObjectNode) insufficient.at("/items/properties/confidence/properties/level")).set("enum", MAPPER.createArrayNode().add("LOW"));
+        ((ObjectNode) scoped.path("properties")).set("causeCandidates", object().set("anyOf", MAPPER.createArrayNode().add(normal).add(insufficient)));
+        return scoped;
     }
 
     Result analyze(JsonNode input) throws IOException, InterruptedException {
