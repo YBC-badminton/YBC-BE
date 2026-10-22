@@ -31,7 +31,7 @@ public class ErrorAlertService {
                 Time: %s
                 Profiles: %s
                 Status: %s
-                Error Code: %s
+                Error Type: %s
                 Method: %s
                 URI: %s
                 Exception: %s

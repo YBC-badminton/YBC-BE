@@ -6,11 +6,32 @@ import com.ybc.ybc.global.monitoring.incident.IncidentAlertTrigger;
 import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import com.ybc.ybc.global.monitoring.service.ErrorAlertService;
+import org.springframework.mock.env.MockEnvironment;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.http.HttpStatus;
+import static org.mockito.Mockito.mock;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DiscordWebhookClientTest {
     private final MonitoringProperties settings = new MonitoringProperties(
             new MonitoringProperties.Discord(true, "https://discord.com/api/webhooks/1/test", "Monitor", ""), null, null);
+
+    @Test void serverErrorKeepsPublicErrorIdentifierWhileMaskingSecrets() {
+        var content = new AtomicReference<String>();
+        var client = new DiscordWebhookClient(settings, (uri, headers, body) -> {
+            content.set(body.path("content").asText()); return JsonNodeFactory.instance.objectNode();
+        });
+        var alerts = new ErrorAlertService(client, new MockEnvironment(), mock(IncidentAlertTrigger.class));
+        try (var scope = IncidentAlertTrigger.openRequest()) {
+            alerts.sendServerErrorAlert(new MockHttpServletRequest("POST", "/api/v1/auth/refresh"),
+                    HttpStatus.SERVICE_UNAVAILABLE, "REFRESH_TOKEN_STORE_UNAVAILABLE", new RuntimeException("token=secret-value"));
+        }
+        assertTrue(content.get().contains("Error Type: REFRESH_TOKEN_STORE_UNAVAILABLE"));
+        assertTrue(content.get().contains("URI: /api/v1/auth/refresh"));
+        assertFalse(content.get().contains("secret-value"));
+    }
 
     @Test void sendsSynchronouslyOnlyInRequestAndBoundsDeferredMessages() {
         var sent = new AtomicInteger(); Thread caller = Thread.currentThread();

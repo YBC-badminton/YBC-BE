@@ -41,7 +41,7 @@ public interface IncidentHttp {
                 throw new Failure("외부 API 연결 실패 또는 시간 초과. 전송 성공 여부를 확인한 뒤 다시 실행하세요.");
             }
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new Failure("외부 API HTTP " + response.statusCode() + ". 자동 재시도하지 않았습니다.");
+                throw new Failure("외부 API HTTP " + response.statusCode() + ". 자동 재시도하지 않았습니다.", response.statusCode());
             }
             require(data.length <= MAX_FILE_BYTES, "외부 API 응답이 너무 큽니다.");
             String responseText = new String(data, StandardCharsets.UTF_8);
@@ -50,6 +50,9 @@ public interface IncidentHttp {
     }
 
     final class Failure extends IOException {
-        Failure(String message) { super(message); }
+        private final int statusCode;
+        Failure(String message) { this(message, 0); }
+        Failure(String message, int statusCode) { super(message); this.statusCode = statusCode; }
+        int statusCode() { return statusCode; }
     }
 }
