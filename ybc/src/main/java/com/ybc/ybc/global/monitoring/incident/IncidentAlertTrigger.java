@@ -52,6 +52,8 @@ public class IncidentAlertTrigger {
         webhook = environment.getProperty("app.monitoring.incident.discord-webhook-url",
                 environment.getProperty("app.monitoring.discord.webhook-url", ""));
         this.analyzer = analyzer; this.delivery = delivery; this.clock = clock;
+        log.info("Incident analysis configuration: enabled={}, apiKeyConfigured={}, webhookConfigured={}, mode=REQUEST_BOUND",
+                enabled, analyzer != null && analyzer.isConfigured(), webhook != null && !webhook.isBlank());
     }
 
     private static IncidentAnalyzer analyzer(Environment environment) throws IOException {
@@ -100,6 +102,7 @@ public class IncidentAlertTrigger {
             }
             return;
         }
+        String stage = "COLLECT";
         try {
             var event = object().put("jobId", hash(object().put("name", alert.name()).put("at", alert.at().toString())))
                     .put("job", service).put("revision", revision).put("alertName", alert.name())
@@ -116,15 +119,32 @@ public class IncidentAlertTrigger {
             }
             ObjectNode raw = new ApplicationIncidentCollector().collect(event);
             ObjectNode input = IncidentInput.prepare(raw, "multi", Set.of());
+            stage = "DISCORD_CONFIGURATION";
+            URI target = IncidentDiscord.webhook(webhook);
+            stage = "OPENAI_ANALYSIS";
             long tick = System.nanoTime();
             var result = analyzer.analyze(input);
+            stage = "BUILD_REPORT";
             var report = IncidentReport.create(raw, input, "multi", Set.of(), result, now,
                     (System.nanoTime() - tick) / 1_000_000, analyzer.promptVersion());
-            delivery.send(report, IncidentDiscord.webhook(webhook));
+            stage = "DISCORD_DELIVERY";
+            delivery.send(report, target);
+            log.info("Incident diagnosis delivered: analysisDurationMs={}, logCount={}",
+                    report.path("analysisDurationMs").asLong(), input.path("relatedLogs").size());
         } catch (Exception failure) {
             if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
-            log.warn("Diagnosis unavailable; original monitoring alert remains. No automatic retry.");
+            log.warn("Diagnosis unavailable: stage={}, reason={}, exceptionType={}; original monitoring alert remains. No automatic retry.",
+                    stage, safeReason(failure), failure.getClass().getSimpleName());
         } finally { analysisSlot.release(); }
+    }
+
+    private static String safeReason(Exception failure) {
+        if (failure instanceof IncidentJson.ValidationFailure) return failure.getMessage();
+        if (failure instanceof IncidentHttp.Failure http && http.statusCode() > 0) return "HTTP_STATUS_" + http.statusCode();
+        if (failure instanceof IOException) return "IO_OR_TIMEOUT";
+        if (failure instanceof InterruptedException) return "INTERRUPTED";
+        // Unknown exception messages may contain credentials, operational logs, URLs, or provider bodies.
+        return "UNEXPECTED_FAILURE";
     }
 
     public static boolean isRequestActive() { return ACTIVE.get() != null; }
