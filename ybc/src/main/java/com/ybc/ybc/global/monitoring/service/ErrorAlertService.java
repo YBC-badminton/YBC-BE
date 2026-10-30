@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.ybc.ybc.global.monitoring.discord.DiscordWebhookClient;
 import com.ybc.ybc.global.monitoring.incident.IncidentAlertTrigger;
 import com.ybc.ybc.global.monitoring.incident.IncidentReport;
+import com.ybc.ybc.global.monitoring.dto.response.MonitoringIncidentTestResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
@@ -14,6 +15,7 @@ import java.net.URI;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -216,6 +218,24 @@ public class ErrorAlertService {
 
     public String sendIncidentDiagnosisAlert(JsonNode report, URI webhook) throws Exception {
         return discordWebhookClient.sendIncidentPayload(IncidentReport.discordPayload(report), webhook);
+    }
+
+    public MonitoringIncidentTestResponse sendManualIncidentTestAlert() {
+        String testId = UUID.randomUUID().toString();
+        String evidence = """
+                [SIMULATION / 연결 점검용 가상 사건]
+                Test ID: %s
+                Scenario: ADMIN_ACCESS_DENIED
+                Actor: synthetic-member-001 (가상 회원, 운영진 아님)
+                Role: MEMBER
+                Method: GET
+                URI: /admin/monitoring-probe (가상 경로)
+                Status: 403
+                Authorization result: DENIED (접근 차단 성공을 가정한 합성 로그)
+                실제 접근/공격/정보 유출이 아님. 이 단일 사건만으로 악의적인 의도나 침해를 단정할 수 없음.
+                """.formatted(testId);
+        return new MonitoringIncidentTestResponse(testId, "ADMIN_ACCESS_DENIED", true,
+                incidentAlertTrigger.testAdminAccessDenied(testId, evidence));
     }
 
     private String exceptionEvidence(Throwable throwable) {

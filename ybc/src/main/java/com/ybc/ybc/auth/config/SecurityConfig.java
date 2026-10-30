@@ -63,7 +63,8 @@ public class SecurityConfig {
             "/actuator/prometheus"
     };
     private static final String[] PUBLIC_MONITORING_TEST_ENDPOINTS = {
-            "/internal/monitoring/test-alert"
+            "/internal/monitoring/test-alert",
+            "/internal/monitoring/test-incident"
     };
     private static final String[] PUBLIC_SWAGGER_LOGIN_ENDPOINTS = {
             "/swagger-login",
