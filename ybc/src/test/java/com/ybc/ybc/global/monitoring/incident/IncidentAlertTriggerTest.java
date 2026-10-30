@@ -32,6 +32,109 @@ class IncidentAlertTriggerTest {
             .withProperty("app.monitoring.incident.discord-webhook-url", "https://discord.com/api/webhooks/1/test");
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-14T00:00:00Z"), ZoneOffset.UTC);
 
+    @Test void manualProbeUsesValidatedProductionAnalysisAndIsolatesSimulationFromLiveEvidence() throws Exception {
+        var inputs = new ArrayList<JsonNode>();
+        var reports = new ArrayList<JsonNode>();
+        var analyzer = new IncidentAnalyzer((uri, headers, body) -> {
+            var input = parse(body.path("input").asText()); inputs.add(input);
+            return IncidentFixtures.response(diagnosis(input));
+        }, "key", "gpt-4.1-mini");
+        var trigger = new IncidentAlertTrigger(environment, analyzer, (report, uri) -> reports.add(report), clock);
+        try (var scope = IncidentAlertTrigger.openRequest()) { trigger.submit("REAL_ERROR", "live-only-evidence"); }
+        try (var scope = IncidentAlertTrigger.openRequest()) {
+            var result = trigger.testAdminAccessDenied("probe-1", "SIMULATION: synthetic-member-001 denied; token=secret-value");
+            assertEquals(IncidentTestResult.Status.DELIVERED, result.status());
+            assertEquals("DISCORD_MESSAGE_CONFIRMED", result.reason());
+        }
+        assertEquals("SIMULATION", reports.get(1).path("sourceType").asText());
+        assertEquals("test-probe-1", reports.get(1).path("incidentId").asText());
+        assertTrue(IncidentReport.discordPayload(reports.get(1)).at("/embeds/0/title").asText().startsWith("[SIMULATION]"));
+        assertEquals(1, inputs.get(1).path("relatedLogs").size());
+        assertFalse(inputs.get(1).toString().contains("live-only-evidence"));
+        assertFalse(inputs.get(1).toString().contains("secret-value"));
+        try (var scope = IncidentAlertTrigger.openRequest()) { trigger.submit("NEXT_REAL_ERROR", "next-live-evidence"); }
+        assertEquals("LIVE", reports.get(2).path("sourceType").asText());
+        assertFalse(inputs.get(2).toString().contains("synthetic-member"));
+    }
+
+    @Test void manualProbeReportsDisabledMissingConfigurationAndMissingRequestWithoutCallingProviders() throws Exception {
+        var analyzer = new IncidentAnalyzer((uri, headers, body) -> { fail("must not call OpenAI"); return null; }, "key", "gpt-4.1-mini");
+        IncidentAlertTrigger.Delivery delivery = (report, uri) -> fail("must not deliver");
+        var disabled = new IncidentAlertTrigger(new MockEnvironment(), analyzer, delivery, clock);
+        var unconfigured = new IncidentAlertTrigger(environment, null, delivery, clock);
+        var active = new IncidentAlertTrigger(environment, analyzer, delivery, clock);
+        try (var scope = IncidentAlertTrigger.openRequest()) {
+            assertEquals(IncidentTestResult.Status.DISABLED, disabled.testAdminAccessDenied("id", "test").status());
+            assertEquals(IncidentTestResult.Status.NOT_CONFIGURED, unconfigured.testAdminAccessDenied("id", "test").status());
+        }
+        assertEquals("NO_ACTIVE_REQUEST", active.testAdminAccessDenied("id", "test").reason());
+    }
+
+    @Test void manualProbeReportsFailureStagesAndRetainsCooldownWithoutLeakingProviderErrors() throws Exception {
+        for (String scenario : new String[]{"configuration", "openai", "validation", "discord", "timeout"}) {
+            var calls = new AtomicInteger();
+            var analyzer = new IncidentAnalyzer((uri, headers, body) -> {
+                calls.incrementAndGet();
+                if (scenario.equals("openai")) throw new IncidentHttp.Failure("sk-secret provider-body", 401);
+                if (scenario.equals("timeout")) throw new IOException("sk-secret provider-body");
+                if (scenario.equals("validation")) return IncidentFixtures.response(object());
+                return IncidentFixtures.response(diagnosis(parse(body.path("input").asText())));
+            }, "key", "gpt-4.1-mini");
+            var settings = new MockEnvironment().withProperty("app.monitoring.incident.enabled", "true")
+                    .withProperty("app.monitoring.incident.discord-webhook-url",
+                            scenario.equals("configuration") ? "invalid" : "https://discord.com/api/webhooks/1/test");
+            var trigger = new IncidentAlertTrigger(settings, analyzer, (report, uri) -> {
+                throw new IncidentHttp.Failure("sk-secret provider-body", 429);
+            }, clock);
+            try (var scope = IncidentAlertTrigger.openRequest()) {
+                var result = trigger.testAdminAccessDenied("id", "synthetic test");
+                assertEquals(IncidentTestResult.Status.FAILED, result.status());
+                assertEquals(switch (scenario) {
+                    case "configuration" -> "DISCORD_CONFIGURATION";
+                    case "discord" -> "DISCORD_DELIVERY";
+                    default -> "OPENAI_ANALYSIS";
+                }, result.stage());
+                if (scenario.equals("openai")) assertEquals("HTTP_STATUS_401", result.reason());
+                if (scenario.equals("discord")) assertEquals("HTTP_STATUS_429", result.reason());
+                if (scenario.equals("timeout")) assertEquals("IO_OR_TIMEOUT", result.reason());
+                assertFalse(result.toString().contains("sk-secret"));
+                assertFalse(result.toString().contains("provider-body"));
+            }
+            try (var scope = IncidentAlertTrigger.openRequest()) {
+                var repeated = trigger.testAdminAccessDenied("different-id", "same scenario");
+                assertEquals(IncidentTestResult.Status.COOLDOWN, repeated.status());
+                assertEquals(300, repeated.retryAfterSeconds());
+            }
+            assertEquals(scenario.equals("configuration") ? 0 : 1, calls.get());
+        }
+    }
+
+    @Test void busyManualProbeIsNeverDeferredIntoALaterBusinessRequest() throws Exception {
+        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+        var calls = new AtomicInteger();
+        var analyzer = new IncidentAnalyzer((uri, headers, body) -> {
+            calls.incrementAndGet(); entered.countDown();
+            assertTrue(release.await(5, TimeUnit.SECONDS));
+            return IncidentFixtures.response(diagnosis(parse(body.path("input").asText())));
+        }, "key", "gpt-4.1-mini");
+        var trigger = new IncidentAlertTrigger(environment, analyzer, (report, uri) -> {}, clock);
+        var executor = Executors.newSingleThreadExecutor();
+        try {
+            var first = executor.submit(() -> {
+                try (var scope = IncidentAlertTrigger.openRequest()) { trigger.submit("REAL_ERROR", "real"); }
+            });
+            try {
+                assertTrue(entered.await(5, TimeUnit.SECONDS));
+                try (var scope = IncidentAlertTrigger.openRequest()) {
+                    assertEquals(IncidentTestResult.Status.BUSY, trigger.testAdminAccessDenied("id", "test").status());
+                }
+            } finally { release.countDown(); }
+            first.get(5, TimeUnit.SECONDS);
+        } finally { executor.shutdownNow(); }
+        try (var scope = IncidentAlertTrigger.openRequest()) { trigger.flushPending(); }
+        assertEquals(1, calls.get());
+    }
+
     @Test void failureLogsSeparateOpenAiValidationAndDiscordWithoutExposingSecrets() throws Exception {
         var logger = (Logger) LoggerFactory.getLogger(IncidentAlertTrigger.class);
         var entries = new ListAppender<ILoggingEvent>(); entries.start(); logger.addAppender(entries);
