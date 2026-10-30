@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.LinkedHashMap;
@@ -20,8 +21,10 @@ import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.ybc.ybc.global.monitoring.incident.IncidentJson.*;
+import static com.ybc.ybc.global.monitoring.incident.IncidentTestResult.Status.*;
 
 /** No scheduler, executor, or Redis queue: analysis runs only while an HTTP request is active. */
 @Component
@@ -88,19 +91,40 @@ public class IncidentAlertTrigger {
         runMonitoring(() -> processOrDefer(alert));
     }
 
-    private void processOrDefer(Alert alert) {
+    /** Uses the production analyzer and delivery boundary, but never mixes test evidence into live alerts. */
+    public IncidentTestResult testAdminAccessDenied(String testId, String message) {
+        if (!enabled) return new IncidentTestResult(DISABLED, "CONFIGURATION", "INCIDENT_ANALYSIS_DISABLED", 0);
+        if (analyzer == null || !analyzer.isConfigured()) {
+            return new IncidentTestResult(NOT_CONFIGURED, "CONFIGURATION", "OPENAI_NOT_CONFIGURED", 0);
+        }
+        if (!isRequestActive()) return new IncidentTestResult(FAILED, "REQUEST_SCOPE", "NO_ACTIVE_REQUEST", 0);
+        var result = new AtomicReference<IncidentTestResult>();
+        var alert = new Alert("MANUAL_TEST_ADMIN_ACCESS_DENIED", IncidentInput.boundedLog(message), clock.instant());
+        runMonitoring(() -> result.set(processOrDefer(alert, testId)));
+        return result.get();
+    }
+
+    private IncidentTestResult processOrDefer(Alert alert) { return processOrDefer(alert, null); }
+
+    private IncidentTestResult processOrDefer(Alert alert, String testId) {
+        boolean simulation = testId != null;
         Instant now = clock.instant();
         synchronized (this) {
             Instant previous = attempted.get(alert.name());
-            if (previous != null && !now.isBefore(previous) && now.isBefore(previous.plusSeconds(300))) return;
+            if (previous != null && !now.isBefore(previous) && now.isBefore(previous.plusSeconds(300))) {
+                long remainingMs = Duration.between(now, previous.plusSeconds(300)).toMillis();
+                return new IncidentTestResult(COOLDOWN, "RATE_LIMIT", "SAME_ALERT_COOLDOWN", Math.max(1, (remainingMs + 999) / 1000));
+            }
         }
         RequestScope scope = ACTIVE.get();
         if (scope == null || !scope.attempt.compareAndSet(false, true) || !analysisSlot.tryAcquire()) {
-            synchronized (this) {
-                if (pending.size() < 20 || pending.containsKey(alert.name())) pending.putIfAbsent(alert.name(), alert);
-                else log.warn("Deferred diagnosis buffer full; original alert is handled separately.");
+            if (!simulation) {
+                synchronized (this) {
+                    if (pending.size() < 20 || pending.containsKey(alert.name())) pending.putIfAbsent(alert.name(), alert);
+                    else log.warn("Deferred diagnosis buffer full; original alert is handled separately.");
+                }
             }
-            return;
+            return new IncidentTestResult(BUSY, "ADMISSION", "ANALYSIS_BUSY_OR_REQUEST_ALREADY_ATTEMPTED", 0);
         }
         String stage = "COLLECT";
         try {
@@ -113,11 +137,17 @@ public class IncidentAlertTrigger {
                 attempted.put(alert.name(), now);
                 while (attempted.size() > 64) attempted.remove(attempted.keySet().iterator().next());
                 pending.remove(alert.name());
-                for (Alert entry : recent) if (!entry.at().isBefore(alert.at().plusMillis(1).minusSeconds(300)) && !entry.at().isAfter(alert.at())) {
+                for (Alert entry : recent) if (!simulation && !entry.at().isBefore(alert.at().plusMillis(1).minusSeconds(300)) && !entry.at().isAfter(alert.at())) {
                     logs.add(object().put("timestamp", entry.at().toString()).put("message", entry.message()));
                 }
             }
             ObjectNode raw = new ApplicationIncidentCollector().collect(event);
+            if (simulation) {
+                raw.put("incidentId", "test-" + testId);
+                raw.put("sourceType", "SIMULATION");
+                raw.put("metricScope", "연결 점검용 합성 접근 거부 로그 1건. 실제 사용자 접근이나 운영 장애를 나타내지 않음.");
+                raw.putArray("collectionNotes").add("가상 회원·가상 경로의 403 사건. 실제 접근 제어/침입 탐지 동작은 검증하지 않음.");
+            }
             ObjectNode input = IncidentInput.prepare(raw, "multi", Set.of());
             stage = "DISCORD_CONFIGURATION";
             URI target = IncidentDiscord.webhook(webhook);
@@ -131,10 +161,12 @@ public class IncidentAlertTrigger {
             delivery.send(report, target);
             log.info("Incident diagnosis delivered: analysisDurationMs={}, logCount={}",
                     report.path("analysisDurationMs").asLong(), input.path("relatedLogs").size());
+            return new IncidentTestResult(DELIVERED, "DISCORD_DELIVERY", "DISCORD_MESSAGE_CONFIRMED", 0);
         } catch (Exception failure) {
             if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
             log.warn("Diagnosis unavailable: stage={}, reason={}, exceptionType={}; original monitoring alert remains. No automatic retry.",
                     stage, safeReason(failure), failure.getClass().getSimpleName());
+            return new IncidentTestResult(FAILED, stage, safeReason(failure), 0);
         } finally { analysisSlot.release(); }
     }
 
