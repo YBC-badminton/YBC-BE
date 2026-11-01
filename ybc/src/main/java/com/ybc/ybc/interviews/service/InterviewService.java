@@ -11,7 +11,7 @@ import com.ybc.ybc.interviews.dto.response.InterviewManagementItemResponse;
 import com.ybc.ybc.interviews.dto.response.InterviewManagementResponse;
 import com.ybc.ybc.interviews.dto.response.InterviewSummaryResponse;
 import com.ybc.ybc.interviews.repository.InterviewRepository;
-import com.ybc.ybc.members.service.ClubMemberSyncService;
+import com.ybc.ybc.members.service.ClubMemberRegistrationService;
 import com.ybc.ybc.recruitments.domain.Recruitment;
 import com.ybc.ybc.recruitments.repository.RecruitmentRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -42,7 +42,7 @@ public class InterviewService {
 
     private final ApplicationRepository applicationRepository;
     private final InterviewRepository interviewRepository;
-    private final ClubMemberSyncService clubMemberSyncService;
+    private final ClubMemberRegistrationService clubMemberRegistrationService;
     private final RecruitmentRepository recruitmentRepository;
     private final Clock clock;
 
@@ -64,7 +64,7 @@ public class InterviewService {
         Status previousStatus = application.getStatusOrDefault();
         Status updatedStatus = Status.fromInterviewStatus(request.status());
         application.updateStatus(updatedStatus);
-        clubMemberSyncService.syncByApplicationStatusChange(application, previousStatus, updatedStatus);
+        clubMemberRegistrationService.registerOnFinalPass(application, previousStatus, updatedStatus);
 
         interviewRepository.findByApplication_Id(applicationId)
                 .ifPresentOrElse(

@@ -11,7 +11,7 @@ import com.ybc.ybc.interviews.domain.Interview;
 import com.ybc.ybc.interviews.dto.request.InterviewUpdateRequest;
 import com.ybc.ybc.interviews.dto.response.InterviewManagementResponse;
 import com.ybc.ybc.interviews.repository.InterviewRepository;
-import com.ybc.ybc.members.service.ClubMemberSyncService;
+import com.ybc.ybc.members.service.ClubMemberRegistrationService;
 import com.ybc.ybc.recruitments.domain.Recruitment;
 import com.ybc.ybc.recruitments.repository.RecruitmentRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,7 +52,7 @@ class InterviewServiceTest {
     private InterviewRepository interviewRepository;
 
     @Mock
-    private ClubMemberSyncService clubMemberSyncService;
+    private ClubMemberRegistrationService clubMemberRegistrationService;
 
     @Mock
     private RecruitmentRepository recruitmentRepository;
@@ -166,7 +166,7 @@ class InterviewServiceTest {
         assertThat(response.summary().passedCount()).isEqualTo(1);
         assertThat(response.interviewList().get(0).status()).isEqualTo("FINAL_PASS");
         verify(interviewRepository, never()).save(any());
-        verify(clubMemberSyncService).syncByApplicationStatusChange(firstPassApplication, Status.FIRST_PASS, Status.FINAL_PASS);
+        verify(clubMemberRegistrationService).registerOnFinalPass(firstPassApplication, Status.FIRST_PASS, Status.FINAL_PASS);
     }
 
     @Test

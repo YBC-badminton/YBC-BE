@@ -5,7 +5,6 @@ import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
 import com.ybc.ybc.members.domain.ClubMember;
 import com.ybc.ybc.members.service.ClubMemberLookupService;
-import com.ybc.ybc.members.service.ClubMemberSyncService;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.MatchParticipantType;
@@ -70,7 +69,6 @@ public class AdminMatchService {
     private final VoteAttendanceRepository voteAttendanceRepository;
     private final GuestRepository guestRepository;
     private final ClubMemberLookupService clubMemberLookupService;
-    private final ClubMemberSyncService clubMemberSyncService;
     private final VoteMatchRepository voteMatchRepository;
     private final VoteMatchGroupRepository voteMatchGroupRepository;
 
@@ -82,7 +80,6 @@ public class AdminMatchService {
 
     @Transactional(readOnly = true)
     public AdminMatchRegistrationResponse getMatchByVoteId(Long voteId) {
-        clubMemberSyncService.reconcileFinalPassMembersSafely();
         Vote requestedVote = getVote(voteId);
         Vote baseVote = resolveBaseVote(requestedVote);
         VoteMatchGroup matchGroup = voteMatchGroupRepository.findByVote_Id(baseVote.getId())
@@ -96,7 +93,6 @@ public class AdminMatchService {
             throw new YbcException(ExceptionCode.INVALID_MATCH_REQUEST);
         }
 
-        clubMemberSyncService.reconcileFinalPassMembersSafely();
         VoteMatchGroup matchGroup = getMatchGroup(matchId);
         Vote baseVote = resolveBaseVote(matchGroup.getVote());
         List<Vote> relatedVotes = getRelatedVotes(baseVote);
@@ -131,7 +127,6 @@ public class AdminMatchService {
 
     @Transactional
     public AdminMatchParticipantListResponse getParticipants(Long voteId) {
-        clubMemberSyncService.reconcileFinalPassMembersSafely();
         Vote requestedVote = getVote(voteId);
         Vote baseVote = resolveBaseVote(requestedVote);
         List<Vote> relatedVotes = getRelatedVotes(baseVote);
@@ -167,7 +162,6 @@ public class AdminMatchService {
             throw new YbcException(ExceptionCode.INVALID_MATCH_REQUEST);
         }
 
-        clubMemberSyncService.reconcileFinalPassMembersSafely();
         Vote requestedVote = getVote(voteId);
         Vote baseVote = resolveBaseVote(requestedVote);
         List<Vote> relatedVotes = getRelatedVotes(baseVote);
@@ -189,7 +183,6 @@ public class AdminMatchService {
             throw new YbcException(ExceptionCode.INVALID_MATCH_REQUEST);
         }
 
-        clubMemberSyncService.reconcileFinalPassMembersSafely();
         Vote requestedVote = getVote(voteId);
         Vote baseVote = resolveBaseVote(requestedVote);
         List<Vote> relatedVotes = getRelatedVotes(baseVote);

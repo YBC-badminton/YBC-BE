@@ -38,11 +38,9 @@ public class ClubMemberService {
     );
 
     private final ClubMemberRepository clubMemberRepository;
-    private final ClubMemberSyncService clubMemberSyncService;
     private final MemberRepository memberRepository;
 
     public ClubMemberListResponse getMembers() {
-        clubMemberSyncService.reconcileFinalPassMembersSafely();
         List<ClubMember> members = clubMemberRepository.findAll(MEMBER_LIST_SORT);
         MemberLookup memberLookup = createMemberLookup(members);
         return new ClubMemberListResponse(

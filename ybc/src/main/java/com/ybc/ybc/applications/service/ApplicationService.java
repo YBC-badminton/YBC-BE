@@ -10,7 +10,7 @@ import com.ybc.ybc.applications.dto.response.ApplicantSummaryResponse;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
 import com.ybc.ybc.global.exception.ExceptionCode;
 import com.ybc.ybc.global.exception.YbcException;
-import com.ybc.ybc.members.service.ClubMemberSyncService;
+import com.ybc.ybc.members.service.ClubMemberRegistrationService;
 import com.ybc.ybc.recruitments.domain.Recruitment;
 import com.ybc.ybc.recruitments.repository.RecruitmentRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +36,7 @@ public class ApplicationService {
     );
 
     private final ApplicationRepository applicationRepository;
-    private final ClubMemberSyncService clubMemberSyncService;
+    private final ClubMemberRegistrationService clubMemberRegistrationService;
     private final ApplicationSubmissionMailService applicationSubmissionMailService;
     private final RecruitmentRepository recruitmentRepository;
     private final Clock clock;
@@ -86,7 +86,7 @@ public class ApplicationService {
         Status previousStatus = application.getStatusOrDefault();
         Status status = Status.from(statusValue);
         application.updateStatus(status);
-        clubMemberSyncService.syncByApplicationStatusChange(application, previousStatus, status);
+        clubMemberRegistrationService.registerOnFinalPass(application, previousStatus, status);
         return ApplicantDetailResponse.from(application, isReapplicant(application));
     }
 

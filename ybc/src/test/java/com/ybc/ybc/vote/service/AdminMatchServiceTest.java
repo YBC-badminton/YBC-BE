@@ -4,7 +4,6 @@ import com.ybc.ybc.applications.domain.Gender;
 import com.ybc.ybc.auth.domain.Member;
 import com.ybc.ybc.auth.domain.SocialProvider;
 import com.ybc.ybc.members.service.ClubMemberLookupService;
-import com.ybc.ybc.members.service.ClubMemberSyncService;
 import com.ybc.ybc.vote.domain.ActivityType;
 import com.ybc.ybc.vote.domain.Guest;
 import com.ybc.ybc.vote.domain.Vote;
@@ -53,9 +52,6 @@ class AdminMatchServiceTest {
     private ClubMemberLookupService clubMemberLookupService;
 
     @Mock
-    private ClubMemberSyncService clubMemberSyncService;
-
-    @Mock
     private VoteMatchRepository voteMatchRepository;
 
     @Mock
@@ -70,7 +66,6 @@ class AdminMatchServiceTest {
                 voteAttendanceRepository,
                 guestRepository,
                 clubMemberLookupService,
-                clubMemberSyncService,
                 voteMatchRepository,
                 voteMatchGroupRepository
         );
@@ -121,7 +116,6 @@ class AdminMatchServiceTest {
 
         AdminMatchParticipantListResponse response = adminMatchService.getParticipants(1L);
 
-        verify(clubMemberSyncService).reconcileFinalPassMembersSafely();
         assertThat(response.voteId()).isEqualTo(1L);
         assertThat(response.totalCount()).isEqualTo(1);
         assertThat(response.participants()).hasSize(1);
@@ -257,7 +251,6 @@ class AdminMatchServiceTest {
 
         AdminMatchRegistrationResponse response = adminMatchService.getMatchByVoteId(2L);
 
-        verify(clubMemberSyncService).reconcileFinalPassMembersSafely();
         assertThat(response.voteId()).isEqualTo(1L);
         assertThat(response.matchId()).isEqualTo(100L);
         assertThat(response.courtCount()).isZero();

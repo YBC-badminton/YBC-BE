@@ -16,7 +16,7 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long> {
 
     Optional<ClubMember> findByMemberId(Long memberId);
 
-    List<ClubMember> findAllByApplicationIdIsNotNull();
+    boolean existsByApplicationId(Long applicationId);
 
     List<ClubMember> findAllByMemberIdInOrderByIdAsc(Collection<Long> memberIds);
 

@@ -36,7 +36,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
@@ -422,11 +421,10 @@ class AdminVoteControllerIntegrationTest {
     }
 
     @Test
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @DisplayName("기존 자동 생성 부원에 이메일과 성별이 비어 있어도 참석 인원 조회 시 보정한다")
-    void getMatchParticipantsReconcilesFinalPassMemberProfile() throws Exception {
+    @DisplayName("대진 조회는 지원서에서 부원을 생성하거나 수정하지 않는다")
+    void getMatchParticipantsPreservesClubMembersWithoutReconciliation() throws Exception {
         Vote vote = voteRepository.save(vote(
-                "참석 인원 동기화용 정기 운동",
+                "참석 인원 조회용 정기 운동",
                 LocalDate.now().minusDays(1),
                 ActivityType.REGULAR,
                 LocalDateTime.now().minusDays(2),
@@ -434,24 +432,35 @@ class AdminVoteControllerIntegrationTest {
                 20
         ));
         Application application = saveApplication("김철수", "sync-1001@example.com", Gender.MALE);
-        clubMemberRepository.saveAndFlush(
-                ClubMember.createFromApplication(
-                        application.getId(),
-                        "김철수",
-                        "한국대학교",
-                        "010-1234-5678",
-                        "03"
-                )
-        );
+        Application missingMemberApplication = saveApplication("이영희", "missing@example.com", Gender.FEMALE);
+        clubMemberRepository.saveAndFlush(ClubMember.createFromApplication(
+                application.getId(),
+                "수정이름",
+                "수정학교",
+                "010-9999-8888",
+                "99",
+                false,
+                "sync-1001@example.com",
+                Gender.FEMALE,
+                ClubMemberCourt.A
+        ));
         VoteAttendance attendance = addAttendance(vote, true, "sync-1001", "카카오닉네임");
 
         mockMvc.perform(get(ADMIN_VOTES_API + "/{voteId}/matches", vote.getId())
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.participants[0].participantId").value(attendance.getId()))
-                .andExpect(jsonPath("$.participants[0].name").value("김철수"))
-                .andExpect(jsonPath("$.participants[0].gender").value("MALE"))
-                .andExpect(jsonPath("$.participants[0].level").value(nullValue()));
+                .andExpect(jsonPath("$.participants[0].name").value("수정이름"))
+                .andExpect(jsonPath("$.participants[0].gender").value("FEMALE"))
+                .andExpect(jsonPath("$.participants[0].level").value("A"));
+
+        ClubMember member = clubMemberRepository.findByApplicationId(application.getId()).orElseThrow();
+        assertThat(member.getName()).isEqualTo("수정이름");
+        assertThat(member.getUniversity()).isEqualTo("수정학교");
+        assertThat(member.getPhone()).isEqualTo("010-9999-8888");
+        assertThat(member.getAge()).isEqualTo("99");
+        assertThat(member.getGender()).isEqualTo(Gender.FEMALE);
+        assertThat(clubMemberRepository.findByApplicationId(missingMemberApplication.getId())).isEmpty();
     }
 
     @Test
