@@ -7,7 +7,7 @@ import com.ybc.ybc.applications.dto.response.ApplicantDetailResponse;
 import com.ybc.ybc.applications.dto.response.ApplicantListResponse;
 import com.ybc.ybc.applications.repository.ApplicationRepository;
 import com.ybc.ybc.global.exception.YbcException;
-import com.ybc.ybc.members.service.ClubMemberSyncService;
+import com.ybc.ybc.members.service.ClubMemberRegistrationService;
 import com.ybc.ybc.recruitments.domain.Recruitment;
 import com.ybc.ybc.recruitments.repository.RecruitmentRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -54,7 +54,7 @@ class ApplicationServiceTest {
     private RecruitmentRepository recruitmentRepository;
 
     @Mock
-    private ClubMemberSyncService clubMemberSyncService;
+    private ClubMemberRegistrationService clubMemberRegistrationService;
 
     @Mock
     private ApplicationSubmissionMailService applicationSubmissionMailService;
@@ -248,7 +248,7 @@ class ApplicationServiceTest {
 
         assertThat(application.getStatus()).isEqualTo(FIRST_PASS);
         assertThat(response.status()).isEqualTo("FIRST_PASS");
-        verify(clubMemberSyncService).syncByApplicationStatusChange(application, NONE, FIRST_PASS);
+        verify(clubMemberRegistrationService).registerOnFinalPass(application, NONE, FIRST_PASS);
     }
 
     @Test

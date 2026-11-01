@@ -25,7 +25,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
@@ -100,41 +99,92 @@ class AdminMemberControllerIntegrationTest {
     }
 
     @Test
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @DisplayName("최종 합격 지원자가 누락되어 있어도 부원 명단 조회 시 자동 보정된다")
-    void getMembersReconcilesMissingFinalPassMember() throws Exception {
+    @DisplayName("최종 합격 지원자가 있어도 부원 명단 조회는 부원을 생성하지 않는다")
+    void getMembersDoesNotCreateMissingFinalPassMember() throws Exception {
         Application application = saveApplication("김철수", Status.FINAL_PASS, 24);
 
         mockMvc.perform(get(ADMIN_MEMBERS_API)
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary.totalMembers").value(1))
-                .andExpect(jsonPath("$.summary.mapoResidentCount").value(0))
-                .andExpect(jsonPath("$.members[0].name").value("김철수"))
-                .andExpect(jsonPath("$.members[0].age").value(expectedBirthYear(24)))
-                .andExpect(jsonPath("$.members[0].term").value("미정"))
-                .andExpect(jsonPath("$.members[0].isMapoResident").value(false))
-                .andExpect(jsonPath("$.members[0].isAdmin").value(false));
+                .andExpect(jsonPath("$.summary.totalMembers").value(0))
+                .andExpect(jsonPath("$.members").isEmpty());
 
-        assertThat(clubMemberRepository.findByApplicationId(application.getId())).isPresent();
+        assertThat(clubMemberRepository.findByApplicationId(application.getId())).isEmpty();
     }
 
     @Test
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @DisplayName("최종 합격 지원자의 주소에 마포가 포함되면 부원 명단 자동 보정 시 마포구민으로 저장된다")
-    void getMembersSetsMapoResidentWhenFinalPassAddressContainsMapo() throws Exception {
+    @DisplayName("지원서와 다른 부원 정보는 명단 조회와 합격 취소 및 재합격 후에도 유지된다")
+    void getMembersPreservesEditedProfileAcrossStatusChanges() throws Exception {
         Application application = saveApplication("김철수", Status.FINAL_PASS, 24, "서울 마포구 연남동");
+        ClubMember member = clubMemberRepository.saveAndFlush(ClubMember.createFromApplication(
+                application.getId(), "김철수", "한국대학교", "010-1234-5678", "03"
+        ));
+
+        mockMvc.perform(patch(ADMIN_MEMBERS_API + "/{memberId}", member.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "name", "수정이름",
+                                "age", "99",
+                                "university", "수정학교",
+                                "phone", "010-9999-8888",
+                                "term", "11기",
+                                "isMapoResident", false,
+                                "email", "edited@example.com",
+                                "gender", "FEMALE",
+                                "court", "A"
+                        ))))
+                .andExpect(status().isOk());
+
+        for (String statusValue : new String[]{"HOLD", "FINAL_PASS", "FINAL_PASS"}) {
+            mockMvc.perform(patch("/admin/applications/{applicationId}", application.getId())
+                            .with(authorizedUser())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of("status", statusValue))))
+                    .andExpect(status().isOk());
+
+            mockMvc.perform(get(ADMIN_MEMBERS_API)
+                            .with(authorizedUser()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.summary.totalMembers").value(1))
+                    .andExpect(jsonPath("$.members[0].memberId").value(member.getId()))
+                    .andExpect(jsonPath("$.members[0].name").value("수정이름"))
+                    .andExpect(jsonPath("$.members[0].age").value("99"))
+                    .andExpect(jsonPath("$.members[0].university").value("수정학교"))
+                    .andExpect(jsonPath("$.members[0].phone").value("010-9999-8888"))
+                    .andExpect(jsonPath("$.members[0].term").value("11기"))
+                    .andExpect(jsonPath("$.members[0].isMapoResident").value(false))
+                    .andExpect(jsonPath("$.members[0].email").value("edited@example.com"))
+                    .andExpect(jsonPath("$.members[0].gender").value("FEMALE"))
+                    .andExpect(jsonPath("$.members[0].court").value("A"));
+        }
+    }
+
+    @Test
+    @DisplayName("합격자의 부원을 삭제한 뒤 명단 조회와 동일 합격 상태 저장을 해도 재생성하지 않는다")
+    void deletedMemberIsNotRecreatedByReadOrUnchangedStatus() throws Exception {
+        Application application = saveApplication("김철수", Status.FINAL_PASS, 24);
+        ClubMember member = clubMemberRepository.saveAndFlush(ClubMember.createFromApplication(
+                application.getId(), "김철수", "한국대학교", "010-1234-5678", "03"
+        ));
+
+        mockMvc.perform(delete(ADMIN_MEMBERS_API + "/{memberId}", member.getId())
+                        .with(authorizedUser()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/admin/applications/{applicationId}", application.getId())
+                        .with(authorizedUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("status", "FINAL_PASS"))))
+                .andExpect(status().isOk());
 
         mockMvc.perform(get(ADMIN_MEMBERS_API)
                         .with(authorizedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary.mapoResidentCount").value(1))
-                .andExpect(jsonPath("$.members[0].name").value("김철수"))
-                .andExpect(jsonPath("$.members[0].isMapoResident").value(true))
-                .andExpect(jsonPath("$.members[0].isAdmin").value(false));
+                .andExpect(jsonPath("$.summary.totalMembers").value(0))
+                .andExpect(jsonPath("$.members").isEmpty());
 
-        ClubMember clubMember = clubMemberRepository.findByApplicationId(application.getId()).orElseThrow();
-        assertThat(clubMember.isMapoResident()).isTrue();
+        assertThat(clubMemberRepository.findByApplicationId(application.getId())).isEmpty();
     }
 
     @Test
@@ -400,11 +450,6 @@ class AdminMemberControllerIntegrationTest {
         application.addInterviewTime(InterviewTime.FIRST_SESSION);
         Application savedApplication = applicationRepository.saveAndFlush(application);
         return applicationRepository.findById(savedApplication.getId()).orElseThrow();
-    }
-
-    private String expectedBirthYear(int age) {
-        int birthYear = java.time.Year.now().getValue() - age + 1;
-        return String.format("%02d", Math.floorMod(birthYear, 100));
     }
 
     private JwtRequestPostProcessor authorizedUser() {

@@ -186,8 +186,8 @@ class AdminApplicationControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("지원자 상태가 최종 합격에서 변경되면 부원 명단에서 자동 삭제된다")
-    void updateApplicantStatusDeletesClubMemberWhenStatusLeavesFinalPass() throws Exception {
+    @DisplayName("지원자 상태가 최종 합격에서 변경되어도 등록된 부원을 유지한다")
+    void updateApplicantStatusKeepsClubMemberWhenStatusLeavesFinalPass() throws Exception {
         Application application = saveApplication("김철수", "10기", "010-1234-5678", Status.FIRST_PASS, Gender.MALE, DiscoverySource.INSTAGRAM);
 
         mockMvc.perform(patch(ADMIN_APPLICATIONS_API + "/{applicationId}", application.getId())
@@ -205,7 +205,7 @@ class AdminApplicationControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("HOLD"));
 
-        assertThat(clubMemberRepository.findByApplicationId(application.getId())).isEmpty();
+        assertThat(clubMemberRepository.findByApplicationId(application.getId())).isPresent();
     }
 
     @Test

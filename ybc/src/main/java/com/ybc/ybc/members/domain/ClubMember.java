@@ -258,43 +258,6 @@ public class ClubMember {
         }
     }
 
-    public void syncFromApplication(String name,
-                                    String university,
-                                    String phone,
-                                    String age) {
-        syncFromApplication(name, university, phone, age, null, null, null);
-    }
-
-    public void syncFromApplication(String name,
-                                    String university,
-                                    String phone,
-                                    String age,
-                                    String email,
-                                    Gender gender) {
-        syncFromApplication(name, university, phone, age, null, email, gender);
-    }
-
-    public void syncFromApplication(String name,
-                                    String university,
-                                    String phone,
-                                    String age,
-                                    Boolean mapoResident,
-                                    String email,
-                                    Gender gender) {
-        this.name = name;
-        this.university = university;
-        this.phone = phone;
-        this.age = age;
-        this.email = normalizeEmail(email);
-        this.gender = gender;
-        if (this.mapoResident == null && mapoResident != null) {
-            this.mapoResident = mapoResident;
-        }
-        if (this.term == null || this.term.isBlank()) {
-            this.term = DEFAULT_TERM;
-        }
-    }
-
     public void linkMember(Long memberId) {
         if (memberId == null || this.memberId != null) {
             return;

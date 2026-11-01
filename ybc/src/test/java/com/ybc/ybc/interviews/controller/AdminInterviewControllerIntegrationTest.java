@@ -195,8 +195,8 @@ class AdminInterviewControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("면접 관리에서 최종 합격이 해제되면 부원 명단에서 자동 삭제된다")
-    void updateInterviewDeletesClubMemberWhenStatusLeavesFinalPass() throws Exception {
+    @DisplayName("면접 관리에서 최종 합격이 해제되어도 등록된 부원을 유지한다")
+    void updateInterviewKeepsClubMemberWhenStatusLeavesFinalPass() throws Exception {
         saveCurrentRecruitment("10기");
         Application application = saveApplication("김철수", "10기", Status.FIRST_PASS, List.of(InterviewTime.FIRST_SESSION));
 
@@ -223,7 +223,7 @@ class AdminInterviewControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.interviewList[0].status").value("HOLD"));
 
-        assertThat(clubMemberRepository.findByApplicationId(application.getId())).isEmpty();
+        assertThat(clubMemberRepository.findByApplicationId(application.getId())).isPresent();
     }
 
     @Test

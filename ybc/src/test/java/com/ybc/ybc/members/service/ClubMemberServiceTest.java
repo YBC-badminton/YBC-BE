@@ -38,9 +38,6 @@ class ClubMemberServiceTest {
     private ClubMemberRepository clubMemberRepository;
 
     @Mock
-    private ClubMemberSyncService clubMemberSyncService;
-
-    @Mock
     private MemberRepository memberRepository;
 
     @InjectMocks
@@ -58,7 +55,6 @@ class ClubMemberServiceTest {
         ClubMemberListResponse response = clubMemberService.getMembers();
 
         ArgumentCaptor<Sort> sortCaptor = ArgumentCaptor.forClass(Sort.class);
-        verify(clubMemberSyncService).reconcileFinalPassMembersSafely();
         verify(clubMemberRepository).findAll(sortCaptor.capture());
         assertThat(response.summary().totalMembers()).isEqualTo(3);
         assertThat(response.summary().mapoResidentCount()).isEqualTo(1);
