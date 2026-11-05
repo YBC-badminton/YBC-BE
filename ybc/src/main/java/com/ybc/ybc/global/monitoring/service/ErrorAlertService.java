@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.ybc.ybc.global.monitoring.discord.DiscordWebhookClient;
 import com.ybc.ybc.global.monitoring.incident.IncidentAlertTrigger;
 import com.ybc.ybc.global.monitoring.incident.IncidentReport;
+import com.ybc.ybc.global.monitoring.incident.IncidentHttp;
 import com.ybc.ybc.global.monitoring.dto.response.MonitoringIncidentTestResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -218,6 +219,25 @@ public class ErrorAlertService {
 
     public String sendIncidentDiagnosisAlert(JsonNode report, URI webhook) throws Exception {
         return discordWebhookClient.sendIncidentPayload(IncidentReport.discordPayload(report), webhook);
+    }
+
+    public void sendIncidentQuotaAlert(IncidentHttp.QuotaFailure reason) {
+        String summary = switch (reason) {
+            case CREDIT_BALANCE_EXHAUSTED -> "OpenAI API 크레딧이 소진되어 GPT 장애 분석을 전송하지 못했습니다.";
+            case INSUFFICIENT_QUOTA -> "OpenAI API 크레딧 또는 사용 한도 부족으로 GPT 장애 분석을 전송하지 못했습니다.";
+        };
+        // Send directly: this notification must never trigger GPT analysis of its own failure.
+        discordWebhookClient.send("""
+                [YBC GPT Analysis Unavailable]
+                Time: %s
+                Profiles: %s
+                Reason: %s
+                %s
+                조치: 운영 API 키가 속한 조직의 크레딧 잔액과 사용 한도를 확인해 주세요.
+                확인 위치: OpenAI Platform → Settings → Organization → Billing
+                원본 오류·경고 알림은 별도로 유지됩니다. 실패한 분석은 자동 재시도하지 않습니다.
+                이 안내는 서버 인스턴스별 최대 30분에 한 번 전송을 시도합니다.
+                """.formatted(ZonedDateTime.now(), activeProfiles(), reason.name(), summary));
     }
 
     public MonitoringIncidentTestResponse sendManualIncidentTestAlert() {

@@ -2,6 +2,9 @@ package com.ybc.ybc.global.monitoring.incident;
 
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -14,6 +17,55 @@ import static com.ybc.ybc.global.monitoring.incident.IncidentJson.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class IncidentHttpTest {
+    @ParameterizedTest
+    @CsvSource({
+            "credit_balance_exhausted,insufficient_quota,CREDIT_BALANCE_EXHAUSTED",
+            "insufficient_quota,insufficient_quota,INSUFFICIENT_QUOTA",
+            "project_spend_limit_exceeded,insufficient_quota,INSUFFICIENT_QUOTA",
+            ",insufficient_quota,INSUFFICIENT_QUOTA",
+            "rate_limit_exceeded,rate_limit_error,",
+            "unknown,unknown,"
+    })
+    void transportClassifiesQuotaWithoutRetainingProviderMessage(String code, String type, IncidentHttp.QuotaFailure expected) throws Exception {
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var calls = new AtomicInteger();
+        server.createContext("/", exchange -> {
+            calls.incrementAndGet();
+            byte[] body = object().set("error", object().put("code", code).put("type", type)
+                    .put("message", "credit_balance_exhausted sk-test-secret sensitive-provider-body"))
+                    .toString().getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(429, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.start();
+        try {
+            var failure = assertThrows(IncidentHttp.Failure.class, () -> IncidentHttp.create().post(
+                    URI.create("http://127.0.0.1:" + server.getAddress().getPort()), Map.of(), object()));
+            assertEquals(429, failure.statusCode());
+            assertEquals(expected, failure.quotaFailure());
+            assertFalse(failure.toString().contains("sk-test-secret"));
+            assertFalse(failure.toString().contains("sensitive-provider-body"));
+            assertNull(failure.getCause());
+            assertEquals(1, calls.get());
+        } finally { server.stop(0); }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "not-json sk-test-secret", "null", "[]", "{\"error\":{\"code\":\"sk-test-secret\"}}"})
+    void malformedAndUnknownRateLimitResponsesAreNotReportedAsCreditExhaustion(String body) {
+        var failure = IncidentHttp.Failure.fromResponse(429, body.getBytes(StandardCharsets.UTF_8));
+        assertEquals(429, failure.statusCode());
+        assertNull(failure.quotaFailure());
+        assertFalse(failure.toString().contains("sk-test-secret"));
+    }
+
+    @Test
+    void quotaLookingBodyOnAnotherStatusIsNotClassifiedAsQuota() {
+        byte[] body = "{\"error\":{\"code\":\"credit_balance_exhausted\"}}".getBytes(StandardCharsets.UTF_8);
+        assertNull(IncidentHttp.Failure.fromResponse(500, body).quotaFailure());
+    }
+
     @Test
     void transportBoundsResponseBytesDuringReception() throws Exception {
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
