@@ -6,8 +6,10 @@ import com.ybc.ybc.global.monitoring.discord.DiscordWebhookClient;
 import com.ybc.ybc.global.monitoring.service.ErrorAlertService;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -31,6 +33,123 @@ class IncidentAlertTriggerTest {
             .withProperty("app.monitoring.incident.enabled", "true")
             .withProperty("app.monitoring.incident.discord-webhook-url", "https://discord.com/api/webhooks/1/test");
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-14T00:00:00Z"), ZoneOffset.UTC);
+
+    @Test void productionWiringSendsQuotaNotificationWithoutAnotherAnalysis() throws Exception {
+        var alerts = mock(ErrorAlertService.class);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<ErrorAlertService> provider = mock(ObjectProvider.class);
+        when(provider.getObject()).thenReturn(alerts);
+        var calls = new AtomicInteger();
+        try (var transport = mockStatic(IncidentHttp.class)) {
+            transport.when(IncidentHttp::create).thenReturn((IncidentHttp) (uri, headers, body) -> {
+                calls.incrementAndGet();
+                throw quotaFailure("credit_balance_exhausted");
+            });
+            var trigger = new IncidentAlertTrigger(environment.withProperty("app.monitoring.incident.api-key", "key"), provider);
+            try (var scope = IncidentAlertTrigger.openRequest()) {
+                trigger.submit("ASYNC_ERROR", "mail failure");
+            }
+        }
+        assertEquals(1, calls.get());
+        verify(alerts).sendIncidentQuotaAlert(IncidentHttp.QuotaFailure.CREDIT_BALANCE_EXHAUSTED);
+        verifyNoMoreInteractions(alerts);
+    }
+
+    @Test void quotaNotificationsShareThirtyMinuteCooldownAcrossAlertNamesAndFailureTypes() throws Exception {
+        var current = new AtomicReference<>(clock.instant());
+        Clock advancing = new Clock() {
+            public java.time.ZoneId getZone() { return ZoneOffset.UTC; }
+            public Clock withZone(java.time.ZoneId zone) { return this; }
+            public Instant instant() { return current.get(); }
+        };
+        var calls = new AtomicInteger();
+        var notices = new ArrayList<IncidentHttp.QuotaFailure>();
+        var nativeClient = mock(DiscordWebhookClient.class);
+        var analyzer = new IncidentAnalyzer((uri, headers, body) -> {
+            throw quotaFailure(calls.getAndIncrement() == 0 ? "credit_balance_exhausted" : "insufficient_quota");
+        }, "key", "gpt-4.1-mini");
+        var trigger = new IncidentAlertTrigger(environment, analyzer, (report, uri) -> fail("no diagnosis"), advancing, notices::add);
+        var alerts = new ErrorAlertService(nativeClient, environment, trigger);
+        for (int seconds : new int[]{0, 1, 1799, 1800}) {
+            current.set(clock.instant().plusSeconds(seconds));
+            try (var scope = IncidentAlertTrigger.openRequest()) {
+                alerts.sendOperationalWarning("ERROR_" + seconds, "original warning", "evidence");
+            }
+        }
+        assertEquals(4, calls.get());
+        verify(nativeClient, times(4)).send(anyString());
+        assertEquals(java.util.List.of(IncidentHttp.QuotaFailure.CREDIT_BALANCE_EXHAUSTED,
+                IncidentHttp.QuotaFailure.INSUFFICIENT_QUOTA), notices);
+    }
+
+    @Test void rateLimitsUnknownErrorsAndDiscordFailuresDoNotClaimCreditExhaustion() throws Exception {
+        for (String scenario : new String[]{"rate_limit_exceeded", "unknown", "discord"}) {
+            var notices = new ArrayList<IncidentHttp.QuotaFailure>();
+            var analyzer = new IncidentAnalyzer((uri, headers, body) -> {
+                if (!scenario.equals("discord")) throw quotaFailure(scenario);
+                return IncidentFixtures.response(diagnosis(parse(body.path("input").asText())));
+            }, "key", "gpt-4.1-mini");
+            var trigger = new IncidentAlertTrigger(environment, analyzer, (report, uri) -> {
+                // A Discord error must never be classified as an OpenAI billing error.
+                throw quotaFailure("credit_balance_exhausted");
+            }, clock, notices::add);
+            try (var scope = IncidentAlertTrigger.openRequest()) { trigger.submit("ERROR", "evidence"); }
+            assertTrue(notices.isEmpty());
+        }
+    }
+
+    @Test void quotaNotificationCooldownDoesNotPreventSuccessfulAnalysisAfterCreditsAreRestored() throws Exception {
+        var calls = new AtomicInteger(); var delivered = new AtomicInteger(); var notices = new AtomicInteger();
+        var analyzer = new IncidentAnalyzer((uri, headers, body) -> {
+            if (calls.getAndIncrement() == 0) throw quotaFailure("credit_balance_exhausted");
+            return IncidentFixtures.response(diagnosis(parse(body.path("input").asText())));
+        }, "key", "gpt-4.1-mini");
+        var trigger = new IncidentAlertTrigger(environment, analyzer, (report, uri) -> delivered.incrementAndGet(), clock,
+                reason -> notices.incrementAndGet());
+        try (var scope = IncidentAlertTrigger.openRequest()) { trigger.submit("FIRST", "before credits restored"); }
+        try (var scope = IncidentAlertTrigger.openRequest()) { trigger.submit("SECOND", "after credits restored"); }
+        assertEquals(2, calls.get());
+        assertEquals(1, notices.get());
+        assertEquals(1, delivered.get());
+    }
+
+    @Test void failedQuotaNotificationKeepsCooldownAndReleasesAnalysisSlot() throws Exception {
+        var calls = new AtomicInteger(); var notices = new AtomicInteger();
+        var analyzer = new IncidentAnalyzer((uri, headers, body) -> {
+            calls.incrementAndGet();
+            throw quotaFailure("credit_balance_exhausted");
+        }, "key", "gpt-4.1-mini");
+        var trigger = new IncidentAlertTrigger(environment, analyzer, (report, uri) -> fail("no diagnosis"), clock, reason -> {
+            notices.incrementAndGet();
+            throw new IllegalStateException("sk-test-secret sensitive-provider-body");
+        });
+        for (String name : new String[]{"FIRST", "SECOND"}) {
+            try (var scope = IncidentAlertTrigger.openRequest()) {
+                assertDoesNotThrow(() -> trigger.submit(name, "evidence"));
+            }
+        }
+        assertEquals(2, calls.get());
+        assertEquals(1, notices.get());
+        assertFalse(IncidentAlertTrigger.isRequestActive());
+    }
+
+    @Test void manualProbeStillReportsFailureWhenQuotaNoticeWasSent() throws Exception {
+        var notices = new ArrayList<IncidentHttp.QuotaFailure>();
+        var analyzer = new IncidentAnalyzer((uri, headers, body) -> { throw quotaFailure("credit_balance_exhausted"); }, "key", "gpt-4.1-mini");
+        var trigger = new IncidentAlertTrigger(environment, analyzer, (report, uri) -> fail("no diagnosis"), clock, notices::add);
+        try (var scope = IncidentAlertTrigger.openRequest()) {
+            var result = trigger.testAdminAccessDenied("test-id", "synthetic evidence");
+            assertEquals(IncidentTestResult.Status.FAILED, result.status());
+            assertEquals("OPENAI_ANALYSIS", result.stage());
+            assertEquals("HTTP_STATUS_429_CREDIT_BALANCE_EXHAUSTED", result.reason());
+        }
+        assertEquals(java.util.List.of(IncidentHttp.QuotaFailure.CREDIT_BALANCE_EXHAUSTED), notices);
+    }
+
+    private static IncidentHttp.Failure quotaFailure(String code) {
+        return IncidentHttp.Failure.fromResponse(429, object().set("error", object().put("code", code)
+                .put("message", "sk-test-secret sensitive-provider-body")).toString().getBytes(StandardCharsets.UTF_8));
+    }
 
     @Test void manualProbeUsesValidatedProductionAnalysisAndIsolatesSimulationFromLiveEvidence() throws Exception {
         var inputs = new ArrayList<JsonNode>();

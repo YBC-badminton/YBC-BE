@@ -22,6 +22,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.ybc.ybc.global.monitoring.incident.IncidentJson.*;
 import static com.ybc.ybc.global.monitoring.incident.IncidentTestResult.Status.*;
@@ -37,24 +38,33 @@ public class IncidentAlertTrigger {
     private final String service, revision, webhook;
     private final IncidentAnalyzer analyzer;
     private final Delivery delivery;
+    private final Consumer<IncidentHttp.QuotaFailure> quotaNotification;
     private final Clock clock;
     private final Semaphore analysisSlot = new Semaphore(1);
     private final ArrayDeque<Alert> recent = new ArrayDeque<>();
     private final LinkedHashMap<String, Alert> pending = new LinkedHashMap<>();
     private final LinkedHashMap<String, Instant> attempted = new LinkedHashMap<>();
+    private Instant lastQuotaNotification;
 
     @Autowired
     public IncidentAlertTrigger(Environment environment, ObjectProvider<ErrorAlertService> alerts) throws IOException {
-        this(environment, analyzer(environment), (report, target) -> alerts.getObject().sendIncidentDiagnosisAlert(report, target), Clock.systemUTC());
+        this(environment, analyzer(environment), (report, target) -> alerts.getObject().sendIncidentDiagnosisAlert(report, target),
+                Clock.systemUTC(), reason -> alerts.getObject().sendIncidentQuotaAlert(reason));
     }
 
     IncidentAlertTrigger(Environment environment, IncidentAnalyzer analyzer, Delivery delivery, Clock clock) {
+        this(environment, analyzer, delivery, clock, reason -> {});
+    }
+
+    IncidentAlertTrigger(Environment environment, IncidentAnalyzer analyzer, Delivery delivery, Clock clock,
+                         Consumer<IncidentHttp.QuotaFailure> quotaNotification) {
         enabled = environment.getProperty("app.monitoring.incident.enabled", Boolean.class, false);
         service = environment.getProperty("spring.application.name", "ybc");
         revision = environment.getProperty("K_REVISION", "UNKNOWN");
         webhook = environment.getProperty("app.monitoring.incident.discord-webhook-url",
                 environment.getProperty("app.monitoring.discord.webhook-url", ""));
         this.analyzer = analyzer; this.delivery = delivery; this.clock = clock;
+        this.quotaNotification = quotaNotification;
         log.info("Incident analysis configuration: enabled={}, apiKeyConfigured={}, webhookConfigured={}, mode=REQUEST_BOUND",
                 enabled, analyzer != null && analyzer.isConfigured(), webhook != null && !webhook.isBlank());
     }
@@ -166,13 +176,30 @@ public class IncidentAlertTrigger {
             if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
             log.warn("Diagnosis unavailable: stage={}, reason={}, exceptionType={}; original monitoring alert remains. No automatic retry.",
                     stage, safeReason(failure), failure.getClass().getSimpleName());
+            if (stage.equals("OPENAI_ANALYSIS") && failure instanceof IncidentHttp.Failure http && http.quotaFailure() != null) {
+                notifyQuotaFailure(http.quotaFailure());
+            }
             return new IncidentTestResult(FAILED, stage, safeReason(failure), 0);
         } finally { analysisSlot.release(); }
     }
 
+    private void notifyQuotaFailure(IncidentHttp.QuotaFailure reason) {
+        Instant now = clock.instant();
+        // processOrDefer holds analysisSlot, so notifications across all alert names share one cooldown.
+        if (lastQuotaNotification != null && now.isBefore(lastQuotaNotification.plusSeconds(1800))) return;
+        lastQuotaNotification = now;
+        try {
+            quotaNotification.accept(reason);
+        } catch (RuntimeException notificationFailure) {
+            log.warn("GPT quota notification unavailable; original monitoring alert remains. No automatic retry.");
+        }
+    }
+
     private static String safeReason(Exception failure) {
         if (failure instanceof IncidentJson.ValidationFailure) return failure.getMessage();
-        if (failure instanceof IncidentHttp.Failure http && http.statusCode() > 0) return "HTTP_STATUS_" + http.statusCode();
+        if (failure instanceof IncidentHttp.Failure http && http.statusCode() > 0) {
+            return "HTTP_STATUS_" + http.statusCode() + (http.quotaFailure() == null ? "" : "_" + http.quotaFailure().name());
+        }
         if (failure instanceof IOException) return "IO_OR_TIMEOUT";
         if (failure instanceof InterruptedException) return "INTERRUPTED";
         // Unknown exception messages may contain credentials, operational logs, URLs, or provider bodies.
